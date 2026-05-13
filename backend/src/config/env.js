@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const parsePort = (value, fallback) => {
-  const port = Number.parseInt(value, 10);
+const parsePort = (portValue, fallback) => {
+  const port = Number.parseInt(portValue, 10);
   return Number.isNaN(port) ? fallback : port;
 };
 

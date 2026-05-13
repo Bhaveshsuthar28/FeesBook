@@ -7,7 +7,12 @@ const server = app.listen(env.port, () => {
 });
 
 const shutdown = () => {
-  server.close(() => {
+  server.close((error) => {
+    if (error) {
+      console.error("Failed to close server", error);
+      process.exit(1);
+    }
+
     process.exit(0);
   });
 };
