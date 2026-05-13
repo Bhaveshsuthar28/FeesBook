@@ -13,6 +13,6 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   turso: {
     url: process.env.TURSO_DATABASE_URL ?? "file:./turso.db",
-    authToken: process.env.TURSO_AUTH_TOKEN ?? ""
+    authToken: process.env.TURSO_AUTH_TOKEN || undefined
   }
 };

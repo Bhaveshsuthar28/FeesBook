@@ -1,6 +1,6 @@
 import app from "./app.js";
 import { env } from "./config/env.js";
-import "./db/index.js";
+import { closeDb } from "./db/index.js";
 
 const server = app.listen(env.port, () => {
   console.log(`Backend listening on port ${env.port}`);
@@ -12,8 +12,14 @@ const shutdown = () => {
       console.error("Failed to close server", error);
       process.exit(1);
     }
-
-    process.exit(0);
+    Promise.resolve(closeDb())
+      .catch((closeError) => {
+        console.error("Failed to close database", closeError);
+        process.exit(1);
+      })
+      .finally(() => {
+        process.exit(0);
+      });
   });
 };
 

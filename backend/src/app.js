@@ -37,7 +37,11 @@ app.use((request, response) => {
 });
 
 app.use((error, _request, response, _next) => {
-  console.error(error);
+  if (env.nodeEnv !== "production") {
+    console.error(error);
+  } else {
+    console.error(error?.message ?? "Unknown error");
+  }
   response.status(500).json({
     error: "Internal Server Error"
   });
