@@ -1,15 +1,20 @@
-// src/pages/classes/classes.page.jsx
-
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
 
 import {
-  Plus
+  Plus,
 } from "lucide-react";
 
 import {
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  getClassCatalog,
+  getClassesByStatus,
   getClassesDashboard,
 } from "../lib/api/classapi.js";
 
@@ -25,72 +30,112 @@ import ClassCard
 import AddClassModal
   from "../components/class/addClassModel.jsx";
 
+import {
+  PageLoadingSkeleton,
+} from "../components/skeleton/PageSkeletons.jsx";
+
+const tabs = [
+  {
+    id: "active",
+    label: "Active",
+  },
+  {
+    id: "archived",
+    label: "Archived",
+  },
+];
+
 export default function ClassesPage() {
+  const navigate =
+    useNavigate();
 
   const [
     dashboardData,
-
     setDashboardData,
   ] = useState(null);
 
   const [
-    loading,
+    classCatalog,
+    setClassCatalog,
+  ] = useState([]);
 
+  const [
+    archivedClasses,
+    setArchivedClasses,
+  ] = useState([]);
+
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState("active");
+
+  const [
+    loading,
     setLoading,
   ] = useState(true);
 
   const [
     showAddModal,
-
     setShowAddModal,
   ] = useState(false);
 
-  useEffect(() => {
+  const refreshClasses =
+    useCallback(async () => {
+      const [
+        dashboard,
+        catalog,
+        archived,
+      ] =
+        await Promise.all([
+          getClassesDashboard(),
+          getClassCatalog(),
+          getClassesByStatus(
+            "archived"
+          ),
+        ]);
 
+      setDashboardData(
+        dashboard
+      );
+
+      setClassCatalog(
+        catalog
+      );
+
+      setArchivedClasses(
+        archived
+      );
+
+    }, []);
+
+  useEffect(() => {
     const fetchData =
       async () => {
-
         try {
-
-          const data =
-            await getClassesDashboard();
-
-          setDashboardData(
-            data
-          );
-
+          await refreshClasses();
         } catch (error) {
-
           console.log(error);
-
         } finally {
-
           setLoading(false);
         }
       };
 
     fetchData();
-
-  }, []);
+  }, [refreshClasses]);
 
   if (
-      loading ||
-      !dashboardData
-    ) {
+    loading ||
+    !dashboardData
+  ) {
+    return (
+      <PageLoadingSkeleton />
+    );
+  }
 
-      return (
-        <div
-          className="
-            flex
-            min-h-screen
-            items-center
-            justify-center
-          "
-        >
-          Loading...
-        </div>
-      );
-    }
+  const shownClasses =
+    activeTab === "active"
+      ? dashboardData.classes
+      : archivedClasses;
 
   return (
     <div
@@ -98,22 +143,21 @@ export default function ClassesPage() {
         space-y-6
       "
     >
-
       <div
         className="
           flex
+          flex-col
           items-start
-          justify-between
+          gap-4
+          sm:flex-row
+          sm:justify-between
         "
       >
-
         <div>
-
           <h1
             className="
               text-2xl
               font-bold
-
               text-slate-900
             "
           >
@@ -123,71 +167,100 @@ export default function ClassesPage() {
           <p
             className="
               mt-1
-
               text-sm
               text-slate-500
             "
           >
-            Manage classes and students
+            Manage active and archived classes
           </p>
-
         </div>
 
-        <div
+        <button
+          onClick={() =>
+            setShowAddModal(
+              true
+            )
+          }
           className="
             flex
             items-center
-
-            gap-3
+            justify-center
+            gap-2
+            rounded-xl
+            bg-orange-500
+            px-4
+            py-3
+            text-sm
+            font-medium
+            text-white
+            w-full
+            sm:w-auto
           "
         >
-
-          <button
-
-            onClick={() =>
-              setShowAddModal(
-                true
-              )
-            }
-
-            className="
-              hidden
-              lg:flex
-
-              items-center
-
-              gap-2
-
-              rounded-xl
-
-              bg-orange-500
-
-              px-4
-              py-3
-
-              text-sm
-              font-medium
-              text-white
-            "
-          >
-
-            <Plus
-              size={18}
-            />
-
-            Add Class
-
-          </button>
-
-        </div>
-
+          <Plus
+            size={18}
+          />
+          Add Class
+        </button>
       </div>
 
-      <ClassStats
-        stats={
-          dashboardData.stats
+      <div
+        className="
+          flex
+          w-full
+          rounded-2xl
+          border
+          border-slate-200
+          bg-white
+          p-1
+          sm:w-fit
+        "
+      >
+        {
+          tabs.map(
+            (tab) => (
+              <button
+                key={tab.id}
+                onClick={() =>
+                  {
+                    setActiveTab(
+                      tab.id
+                    );
+
+                  }
+                }
+                className={`
+                  flex-1
+                  rounded-xl
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-semibold
+                  transition-all
+                  sm:flex-none
+                  ${
+                    activeTab === tab.id
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-500 hover:bg-slate-50"
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            )
+          )
         }
-      />
+      </div>
+
+      {
+        activeTab === "active" && (
+          <ClassStats
+            stats={
+              dashboardData.stats
+            }
+          />
+        )
+      }
 
       <div
         className="
@@ -195,105 +268,92 @@ export default function ClassesPage() {
           lg:block
         "
       >
-
         <ClassTable
-          classes={
-            dashboardData.classes
-          }
-
-          setDashboardData={
-            setDashboardData
+          classes={shownClasses}
+          mode={activeTab}
+          onRefresh={refreshClasses}
+          onViewClass={
+            (singleClass) =>
+              navigate(
+                `/classes/${singleClass.id}/sections`,
+                {
+                  state: {
+                    selectedClass:
+                      singleClass,
+                  },
+                }
+              )
           }
         />
-
       </div>
 
       <div
         className="
           space-y-3
-
           lg:hidden
         "
       >
-
         {
-          dashboardData.classes.map(
-            (
-              singleClass,
-              index
-            ) => (
-
-              <ClassCard
-                key={singleClass.id}
-
-                singleClass={singleClass}
-
-                index={index}
-
-                setDashboardData={
-                  setDashboardData
-                }
-              />
+          shownClasses.length === 0 ? (
+            <div
+              className="
+                rounded-2xl
+                border
+                border-slate-200
+                bg-white
+                p-5
+                text-sm
+                text-slate-500
+              "
+            >
+              No {activeTab} classes found.
+            </div>
+          ) : (
+            shownClasses.map(
+              (
+                singleClass,
+                index
+              ) => (
+                <ClassCard
+                  key={singleClass.id}
+                  singleClass={singleClass}
+                  index={index}
+                  mode={activeTab}
+                  onRefresh={refreshClasses}
+                  onViewClass={
+                    (singleClass) =>
+                      navigate(
+                        `/classes/${singleClass.id}/sections`,
+                        {
+                          state: {
+                            selectedClass:
+                              singleClass,
+                          },
+                        }
+                      )
+                  }
+                />
+              )
             )
           )
         }
-
       </div>
-
-      <button
-
-        onClick={() =>
-          setShowAddModal(
-            true
-          )
-        }
-
-        className="
-          fixed
-          bottom-24
-          right-5
-          z-40
-
-          flex
-          h-14
-          w-14
-
-          items-center
-          justify-center
-
-          rounded-full
-
-          bg-blue-600
-
-          text-white
-
-          shadow-xl
-
-          lg:hidden
-        "
-      >
-
-        <Plus
-          size={26}
-        />
-
-      </button>
 
       {
         showAddModal && (
-
           <AddClassModal
             setShowAddModal={
               setShowAddModal
             }
-
-            dashboardData={dashboardData}
-
-            setDashboardData={setDashboardData}
+            classCatalog={
+              classCatalog
+            }
+            onRefresh={
+              refreshClasses
+            }
           />
         )
       }
-
     </div>
   );
 }

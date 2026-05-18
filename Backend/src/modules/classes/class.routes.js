@@ -3,6 +3,8 @@ import {
   getClassesController,
   updateClassController,
   archiveClassController,
+  unarchiveClassController,
+  getClassCatalogController,
 } from "./class.cotrollers.js";
 
 import { getClassesDashboardController } from "./class.dashboard.controllers.js";
@@ -20,6 +22,21 @@ export default async function (
     getClassesController
   );
 
+  fastify.get(
+    "/catalog",
+    getClassCatalogController
+  );
+
+  fastify.get(
+    "/dashboard",
+    getClassesDashboardController
+  );
+
+  fastify.patch(
+    "/:id/unarchive",
+    unarchiveClassController
+  );
+
   fastify.patch(
     "/:id",
     updateClassController
@@ -28,10 +45,5 @@ export default async function (
   fastify.delete(
     "/:id",
     archiveClassController
-  );
-
-  fastify.get(
-    "/dashboard",
-    getClassesDashboardController
   );
 }

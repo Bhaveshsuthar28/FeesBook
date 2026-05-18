@@ -59,7 +59,7 @@ export default function MobileHeader() {
 
           px-4
 
-          lg:hidden
+          md:hidden
         "
       >
 
@@ -223,7 +223,7 @@ export default function MobileHeader() {
 
               bg-black/40
 
-              lg:hidden
+              md:hidden
             "
           >
 

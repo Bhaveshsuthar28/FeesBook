@@ -1,12 +1,8 @@
-// src/pages/classes/components/classTable.jsx
-
 import {
   Archive,
   ArchiveRestore,
   Eye,
-  GripVertical,
   LoaderCircle,
-  Pencil,
   X,
 } from "lucide-react";
 
@@ -15,11 +11,11 @@ import {
 } from "react";
 
 import {
-  archiveClass,
-  unarchiveClass,
-} from "../../lib/api/classapi.js";
+  archiveSection,
+  unarchiveSection,
+} from "../../lib/api/sectionapi.js";
 
-const classColors = [
+const sectionColors = [
   {
     bg: "bg-blue-100",
     text: "text-blue-700",
@@ -36,25 +32,13 @@ const classColors = [
     bg: "bg-purple-100",
     text: "text-purple-700",
   },
-  {
-    bg: "bg-pink-100",
-    text: "text-pink-700",
-  },
-  {
-    bg: "bg-indigo-100",
-    text: "text-indigo-700",
-  },
-  {
-    bg: "bg-orange-100",
-    text: "text-orange-700",
-  },
 ];
 
-export default function ClassTable({
-  classes,
+export default function SectionTable({
+  sections,
   mode,
   onRefresh,
-  onViewClass,
+  onViewSection,
 }) {
   const [
     archiveTarget,
@@ -80,7 +64,7 @@ export default function ClassTable({
           archiveTarget.id
         );
 
-        await archiveClass(
+        await archiveSection(
           archiveTarget.id
         );
 
@@ -97,18 +81,18 @@ export default function ClassTable({
     };
 
   const handleRestore =
-    async (singleClass) => {
+    async (section) => {
       if (actionLoading) {
         return;
       }
 
       try {
         setActionLoading(
-          singleClass.id
+          section.id
         );
 
-        await unarchiveClass(
-          singleClass.id
+        await unarchiveSection(
+          section.id
         );
 
         await onRefresh();
@@ -118,21 +102,6 @@ export default function ClassTable({
         setActionLoading("");
       }
     };
-
-  const headings =
-    mode === "archived"
-      ? [
-          "Class Name",
-          "Status",
-          "Action",
-        ]
-      : [
-          "Class Name",
-          "Sections / Students",
-          "Pending Fees",
-          "Collected",
-          "Action",
-        ];
 
   return (
     <>
@@ -162,14 +131,14 @@ export default function ClassTable({
           >
             {
               mode === "archived"
-                ? "Archived Classes"
-                : "Active Classes"
+                ? "Archived Sections"
+                : "Active Sections"
             }
           </h2>
         </div>
 
         {
-          classes.length === 0 ? (
+          sections.length === 0 ? (
             <div
               className="
                 px-5
@@ -178,7 +147,7 @@ export default function ClassTable({
                 text-slate-500
               "
             >
-              No {mode} classes found.
+              No {mode} sections found.
             </div>
           ) : (
             <table
@@ -194,14 +163,12 @@ export default function ClassTable({
                 "
               >
                 <tr>
-                  <th
-                    className="
-                      w-[45px]
-                    "
-                  />
-
                   {
-                    headings.map(
+                    [
+                      "Section",
+                      "Status",
+                      "Action",
+                    ].map(
                       (head) => (
                         <th
                           key={head}
@@ -226,24 +193,24 @@ export default function ClassTable({
 
               <tbody>
                 {
-                  classes.map(
+                  sections.map(
                     (
-                      singleClass,
+                      section,
                       index
                     ) => {
                       const color =
-                        classColors[
+                        sectionColors[
                           index %
-                            classColors.length
+                            sectionColors.length
                         ];
 
                       const isBusy =
                         actionLoading ===
-                        singleClass.id;
+                        section.id;
 
                       return (
                         <tr
-                          key={singleClass.id}
+                          key={section.id}
                           className={`
                             transition-all
                             hover:bg-slate-100
@@ -254,20 +221,6 @@ export default function ClassTable({
                             }
                           `}
                         >
-                          <td
-                            className="
-                              px-3
-                              py-4
-                            "
-                          >
-                            <GripVertical
-                              size={16}
-                              className="
-                                text-slate-400
-                              "
-                            />
-                          </td>
-
                           <td
                             className="
                               px-4
@@ -285,47 +238,100 @@ export default function ClassTable({
                                 ${color.text}
                               `}
                             >
+                              Section {section.name}
+                            </span>
+                          </td>
+
+                          <td
+                            className="
+                              px-4
+                              py-4
+                            "
+                          >
+                            <span
+                              className={`
+                                rounded-full
+                                px-3
+                                py-1
+                                text-xs
+                                font-semibold
+                                ${
+                                  mode === "archived"
+                                    ? "bg-orange-50 text-orange-700"
+                                    : "bg-green-50 text-green-700"
+                                }
+                              `}
+                            >
                               {
-                                singleClass.name
+                                mode === "archived"
+                                  ? "Archived"
+                                  : "Active"
                               }
                             </span>
                           </td>
 
-                          {
-                            mode === "archived" ? (
-                              <>
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
-                                  <span
+                          <td
+                            className="
+                              px-4
+                              py-4
+                            "
+                          >
+                            <div
+                              className="
+                                flex
+                                items-center
+                                gap-3
+                              "
+                            >
+                              <button
+                                onClick={() =>
+                                  onViewSection(
+                                    section
+                                  )
+                                }
+                                className="
+                                  text-slate-800
+                                "
+                              >
+                                <Eye
+                                  size={18}
+                                />
+                              </button>
+
+                              {
+                                mode === "active" ? (
+                                  <button
+                                    disabled={isBusy}
+                                    onClick={() =>
+                                      setArchiveTarget(
+                                        section
+                                      )
+                                    }
                                     className="
-                                      rounded-full
-                                      bg-orange-50
-                                      px-3
-                                      py-1
-                                      text-xs
-                                      font-semibold
-                                      text-orange-700
+                                      text-orange-600
                                     "
                                   >
-                                    Archived
-                                  </span>
-                                </td>
-
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
+                                    {
+                                      isBusy ? (
+                                        <LoaderCircle
+                                          size={18}
+                                          className="
+                                            animate-spin
+                                          "
+                                        />
+                                      ) : (
+                                        <Archive
+                                          size={18}
+                                        />
+                                      )
+                                    }
+                                  </button>
+                                ) : (
                                   <button
                                     disabled={isBusy}
                                     onClick={() =>
                                       handleRestore(
-                                        singleClass
+                                        section
                                       )
                                     }
                                     className="
@@ -359,158 +365,10 @@ export default function ClassTable({
                                     }
                                     Restore
                                   </button>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
-                                  <div
-                                    className="
-                                      flex
-                                      gap-2
-                                    "
-                                  >
-                                    <p
-                                      className="
-                                        text-sm
-                                        font-bold
-                                        text-slate-800
-                                      "
-                                    >
-                                      {
-                                        singleClass.sectionsCount
-                                      }
-                                    </p>
-                                    <p
-                                      className="
-                                        text-sm
-                                        text-slate-800
-                                      "
-                                    >
-                                      /
-                                    </p>
-                                    <p
-                                      className="
-                                        text-sm
-                                        font-bold
-                                        text-slate-800
-                                      "
-                                    >
-                                      {
-                                        singleClass.studentsCount
-                                      }
-                                    </p>
-                                  </div>
-                                </td>
-
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
-                                  <p
-                                    className="
-                                      text-sm
-                                      font-bold
-                                      text-orange-500
-                                    "
-                                  >
-                                    ₹{singleClass.pendingFees}
-                                  </p>
-                                </td>
-
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
-                                  <p
-                                    className="
-                                      text-sm
-                                      font-bold
-                                      text-green-600
-                                    "
-                                  >
-                                    ₹{singleClass.collectedFees}
-                                  </p>
-                                </td>
-
-                                <td
-                                  className="
-                                    px-4
-                                    py-4
-                                  "
-                                >
-                                  <div
-                                    className="
-                                      flex
-                                      items-center
-                                      gap-3
-                                    "
-                                  >
-                                    <button
-                                      onClick={() =>
-                                        onViewClass(
-                                          singleClass
-                                        )
-                                      }
-                                      className="
-                                        text-slate-800
-                                      "
-                                    >
-                                      <Eye
-                                        size={18}
-                                      />
-                                    </button>
-
-                                    <button
-                                      className="
-                                        text-blue-600
-                                      "
-                                    >
-                                      <Pencil
-                                        size={18}
-                                      />
-                                    </button>
-
-                                    <button
-                                      disabled={isBusy}
-                                      onClick={() =>
-                                        setArchiveTarget(
-                                          singleClass
-                                        )
-                                      }
-                                      className="
-                                        text-red-500
-                                      "
-                                    >
-                                      {
-                                        isBusy ? (
-                                          <LoaderCircle
-                                            size={18}
-                                            className="
-                                              animate-spin
-                                            "
-                                          />
-                                        ) : (
-                                          <Archive
-                                            size={18}
-                                          />
-                                        )
-                                      }
-                                    </button>
-                                  </div>
-                                </td>
-                              </>
-                            )
-                          }
+                                )
+                              }
+                            </div>
+                          </td>
                         </tr>
                       );
                     }
@@ -564,7 +422,7 @@ export default function ClassTable({
                       text-slate-900
                     "
                   >
-                    Archive Class
+                    Archive Section
                   </h2>
 
                   <p
@@ -574,7 +432,7 @@ export default function ClassTable({
                       text-slate-500
                     "
                   >
-                    This hides the class. You can restore it later.
+                    This hides the section. You can restore it later.
                   </p>
                 </div>
 
@@ -620,7 +478,7 @@ export default function ClassTable({
                       text-orange-700
                     "
                   >
-                    Archive{" "}
+                    Archive Section{" "}
                     <span
                       className="
                         font-bold
@@ -630,7 +488,7 @@ export default function ClassTable({
                         archiveTarget.name
                       }
                     </span>
-                    ? It will move to Archived classes.
+                    ? It will move to Archived sections.
                   </p>
                 </div>
               </div>
@@ -701,7 +559,7 @@ export default function ClassTable({
                         "
                       />
                     ) : (
-                      "Archive Class"
+                      "Archive Section"
                     )
                   }
                 </button>

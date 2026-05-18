@@ -32,7 +32,7 @@ export default function MobileBottomBar() {
 
         px-2
 
-        lg:hidden
+        md:hidden
       "
     >
 

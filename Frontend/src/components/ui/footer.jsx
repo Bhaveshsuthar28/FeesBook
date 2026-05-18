@@ -2,10 +2,10 @@ import {
   Facebook,
   Instagram,
   Youtube,
-  Chrome,
 } from "lucide-react";
 
 import Logo from "../common/logo.components.jsx";
+import AuthLoginButton from "../common/AuthLoginButton.jsx";
 
 import footerLinks from "./footer.js";
 
@@ -250,23 +250,7 @@ const Footer = () => {
 
               <SignInButton mode="modal">
 
-                <button
-                  className="
-                    flex items-center gap-2
-                    bg-blue-600 hover:bg-blue-700
-                    text-white text-sm font-medium
-                    px-4 py-2.5
-                    rounded-xl
-                    transition
-                    shadow-sm
-                  "
-                >
-                  <div className="bg-white/20 p-1 rounded-full">
-                    <Chrome className="w-4 h-4" />
-                  </div>
-
-                  <span>Login with Google</span>
-                </button>
+                <AuthLoginButton variant="solid" />
 
               </SignInButton>
 

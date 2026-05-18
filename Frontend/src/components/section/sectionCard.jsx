@@ -1,12 +1,9 @@
-// src/pages/classes/components/classCard.jsx
-
 import {
   Archive,
   ArchiveRestore,
   Eye,
   LoaderCircle,
   MoreVertical,
-  Pencil,
   X,
 } from "lucide-react";
 
@@ -15,11 +12,11 @@ import {
 } from "react";
 
 import {
-  archiveClass,
-  unarchiveClass,
-} from "../../lib/api/classapi.js";
+  archiveSection,
+  unarchiveSection,
+} from "../../lib/api/sectionapi.js";
 
-const classColors = [
+const sectionColors = [
   {
     bg: "bg-blue-100",
     text: "text-blue-700",
@@ -36,26 +33,14 @@ const classColors = [
     bg: "bg-purple-100",
     text: "text-purple-700",
   },
-  {
-    bg: "bg-pink-100",
-    text: "text-pink-700",
-  },
-  {
-    bg: "bg-indigo-100",
-    text: "text-indigo-700",
-  },
-  {
-    bg: "bg-orange-100",
-    text: "text-orange-700",
-  },
 ];
 
-export default function ClassCard({
-  singleClass,
+export default function SectionCard({
+  section,
   index,
   mode,
   onRefresh,
-  onViewClass,
+  onViewSection,
 }) {
   const [
     showMenu,
@@ -73,9 +58,9 @@ export default function ClassCard({
   ] = useState(false);
 
   const color =
-    classColors[
+    sectionColors[
       index %
-        classColors.length
+        sectionColors.length
     ];
 
   const handleArchive =
@@ -89,12 +74,11 @@ export default function ClassCard({
           true
         );
 
-        await archiveClass(
-          singleClass.id
+        await archiveSection(
+          section.id
         );
 
         await onRefresh();
-
         setShowArchiveConfirm(
           false
         );
@@ -104,7 +88,6 @@ export default function ClassCard({
         setActionLoading(
           false
         );
-
         setShowMenu(
           false
         );
@@ -122,8 +105,8 @@ export default function ClassCard({
           true
         );
 
-        await unarchiveClass(
-          singleClass.id
+        await unarchiveSection(
+          section.id
         );
 
         await onRefresh();
@@ -133,7 +116,6 @@ export default function ClassCard({
         setActionLoading(
           false
         );
-
         setShowMenu(
           false
         );
@@ -158,13 +140,11 @@ export default function ClassCard({
             flex
             items-center
             justify-between
-            gap-3
           "
         >
           <div
             className="
               flex
-              min-w-0
               items-center
               gap-3
             "
@@ -174,37 +154,27 @@ export default function ClassCard({
                 flex
                 h-12
                 w-12
-                shrink-0
                 items-center
                 justify-center
                 rounded-xl
-                text-sm
+                text-base
                 font-bold
                 ${color.bg}
                 ${color.text}
               `}
             >
-              {
-                singleClass.name
-              }
+              {section.name}
             </div>
 
-            <div
-              className="
-                min-w-0
-              "
-            >
+            <div>
               <h2
                 className="
-                  truncate
                   text-sm
                   font-semibold
                   text-slate-900
                 "
               >
-                {
-                  singleClass.name
-                }
+                Section {section.name}
               </h2>
 
               <p
@@ -217,66 +187,26 @@ export default function ClassCard({
                 {
                   mode === "archived"
                     ? "Archived"
-                    : `${singleClass.studentsCount} Students`
+                    : "Active"
                 }
               </p>
             </div>
           </div>
 
-          <div
-            className="
-              flex
-              shrink-0
-              items-center
-              gap-3
-            "
-          >
-            {
-              mode === "active" && (
-                <div
-                  className="
-                    text-right
-                  "
-                >
-                  <p
-                    className="
-                      text-sm
-                      font-bold
-                      text-orange-500
-                    "
-                  >
-                    ₹{singleClass.pendingFees}
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-xs
-                      font-medium
-                      text-orange-500
-                    "
-                  >
-                    Pending
-                  </p>
-                </div>
+          <button
+            onClick={() =>
+              setShowMenu(
+                !showMenu
               )
             }
-
-            <button
-              onClick={() =>
-                setShowMenu(
-                  !showMenu
-                )
-              }
-              className="
-                text-slate-500
-              "
-            >
-              <MoreVertical
-                size={18}
-              />
-            </button>
-          </div>
+            className="
+              text-slate-500
+            "
+          >
+            <MoreVertical
+              size={18}
+            />
+          </button>
         </div>
 
         {
@@ -296,57 +226,36 @@ export default function ClassCard({
                 shadow-xl
               "
             >
+              <button
+                onClick={() => {
+                  onViewSection(
+                    section
+                  );
+                  setShowMenu(
+                    false
+                  );
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  gap-3
+                  px-4
+                  py-3
+                  text-sm
+                  font-medium
+                  text-slate-700
+                  hover:bg-slate-50
+                "
+              >
+                <Eye
+                  size={16}
+                />
+                View
+              </button>
+
               {
                 mode === "active" && (
-                  <>
-                    <button
-                      onClick={() => {
-                        onViewClass(
-                          singleClass
-                        );
-                        setShowMenu(
-                          false
-                        );
-                      }}
-                      className="
-                        flex
-                        w-full
-                        items-center
-                        gap-3
-                        px-4
-                        py-3
-                        text-sm
-                        font-medium
-                        text-slate-700
-                        hover:bg-slate-50
-                      "
-                    >
-                      <Eye
-                        size={16}
-                      />
-                      View
-                    </button>
-
-                    <button
-                      className="
-                        flex
-                        w-full
-                        items-center
-                        gap-3
-                        px-4
-                        py-3
-                        text-sm
-                        font-medium
-                        text-blue-600
-                        hover:bg-slate-50
-                      "
-                    >
-                      <Pencil
-                        size={16}
-                      />
-                      Edit
-                    </button>
-
                     <button
                       disabled={
                         actionLoading
@@ -377,7 +286,6 @@ export default function ClassCard({
                       />
                       Archive
                     </button>
-                  </>
                 )
               }
 
@@ -464,7 +372,7 @@ export default function ClassCard({
                     text-slate-900
                   "
                 >
-                  Archive Class
+                  Archive Section
                 </h2>
 
                 <button
@@ -495,7 +403,7 @@ export default function ClassCard({
                   text-slate-600
                 "
               >
-                Archive {singleClass.name}? It will be hidden from active classes and can be restored later.
+                Archive Section {section.name}? It will be hidden and can be restored later.
               </p>
 
               <div

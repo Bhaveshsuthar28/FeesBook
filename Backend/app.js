@@ -10,6 +10,12 @@ import authRoutes from "./src/modules/auth/auth.routes.js";
 import classRoutes from "./src/modules/classes/class.routes.js";
 import feesRouter from "./src/modules/fees/fees.router.js";
 import sectionRoutes from "./src/modules/sections/section.routes.js";
+import studentRoutes from "./src/modules/students/students.routes.js";
+import cron from "node-cron";
+import {
+  ensureStudentLifecycleColumns,
+  runMayAcademicYearAutomationService,
+} from "./src/modules/students/students.service.js";
 
 const app = Fastify({
   logger: {
@@ -28,7 +34,7 @@ const app = Fastify({
 
   trustProxy: true,
 
-  bodyLimit: 1024 * 1024,
+  bodyLimit: 10 * 1024 * 1024,
 });
 
 app.addHook(
@@ -75,10 +81,17 @@ app.setErrorHandler((error, request, reply) => {
   return reply.status(statusCode).send({
     success: false,
 
+    code:
+      error.code,
+
     message:
-      process.env.NODE_ENV === "production"
+      process.env.NODE_ENV === "production" &&
+      statusCode >= 500
         ? "Internal Server Error"
         : error.message,
+
+    details:
+      error.details,
   });
 });
 
@@ -107,10 +120,41 @@ await app.register(sectionRoutes, {
   prefix: "/api/v1/sections",
 });
 
+await app.register(studentRoutes, {
+  prefix: "/api/v1/students",
+});
+
 await app.register(healthRoutes, {
   prefix: "/api/v1/health",
 });
 
 app.log.info({ BASE_URL: env.BASE_URL, PORT: env.PORT }, "Loaded env");
+
+await ensureStudentLifecycleColumns();
+
+cron.schedule(
+  "0 0 1 5 *",
+  async () => {
+    try {
+      const result =
+        await runMayAcademicYearAutomationService();
+
+      app.log.info(
+        {
+          result,
+        },
+        "May academic year movement completed"
+      );
+    } catch (error) {
+      app.log.error(
+        error,
+        "May academic year movement failed"
+      );
+    }
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
 
 export default app;

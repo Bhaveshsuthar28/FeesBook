@@ -55,7 +55,7 @@ export default function Sidebar({
       <aside
         className={`
           hidden
-          lg:flex
+          md:flex
 
           fixed
           left-0

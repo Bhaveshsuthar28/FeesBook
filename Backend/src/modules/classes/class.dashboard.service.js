@@ -24,12 +24,19 @@ import {
   eq,
   sql,
   and,
+  asc,
 } from "drizzle-orm";
+
+import {
+  getCurrentAcademicYear,
+} from "./class.catalog.js";
 
 export const getClassesDashboardService =
   async ({
     schoolId,
   }) => {
+    const academicYear =
+      getCurrentAcademicYear();
 
     const classes =
       await db
@@ -52,9 +59,20 @@ export const getClassesDashboardService =
             ),
 
             eq(
+              classesTable.academicYear,
+              academicYear
+            ),
+
+            eq(
               classesTable.isArchived,
               false
             )
+          )
+        )
+
+        .orderBy(
+          asc(
+            classesTable.sequence
           )
         );
 
@@ -80,9 +98,21 @@ export const getClassesDashboardService =
                 )
 
                 .where(
-                  eq(
-                    sectionsTable.classId,
-                    singleClass.id
+                  and(
+                    eq(
+                      sectionsTable.schoolId,
+                      schoolId
+                    ),
+
+                    eq(
+                      sectionsTable.classId,
+                      singleClass.id
+                    ),
+
+                    eq(
+                      sectionsTable.isArchived,
+                      false
+                    )
                   )
                 );
 

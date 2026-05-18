@@ -1,9 +1,10 @@
 // src/pages/classes/components/addClassModal.jsx
 
 import {
-  X,
+  ArchiveRestore,
   Check,
   LoaderCircle,
+  X,
 } from "lucide-react";
 
 import {
@@ -12,130 +13,85 @@ import {
 
 import {
   createClass,
+  unarchiveClass,
 } from "../../lib/api/classapi.js";
-
-const CLASS_OPTIONS = [
-  "LKG",
-  "UKG",
-
-  "1st",
-  "2nd",
-  "3rd",
-  "4th",
-  "5th",
-  "6th",
-  "7th",
-  "8th",
-  "9th",
-  "10th",
-
-  "11th-AT",
-  "11th-SM",
-  "11th-SB",
-  "11th-CM",
-  "11th-CE",
-  "11th-AG",
-
-  "12th-AT",
-  "12th-SM",
-  "12th-SB",
-  "12th-CM",
-  "12th-CE",
-  "12th-AG",
-];
 
 export default function AddClassModal({
   setShowAddModal,
-  dashboardData,
-  setDashboardData,
+  classCatalog,
+  onRefresh,
 }) {
-
   const [
     selectedClass,
-
     setSelectedClass,
   ] = useState("");
 
   const [
-    loading,
+    actionKey,
+    setActionKey,
+  ] = useState("");
 
-    setLoading,
-  ] = useState(false);
+  const loading =
+    Boolean(actionKey);
 
   const handleSubmit =
     async () => {
-
-      if (!selectedClass) {
+      if (
+        !selectedClass ||
+        loading
+      ) {
         return;
       }
 
       try {
-
-        setLoading(
-          true
+        setActionKey(
+          `create:${selectedClass}`
         );
 
-        const newClass =
-          await createClass({
+        await createClass({
+          name:
+            selectedClass,
+        });
 
-            name:
-              selectedClass,
-
-            sequence:
-              dashboardData
-                .classes
-                .length + 1,
-
-            academicYear:
-              "2025-2026",
-          });
-
-        setDashboardData(
-          (prev) => ({
-
-            ...prev,
-
-            stats: {
-
-              ...prev.stats,
-
-              totalClasses:
-                prev.stats
-                  .totalClasses + 1,
-            },
-
-            classes: [
-
-              ...prev.classes,
-
-              {
-                ...newClass,
-
-                studentsCount: 0,
-
-                sectionsCount: 0,
-
-                pendingFees: 0,
-
-                collectedFees: 0,
-              },
-            ],
-          })
-        );
+        await onRefresh();
 
         setShowAddModal(
           false
         );
-
       } catch (error) {
-
         console.log(error);
-
       } finally {
+        setActionKey("");
+      }
+    };
 
-        setLoading(
+  const handleRestore =
+    async (item) => {
+      if (
+        !item.classId ||
+        loading
+      ) {
+        return;
+      }
+
+      try {
+        setActionKey(
+          `restore:${item.name}`
+        );
+
+        await unarchiveClass(
+          item.classId
+        );
+
+        await onRefresh();
+
+        setShowAddModal(
           false
         );
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setActionKey("");
       }
     };
 
@@ -144,56 +100,45 @@ export default function AddClassModal({
       className="
         fixed
         inset-0
-        z-50
-
+        z-[90]
         flex
         items-end
         justify-center
-
         bg-black/40
-
         p-0
-
         sm:items-center
         sm:p-4
       "
     >
-
       <div
         className="
           w-full
-          max-w-lg
-
+          max-w-2xl
+          max-h-[92vh]
+          flex
+          flex-col
           rounded-t-3xl
-          sm:rounded-3xl
-
           bg-white
-
           shadow-2xl
+          sm:rounded-3xl
         "
       >
-
         <div
           className="
             flex
             items-center
             justify-between
-
             border-b
             border-slate-200
-
             px-5
             py-5
           "
         >
-
           <div>
-
             <h2
               className="
                 text-lg
                 font-bold
-
                 text-slate-900
               "
             >
@@ -203,206 +148,261 @@ export default function AddClassModal({
             <p
               className="
                 mt-1
-
                 text-sm
                 text-slate-500
               "
             >
-              Select class to create
+              Added classes are locked. Archived classes can be restored.
             </p>
-
           </div>
 
           <button
-
             disabled={loading}
-
             onClick={() =>
               setShowAddModal(
                 false
               )
             }
-
             className="
               rounded-xl
-
               p-2
-
               hover:bg-slate-100
             "
           >
-
             <X
               size={22}
             />
-
           </button>
-
         </div>
 
         <div
           className="
-            max-h-[65vh]
-
+            min-h-0
+            flex-1
             overflow-y-auto
-
             px-5
             py-5
           "
         >
-
           <div
             className="
               grid
               grid-cols-2
-
               gap-3
-
               sm:grid-cols-3
-
               lg:grid-cols-4
             "
           >
-
             {
-              CLASS_OPTIONS.map(
+              classCatalog.map(
                 (item) => {
-
                   const selected =
                     selectedClass ===
-                    item;
+                    item.name;
+
+                  const isActive =
+                    item.status ===
+                    "active";
+
+                  const isArchived =
+                    item.status ===
+                    "archived";
+
+                  const isAvailable =
+                    item.status ===
+                    "available";
+
+                  const restoreLoading =
+                    actionKey ===
+                    `restore:${item.name}`;
 
                   return (
-
-                    <button
-                      key={item}
-
-                      disabled={loading}
-
-                      onClick={() =>
-                        setSelectedClass(
-                          item
-                        )
-                      }
-
+                    <div
+                      key={item.name}
                       className={`
                         relative
-
                         rounded-2xl
-
                         border
-
-                        px-3
-                        py-4
-
-                        text-sm
-                        font-semibold
-
+                        p-3
                         transition-all
-                        duration-200
-
                         ${
                           selected
-                            ? `
-                              border-blue-600
-                              bg-blue-50
-                              text-blue-700
-                            `
-                            : `
-                              border-slate-200
-                              bg-white
-                              text-slate-700
-
-                              hover:border-blue-200
-                              hover:bg-slate-50
-                            `
+                            ? "border-blue-600 bg-blue-50"
+                            : "border-slate-200 bg-white"
+                        }
+                        ${
+                          isActive
+                            ? "bg-slate-50 text-slate-400"
+                            : ""
                         }
                       `}
                     >
+                      <button
+                        type="button"
+                        disabled={
+                          loading ||
+                          !isAvailable
+                        }
+                        onClick={() =>
+                          setSelectedClass(
+                            item.name
+                          )
+                        }
+                        className="
+                          flex
+                          min-h-[72px]
+                          w-full
+                          flex-col
+                          items-start
+                          justify-between
+                          text-left
+                        "
+                      >
+                        <span
+                          className="
+                            text-sm
+                            font-semibold
+                            text-slate-800
+                          "
+                        >
+                          {item.name}
+                        </span>
+
+                        <span
+                          className={`
+                            rounded-full
+                            px-2
+                            py-1
+                            text-[11px]
+                            font-semibold
+                            ${
+                              isAvailable
+                                ? "bg-green-50 text-green-700"
+                                : isArchived
+                                  ? "bg-orange-50 text-orange-700"
+                                  : "bg-slate-200 text-slate-500"
+                            }
+                          `}
+                        >
+                          {
+                            isAvailable
+                              ? "Available"
+                              : isArchived
+                                ? "Archived"
+                                : "Added"
+                          }
+                        </span>
+                      </button>
 
                       {
                         selected && (
-
                           <div
                             className="
                               absolute
                               right-2
                               top-2
-
                               flex
                               h-5
                               w-5
-
                               items-center
                               justify-center
-
                               rounded-full
-
                               bg-blue-600
-
                               text-white
                             "
                           >
-
                             <Check
                               size={12}
                             />
-
                           </div>
                         )
                       }
 
-                      {item}
-
-                    </button>
+                      {
+                        isArchived && (
+                          <button
+                            type="button"
+                            disabled={
+                              loading
+                            }
+                            onClick={() =>
+                              handleRestore(
+                                item
+                              )
+                            }
+                            className="
+                              mt-3
+                              flex
+                              w-full
+                              items-center
+                              justify-center
+                              gap-2
+                              rounded-xl
+                              border
+                              border-orange-200
+                              px-3
+                              py-2
+                              text-xs
+                              font-semibold
+                              text-orange-700
+                              hover:bg-orange-50
+                            "
+                          >
+                            {
+                              restoreLoading ? (
+                                <LoaderCircle
+                                  size={14}
+                                  className="
+                                    animate-spin
+                                  "
+                                />
+                              ) : (
+                                <ArchiveRestore
+                                  size={14}
+                                />
+                              )
+                            }
+                            Restore
+                          </button>
+                        )
+                      }
+                    </div>
                   );
                 }
               )
             }
-
           </div>
-
         </div>
 
         <div
           className="
             flex
+            shrink-0
             items-center
             justify-end
-
             gap-3
-
             border-t
             border-slate-200
-
+            bg-white
             px-5
             py-5
           "
         >
-
           <button
-
             disabled={loading}
-
             onClick={() =>
               setShowAddModal(
                 false
               )
             }
-
             className="
               flex-1
-
               rounded-xl
-
               border
               border-slate-200
-
               py-3
-
               text-sm
               font-medium
-
               text-slate-700
             "
           >
@@ -410,72 +410,48 @@ export default function AddClassModal({
           </button>
 
           <button
-
-            onClick={
-              handleSubmit
-            }
-
+            onClick={handleSubmit}
             disabled={
               !selectedClass ||
               loading
             }
-
             className={`
-              flex-1
-
               flex
+              flex-1
               items-center
               justify-center
-
               gap-2
-
               rounded-xl
-
               py-3
-
               text-sm
               font-semibold
               text-white
-
               transition-all
-              duration-200
-
               ${
-                selectedClass
-                  ? `
-                    bg-orange-500
-                    hover:bg-orange-600
-                  `
-                  : `
-                    cursor-not-allowed
-                    bg-slate-300
-                  `
+                selectedClass &&
+                !loading
+                  ? "bg-orange-500 hover:bg-orange-600"
+                  : "cursor-not-allowed bg-slate-300"
               }
             `}
           >
-
             {
-              loading ? (
-
+              actionKey.startsWith(
+                "create:"
+              ) ? (
                 <LoaderCircle
                   size={18}
-
                   className="
                     animate-spin
                   "
                 />
-
               ) : (
                 "Create Class"
               )
             }
-
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }

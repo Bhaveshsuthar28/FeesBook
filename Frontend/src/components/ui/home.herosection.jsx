@@ -1,8 +1,11 @@
 import {
   ShieldCheck,
   Play,
-  Chrome,
 } from "lucide-react";
+import {
+  SignInButton,
+} from "@clerk/clerk-react";
+import AuthLoginButton from "../common/AuthLoginButton.jsx";
 import dashboardPreview from "../../../assest/dashboard.preview.png";
 
 const HeroSection = () => {
@@ -76,21 +79,9 @@ const HeroSection = () => {
           {/* BUTTONS */}
           <div className="mt-8 flex flex-wrap items-center gap-5">
 
-            <button
-                className="
-                flex items-center
-                text-blue-600 text-sm font-medium
-                px-2 py-1
-                rounded-xl border-2 border-blue-600
-                shadow-sm
-                "
-            >
-                <div className="bg-white/15 p-1 rounded-full">
-                <Chrome className="w-4 h-4" />
-                </div>
-
-                <span>Login with Google</span>
-            </button>
+            <SignInButton mode="modal">
+              <AuthLoginButton />
+            </SignInButton>
 
             <button
               className="

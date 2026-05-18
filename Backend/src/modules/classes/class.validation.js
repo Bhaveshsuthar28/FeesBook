@@ -6,17 +6,6 @@ export const createClassSchema = z.object({
     .trim()
     .min(1)
     .max(50),
-
-  sequence: z
-    .number()
-    .int()
-    .positive(),
-
-  academicYear: z
-    .string()
-    .trim()
-    .min(1)
-    .max(20),
 });
 
 export const updateClassSchema =

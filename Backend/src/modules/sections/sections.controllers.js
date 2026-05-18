@@ -8,6 +8,9 @@ import {
   updateSectionService,
   getSectionsByClassService,
   archiveSectionService,
+  unarchiveSectionService,
+  getSectionCatalogService,
+  getSectionStatsService,
 } from "./sections.service.js";
 
 export const createSectionController =
@@ -78,6 +81,10 @@ export const getSectionsByClassController =
 
         classId:
           request.params.classId,
+
+        status:
+          request.query?.status ||
+          "active",
       });
 
     return reply.send({
@@ -101,5 +108,61 @@ export const archiveSectionController =
       success: true,
       message:
         "Section archived successfully",
+    });
+  };
+
+export const getSectionCatalogController =
+  async (request, reply) => {
+
+    const result =
+      await getSectionCatalogService({
+        schoolId:
+          request.user.schoolId,
+
+        classId:
+          request.params.classId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const getSectionStatsController =
+  async (request, reply) => {
+
+    const result =
+      await getSectionStatsService({
+        schoolId:
+          request.user.schoolId,
+
+        classId:
+          request.params.classId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const unarchiveSectionController =
+  async (request, reply) => {
+
+    const result =
+      await unarchiveSectionService({
+        schoolId:
+          request.user.schoolId,
+
+        sectionId:
+          request.params.id,
+      });
+
+    return reply.send({
+      success: true,
+      message:
+        "Section restored successfully",
+      data: result,
     });
   };

@@ -16,7 +16,34 @@ export const getClassesDashboard =
     return response.data.data;
   };
 
-export const deleteClass =
+export const getClassCatalog =
+  async () => {
+
+    const response =
+      await axios.get(
+        `${API}/classes/catalog`
+      );
+
+    return response.data.data;
+  };
+
+export const getClassesByStatus =
+  async (status = "active") => {
+
+    const response =
+      await axios.get(
+        `${API}/classes`,
+        {
+          params: {
+            status,
+          },
+        }
+      );
+
+    return response.data.data;
+  };
+
+export const archiveClass =
   async (classId) => {
 
     const response =
@@ -25,6 +52,17 @@ export const deleteClass =
       );
 
     return response.data;
+  };
+
+export const unarchiveClass =
+  async (classId) => {
+
+    const response =
+      await axios.patch(
+        `${API}/classes/${classId}/unarchive`
+      );
+
+    return response.data.data;
   };
 
 export const createClass =

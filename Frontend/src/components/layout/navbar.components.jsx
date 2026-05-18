@@ -1,14 +1,10 @@
 import Logo from "../common/logo.components.jsx";
+import AuthLoginButton from "../common/AuthLoginButton.jsx";
 import navLinks from "../common/navlink.components.jsx";
-import {Chrome} from "lucide-react"
 
 import {
   SignInButton,
 } from "@clerk/clerk-react";
-
-import {
-  Moon,
-} from "lucide-react";
 
 const Navbar = () => {
   return (
@@ -32,21 +28,7 @@ const Navbar = () => {
         <div className="flex items-center">
 
           <SignInButton mode="modal">
-            <button
-                className="
-                flex items-center
-                text-blue-600 text-sm font-medium
-                px-2 py-1
-                rounded-xl border-2 border-blue-600
-                shadow-sm
-                "
-            >
-                <div className="bg-white/15 p-1 rounded-full">
-                <Chrome className="w-4 h-4" />
-                </div>
-
-                <span>Login with Google</span>
-            </button>
+            <AuthLoginButton />
           </SignInButton>
 
         </div>

@@ -1,0 +1,50 @@
+import {
+  integer,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
+
+export const studentPaymentsTable =
+  sqliteTable(
+    "student_payments",
+    {
+      id:
+        text("id")
+          .primaryKey(),
+
+      schoolId:
+        text("school_id")
+          .notNull(),
+
+      studentId:
+        text("student_id")
+          .notNull(),
+
+      studentFeeId:
+        text("student_fee_id")
+          .notNull(),
+
+      feeTypeId:
+        text("fee_type_id")
+          .notNull(),
+
+      amount:
+        integer("amount")
+          .notNull(),
+
+      paymentMode:
+        text("payment_mode")
+          .default("Cash"),
+
+      paidAt:
+        integer("paid_at")
+          .notNull(),
+
+      note:
+        text("note"),
+
+      createdAt:
+        integer("created_at")
+          .notNull(),
+    }
+  );

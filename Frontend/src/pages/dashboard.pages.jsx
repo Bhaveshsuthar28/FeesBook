@@ -64,8 +64,8 @@ export default function DashboardLayout() {
 
           ${
             isCollapsed
-              ? "lg:ml-[85px]"
-              : "lg:ml-[240px]"
+              ? "md:ml-[85px]"
+              : "md:ml-[240px]"
           }
         `}
       >

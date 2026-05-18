@@ -22,8 +22,14 @@ import DashboardPage
 import ClassesPage
   from "./pages/classespage.jsx";
 
+import SectionsPage
+  from "./pages/sectionspage.jsx";
+
 import StudentsPage
   from "./pages/studentspage.jsx";
+
+import StudentDetailsPage
+  from "./pages/studentdetailspage.jsx";
 
 import FeesPage
   from "./pages/feespage.jsx";
@@ -64,27 +70,47 @@ const App = () => {
         >
 
           <Route
-            path="/dashboard"
+            path="dashboard"
             element={<DashboardPage />}
           />
 
           <Route
-            path="/classes"
+            path="classes"
             element={<ClassesPage />}
           />
 
           <Route
-            path="/students"
+            path="classes/:classId/sections"
+            element={<SectionsPage />}
+          />
+
+          <Route
+            path="classes/:classId/sections/:sectionId/students"
             element={<StudentsPage />}
           />
 
           <Route
-            path="/fees"
+            path="classes/:classId/sections/:sectionId/students/:studentId"
+            element={<StudentDetailsPage />}
+          />
+
+          <Route
+            path="students"
+            element={<StudentsPage />}
+          />
+
+          <Route
+            path="students/:studentId"
+            element={<StudentDetailsPage />}
+          />
+
+          <Route
+            path="fees"
             element={<FeesPage />}
           />
 
           <Route
-            path="/settings"
+            path="settings"
             element={<SettingsPage />}
           />
 

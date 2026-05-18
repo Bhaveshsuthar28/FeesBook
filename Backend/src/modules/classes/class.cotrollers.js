@@ -8,6 +8,8 @@ import {
   getClassesService,
   updateClassService,
   archiveClassService,
+  unarchiveClassService,
+  getClassCatalogService,
 } from "./class.service.js";
 
 export const createClassController =
@@ -37,8 +39,29 @@ export const getClassesController =
     const schoolId =
       request.user.schoolId;
 
+    const status =
+      request.query?.status ||
+      "active";
+
     const result =
-      await getClassesService(
+      await getClassesService({
+        schoolId,
+        status,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const getClassCatalogController =
+  async (request, reply) => {
+    const schoolId =
+      request.user.schoolId;
+
+    const result =
+      await getClassCatalogService(
         schoolId
       );
 
@@ -90,5 +113,26 @@ export const archiveClassController =
       success: true,
       message:
         "Class archived successfully",
+    });
+  };
+
+export const unarchiveClassController =
+  async (request, reply) => {
+    const schoolId =
+      request.user.schoolId;
+
+    const result =
+      await unarchiveClassService({
+        classId:
+          request.params.id,
+
+        schoolId,
+      });
+
+    return reply.send({
+      success: true,
+      message:
+        "Class restored successfully",
+      data: result,
     });
   };
