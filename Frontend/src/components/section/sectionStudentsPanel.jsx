@@ -22,6 +22,10 @@ import {
 } from "../../lib/api/studentapi.js";
 
 import {
+  notify,
+} from "../../lib/toast.js";
+
+import {
   CardListSkeleton,
 } from "../skeleton/PageSkeletons.jsx";
 
@@ -136,11 +140,6 @@ export default function SectionStudentsPanel({
     importResult,
     setImportResult,
   ] = useState(null);
-
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
 
   const canSubmit =
     useMemo(
@@ -281,7 +280,10 @@ export default function SectionStudentsPanel({
             uploaded.fileId || "",
         }));
       } catch (error) {
-        console.log(error);
+        notify.error(
+          error,
+          "Photo could not be uploaded"
+        );
       } finally {
         setPhotoUploading(false);
       }
@@ -298,7 +300,6 @@ export default function SectionStudentsPanel({
 
       try {
         setSaving(true);
-        setErrorMessage("");
 
         await createStudent({
           ...form,
@@ -311,11 +312,13 @@ export default function SectionStudentsPanel({
         setForm(emptyForm);
         await refreshStudents();
         await onRefresh();
+        notify.success(
+          "Student added successfully"
+        );
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            error.message ||
-            "Student could not be added"
+        notify.error(
+          error,
+          "Student could not be added"
         );
       } finally {
         setSaving(false);
@@ -331,7 +334,6 @@ export default function SectionStudentsPanel({
       try {
         setImporting(true);
         setImportResult(null);
-        setErrorMessage("");
 
         const fileBase64 =
           await toBase64(file);
@@ -350,11 +352,13 @@ export default function SectionStudentsPanel({
         setImportResult(result);
         await refreshStudents();
         await onRefresh();
+        notify.success(
+          "Students imported successfully"
+        );
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            error.message ||
-            "Students could not be imported"
+        notify.error(
+          error,
+          "Students could not be imported"
         );
       } finally {
         setImporting(false);
@@ -857,27 +861,6 @@ export default function SectionStudentsPanel({
                 </div>
               )
             }
-          </div>
-        )
-      }
-
-      {
-        errorMessage && (
-          <div
-            className="
-              mt-4
-              rounded-xl
-              border
-              border-red-100
-              bg-red-50
-              px-4
-              py-3
-              text-sm
-              font-medium
-              text-red-700
-            "
-          >
-            {errorMessage}
           </div>
         )
       }

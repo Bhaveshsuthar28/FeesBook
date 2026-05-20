@@ -5,18 +5,53 @@ import {
 
   assignFeeToClassSchema,
   updateClassFeeSchema,
+  allocateClassFeesSchema,
+  archiveSchema,
 
 } from "./fees.validation.js";
 
 import {
 
   createFeeTypeService,
+  getFeeStructureService,
+  getFeeTypesService,
   updateFeeTypeService,
+  archiveClassFeeService,
+  archiveFeeTypeService,
 
+  allocateClassFeesService,
   assignFeeToClassService,
   updateClassFeeService,
 
 } from "./fees.service.js";
+
+export const getFeeTypesController =
+  async (request, reply) => {
+    const result =
+      await getFeeTypesService({
+        schoolId:
+          request.user.schoolId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const getFeeStructureController =
+  async (request, reply) => {
+    const result =
+      await getFeeStructureService({
+        schoolId:
+          request.user.schoolId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
 
 export const createFeeTypeController =
   async (request, reply) => {
@@ -77,6 +112,29 @@ export const updateFeeTypeController =
     });
   };
 
+export const archiveFeeTypeController =
+  async (request, reply) => {
+    const parsed =
+      archiveSchema.parse(
+        request.body || {}
+      );
+
+    await archiveFeeTypeService({
+      schoolId:
+        request.user.schoolId,
+      feeTypeId:
+        request.params.id,
+      isArchived:
+        parsed.isArchived ?? true,
+    });
+
+    return reply.send({
+      success: true,
+      message:
+        "Fee type archived successfully",
+    });
+  };
+
 export const assignFeeToClassController =
   async (request, reply) => {
 
@@ -133,5 +191,49 @@ export const updateClassFeeController =
       success: true,
       message:
         "Class fee updated successfully",
+    });
+  };
+
+export const archiveClassFeeController =
+  async (request, reply) => {
+    const parsed =
+      archiveSchema.parse(
+        request.body || {}
+      );
+
+    await archiveClassFeeService({
+      schoolId:
+        request.user.schoolId,
+      classFeeId:
+        request.params.id,
+      isArchived:
+        parsed.isArchived ?? true,
+    });
+
+    return reply.send({
+      success: true,
+      message:
+        "Class fee archived successfully",
+    });
+  };
+
+export const allocateClassFeesController =
+  async (request, reply) => {
+    const parsed =
+      allocateClassFeesSchema.parse(
+        request.body
+      );
+
+    const result =
+      await allocateClassFeesService({
+        schoolId:
+          request.user.schoolId,
+        data:
+          parsed,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
     });
   };

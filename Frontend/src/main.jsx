@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import 'react-loading-skeleton/dist/skeleton.css'
+import "leaflet/dist/leaflet.css";
 import App from './App.jsx'
 import { ClerkProvider } from '@clerk/clerk-react'
 import {Provider} from "react-redux"
@@ -19,7 +20,29 @@ createRoot(document.getElementById('root')).render(
       appearance={clerkAppearance}
     >
       <BrowserRouter>
-        <Toaster position='top-right'/>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              fontSize: "14px",
+              fontWeight: 600,
+              maxWidth: "420px",
+            },
+            success: {
+              style: {
+                background: "#ecfdf5",
+                color: "#047857",
+              },
+            },
+            error: {
+              style: {
+                background: "#fef2f2",
+                color: "#b91c1c",
+              },
+            },
+          }}
+        />
         <App/>
       </BrowserRouter>
     </ClerkProvider>

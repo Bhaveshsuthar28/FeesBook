@@ -211,6 +211,29 @@ export const recordStudentPayment =
     return response.data.data;
   };
 
+export const downloadStudentPaymentReceipt =
+  async ({
+    studentId,
+    paymentId,
+  }) => {
+    const response =
+      await axios.get(
+        `${API}/students/${studentId}/payments/${paymentId}/receipt.pdf`,
+        {
+          responseType: "blob",
+        }
+      );
+
+    return {
+      blob:
+        response.data,
+      fileName:
+        response.headers["content-disposition"]
+          ?.match(/filename="(.+)"/)?.[1] ||
+        `fee-receipt-${paymentId}.pdf`,
+    };
+  };
+
 export const importStudents =
   async (data) => {
     const response =

@@ -9,6 +9,7 @@ import {
   createStudentService,
   getFeesLedgerService,
   getImageKitAuthService,
+  getStudentPaymentReceiptPdfService,
   getStudentDirectoryService,
   getStudentDetailService,
   getStudentsBySectionService,
@@ -254,6 +255,30 @@ export const recordStudentPaymentController =
         success: true,
         data: result,
       });
+  };
+
+export const getStudentPaymentReceiptPdfController =
+  async (request, reply) => {
+    const result =
+      await getStudentPaymentReceiptPdfService({
+        schoolId:
+          request.user.schoolId,
+        studentId:
+          request.params.studentId,
+        paymentId:
+          request.params.paymentId,
+      });
+
+    return reply
+      .header(
+        "Content-Type",
+        "application/pdf"
+      )
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${result.fileName}"`
+      )
+      .send(result.buffer);
   };
 
 export const importStudentsController =

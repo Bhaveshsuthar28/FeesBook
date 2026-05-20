@@ -10,7 +10,6 @@ import {
   GraduationCap,
   Image,
   LoaderCircle,
-  MoreVertical,
   Pencil,
   Phone,
   Plus,
@@ -51,6 +50,13 @@ import {
   importStudents,
   markStudentLeft,
 } from "../lib/api/studentapi.js";
+
+import {
+  notify,
+} from "../lib/toast.js";
+
+
+import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 
 import {
   PageLoadingSkeleton,
@@ -412,12 +418,6 @@ function AddStudentModal({
     importResult,
     setImportResult,
   ] = useState(null);
-
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
-
   const canSubmit =
     requiredFields.every(
       (field) =>
@@ -483,7 +483,7 @@ function AddStudentModal({
             uploaded.fileId || "",
         }));
       } catch (error) {
-        console.log(error);
+        notify.error(error, "Photo could not be uploaded");
       } finally {
         setPhotoUploading(false);
       }
@@ -500,9 +500,7 @@ function AddStudentModal({
 
       try {
         setSaving(true);
-        setErrorMessage("");
-
-        await createStudent({
+                await createStudent({
           ...form,
           classId:
             selectedClass.id,
@@ -513,16 +511,15 @@ function AddStudentModal({
         try {
           await onSaved();
         } catch (refreshError) {
-          console.log(refreshError);
+          
         }
 
+        notify.success(
+          "Student added successfully"
+        );
         onClose();
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            error.message ||
-            "Student could not be added"
-        );
+        notify.error(error, "Student could not be added");
       } finally {
         setSaving(false);
       }
@@ -537,9 +534,7 @@ function AddStudentModal({
       try {
         setImporting(true);
         setImportResult(null);
-        setErrorMessage("");
-
-        const fileBase64 =
+                const fileBase64 =
           await toBase64(file);
 
         const result =
@@ -556,11 +551,7 @@ function AddStudentModal({
         setImportResult(result);
         await onSaved();
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            error.message ||
-            "Students could not be imported"
-        );
+        notify.error(error, "Students could not be imported");
       } finally {
         setImporting(false);
       }
@@ -1102,29 +1093,6 @@ function AddStudentModal({
             </div>
           )
         }
-
-        {
-          errorMessage && (
-            <div
-              className="
-                mx-5
-                mb-4
-                rounded-xl
-                border
-                border-red-100
-                bg-red-50
-                px-4
-                py-3
-                text-sm
-                font-medium
-                text-red-700
-              "
-            >
-              {errorMessage}
-            </div>
-          )
-        }
-
         <div
           className="
             flex
@@ -1333,18 +1301,11 @@ function StudentLifecycleModal({
     saving,
     setSaving,
   ] = useState(false);
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
-
   const handleSave =
     async () => {
       try {
         setSaving(true);
-        setErrorMessage("");
-
-        await markStudentLeft({
+                await markStudentLeft({
           studentId:
             student.id,
           data: {
@@ -1355,11 +1316,7 @@ function StudentLifecycleModal({
         await onSaved();
         onClose();
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            error.message ||
-            "Student movement failed"
-        );
+        notify.error(error, "Student movement failed");
       } finally {
         setSaving(false);
       }
@@ -1394,15 +1351,6 @@ function StudentLifecycleModal({
           placeholder="Archive note optional"
           className="mt-4 min-h-24 w-full rounded-lg border border-slate-200 p-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500"
         />
-
-        {
-          errorMessage && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
-              {errorMessage}
-            </p>
-          )
-        }
-
         <div className="mt-5 flex justify-end gap-3">
           <button
             type="button"
@@ -1672,7 +1620,7 @@ function DirectoryStudentsView({
         });
         setShowMobileFilters(false);
       } catch (error) {
-        console.log(error);
+        notify.error(error, "Photo could not be uploaded");
       } finally {
         setExporting(false);
       }
@@ -2137,13 +2085,6 @@ function DirectoryStudentsView({
                                 </button>
                               )
                             }
-                            <button
-                              type="button"
-                              title="More actions"
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-700"
-                            >
-                              <MoreVertical size={16} />
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -2253,13 +2194,6 @@ function DirectoryStudentsView({
                           </button>
                         )
                       }
-                      <button
-                        type="button"
-                        title="More actions"
-                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
                     </div>
                   </div>
                 );
@@ -2599,6 +2533,11 @@ export default function StudentsPage() {
   ] = useState(false);
 
   const [
+    paymentStudentId,
+    setPaymentStudentId,
+  ] = useState(null);
+
+  const [
     searchTerm,
     setSearchTerm,
   ] = useState("");
@@ -2796,7 +2735,7 @@ export default function StudentsPage() {
           setLoading(true);
           await refreshStudents();
         } catch (error) {
-          console.log(error);
+          notify.error(error, "Photo could not be uploaded");
         } finally {
           setLoading(false);
         }
@@ -3940,27 +3879,6 @@ export default function StudentsPage() {
             sm:justify-end
           "
         >
-          <button
-            type="button"
-            className="
-              flex
-              h-11
-              items-center
-              gap-2
-              rounded-lg
-              border
-              border-slate-200
-              bg-white
-              px-4
-              text-xs
-              font-bold
-              text-slate-700
-              shadow-sm
-            "
-          >
-            <Pencil size={15} />
-            Edit Class
-          </button>
 
           <div
             className="
@@ -4452,9 +4370,16 @@ export default function StudentsPage() {
                             </button>
                             <button
                               type="button"
-                              title="More actions"
+                              title="Record payment"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setPaymentStudentId(
+                                  student.id
+                                );
+                              }}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
                             >
-                              <MoreVertical size={17} />
+                              <WalletCards size={17} />
                             </button>
                           </div>
                         </td>
@@ -4829,6 +4754,15 @@ export default function StudentsPage() {
           </div>
         </div>
       </div>
+
+      <RecordPaymentModal
+        open={Boolean(paymentStudentId)}
+        studentId={paymentStudentId}
+        onClose={() =>
+          setPaymentStudentId(null)
+        }
+        onSaved={refreshStudents}
+      />
 
       {
         showAddModal && (

@@ -9,6 +9,10 @@ import { env } from "./src/cors/config/env.js";
 import authRoutes from "./src/modules/auth/auth.routes.js";
 import classRoutes from "./src/modules/classes/class.routes.js";
 import feesRouter from "./src/modules/fees/fees.router.js";
+import {
+  ensureFeeColumns,
+} from "./src/modules/fees/fees.service.js";
+import settingsRoutes from "./src/modules/settings/settings.routes.js";
 import sectionRoutes from "./src/modules/sections/section.routes.js";
 import studentRoutes from "./src/modules/students/students.routes.js";
 import cron from "node-cron";
@@ -16,6 +20,9 @@ import {
   ensureStudentLifecycleColumns,
   runMayAcademicYearAutomationService,
 } from "./src/modules/students/students.service.js";
+import {
+  ensureSettingsColumns,
+} from "./src/modules/settings/settings.service.js";
 
 const app = Fastify({
   logger: {
@@ -116,6 +123,10 @@ await app.register(feesRouter , {
   prefix : "/api/v1/fees"
 })
 
+await app.register(settingsRoutes, {
+  prefix: "/api/v1/settings",
+});
+
 await app.register(sectionRoutes, {
   prefix: "/api/v1/sections",
 });
@@ -131,6 +142,10 @@ await app.register(healthRoutes, {
 app.log.info({ BASE_URL: env.BASE_URL, PORT: env.PORT }, "Loaded env");
 
 await ensureStudentLifecycleColumns();
+
+await ensureSettingsColumns();
+
+await ensureFeeColumns();
 
 cron.schedule(
   "0 0 1 5 *",

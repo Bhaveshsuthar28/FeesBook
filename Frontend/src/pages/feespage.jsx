@@ -8,12 +8,10 @@ import {
   FileText,
   Filter,
   LoaderCircle,
-  MoreVertical,
   ReceiptText,
   Search,
   Wallet,
   WalletCards,
-  X,
 } from "lucide-react";
 
 import {
@@ -27,10 +25,16 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
+
 import {
+  downloadStudentPaymentReceipt,
   getFeesLedger,
-  recordStudentPayment,
 } from "../lib/api/studentapi.js";
+
+import {
+  notify,
+} from "../lib/toast.js";
 
 const pageSize = 10;
 
@@ -156,310 +160,6 @@ function StatCard({
   );
 }
 
-function ReceiptModal({
-  student,
-  onClose,
-}) {
-  if (!student) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-extrabold uppercase text-indigo-600">
-              Payment Receipt
-            </p>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-950">
-              {student.fullName}
-            </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {student.className} {student.sectionName} · Adm No {student.admissionNo}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600"
-          >
-            <X size={17} />
-          </button>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-emerald-50 p-4">
-            <p className="text-xs font-bold text-emerald-700">
-              Paid Amount
-            </p>
-            <p className="mt-2 text-xl font-extrabold text-emerald-700">
-              {formatCurrency(student.lastPayment?.amount)}
-            </p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-xs font-bold text-slate-500">
-              Payment Mode
-            </p>
-            <p className="mt-2 text-xl font-extrabold text-slate-900">
-              {student.lastPayment?.paymentMode || "Cash"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-sm font-semibold text-slate-600">
-          <div className="flex justify-between py-2">
-            <span>Total Fee</span>
-            <span className="font-extrabold text-slate-950">
-              {formatCurrency(student.totalFees)}
-            </span>
-          </div>
-          <div className="flex justify-between py-2">
-            <span>Total Paid</span>
-            <span className="font-extrabold text-emerald-600">
-              {formatCurrency(student.paidAmount)}
-            </span>
-          </div>
-          <div className="flex justify-between py-2">
-            <span>Due Amount</span>
-            <span className="font-extrabold text-red-600">
-              {formatCurrency(student.dueAmount)}
-            </span>
-          </div>
-          <div className="flex justify-between py-2">
-            <span>Last Payment</span>
-            <span className="font-extrabold text-slate-950">
-              {formatDate(student.lastPayment?.paidAt)}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="mt-5 h-11 w-full rounded-xl bg-indigo-600 text-sm font-extrabold text-white"
-        >
-          Print Receipt
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PaymentModal({
-  student,
-  onClose,
-  onSaved,
-}) {
-  const firstFee =
-    student?.dueFees?.[0];
-  const [
-    studentFeeId,
-    setStudentFeeId,
-  ] = useState(firstFee?.id || "");
-  const [
-    amount,
-    setAmount,
-  ] = useState(firstFee?.dueAmount || "");
-  const [
-    paymentMode,
-    setPaymentMode,
-  ] = useState("Cash");
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  if (!student) {
-    return null;
-  }
-
-  const selectedFee =
-    student.dueFees?.find(
-      (fee) =>
-        fee.id === studentFeeId
-    );
-
-  const savePayment =
-    async () => {
-      if (
-        !studentFeeId ||
-        Number(amount) <= 0
-      ) {
-        setError(
-          "Select a fee and enter payment amount"
-        );
-        return;
-      }
-
-      try {
-        setSaving(true);
-        setError("");
-        await recordStudentPayment({
-          studentId:
-            student.id,
-          data: {
-            studentFeeId,
-            amount:
-              Number(amount),
-            paymentMode,
-            paidAt:
-              Date.now(),
-          },
-        });
-        await onSaved();
-        onClose();
-      } catch (apiError) {
-        setError(
-          apiError.response?.data?.message ||
-            apiError.message ||
-            "Payment could not be recorded"
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-extrabold uppercase text-indigo-600">
-              Record Payment
-            </p>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-950">
-              {student.fullName}
-            </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              Due {formatCurrency(student.dueAmount)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600"
-          >
-            <X size={17} />
-          </button>
-        </div>
-
-        {
-          student.dueFees?.length === 0 ? (
-            <p className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
-              This student has no pending fee balance.
-            </p>
-          ) : (
-            <div className="mt-5 grid gap-4">
-              <label className="space-y-2">
-                <span className="text-xs font-extrabold text-slate-600">
-                  Fee Record
-                </span>
-                <select
-                  value={studentFeeId}
-                  onChange={(event) => {
-                    const nextFee =
-                      student.dueFees.find(
-                        (fee) =>
-                          fee.id ===
-                          event.target.value
-                      );
-                    setStudentFeeId(
-                      event.target.value
-                    );
-                    setAmount(
-                      nextFee?.dueAmount || ""
-                    );
-                  }}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
-                >
-                  {
-                    student.dueFees.map((fee) => (
-                      <option
-                        key={fee.id}
-                        value={fee.id}
-                      >
-                        Due {formatCurrency(fee.dueAmount)}
-                      </option>
-                    ))
-                  }
-                </select>
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-extrabold text-slate-600">
-                  Amount
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedFee?.dueAmount}
-                  value={amount}
-                  onChange={(event) =>
-                    setAmount(
-                      event.target.value
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-extrabold text-slate-600">
-                  Payment Mode
-                </span>
-                <select
-                  value={paymentMode}
-                  onChange={(event) =>
-                    setPaymentMode(
-                      event.target.value
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
-                >
-                  {
-                    paymentModes.map((mode) => (
-                      <option
-                        key={mode}
-                        value={mode}
-                      >
-                        {mode}
-                      </option>
-                    ))
-                  }
-                </select>
-              </label>
-            </div>
-          )
-        }
-
-        {
-          error && (
-            <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
-              {error}
-            </p>
-          )
-        }
-
-        <button
-          type="button"
-          disabled={
-            saving ||
-            student.dueFees?.length === 0
-          }
-          onClick={savePayment}
-          className="mt-5 h-11 w-full rounded-xl bg-indigo-600 text-sm font-extrabold text-white disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Save Payment"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function FeesPage() {
   const navigate =
@@ -486,10 +186,6 @@ export default function FeesPage() {
     loading,
     setLoading,
   ] = useState(true);
-  const [
-    error,
-    setError,
-  ] = useState("");
   const [
     search,
     setSearch,
@@ -519,14 +215,6 @@ export default function FeesPage() {
     setPage,
   ] = useState(1);
   const [
-    openMenuId,
-    setOpenMenuId,
-  ] = useState("");
-  const [
-    receiptStudent,
-    setReceiptStudent,
-  ] = useState(null);
-  const [
     paymentStudent,
     setPaymentStudent,
   ] = useState(null);
@@ -534,6 +222,17 @@ export default function FeesPage() {
     showMobileFilters,
     setShowMobileFilters,
   ] = useState(false);
+
+  const resetFilters =
+    () => {
+      setSearch("");
+      setStatus("All");
+      setClassId("");
+      setSectionId("");
+      setMonthYear(currentMonth());
+      setPaymentMode("");
+      setPage(1);
+    };
 
   const visibleSections =
     classId
@@ -547,7 +246,6 @@ export default function FeesPage() {
     useCallback(async () => {
       try {
         setLoading(true);
-        setError("");
         const result =
           await getFeesLedger({
             status,
@@ -561,10 +259,9 @@ export default function FeesPage() {
           });
         setLedger(result);
       } catch (apiError) {
-        setError(
-          apiError.response?.data?.message ||
-            apiError.message ||
-            "Fees ledger could not be loaded"
+        notify.error(
+          apiError,
+          "Fees ledger could not be loaded"
         );
       } finally {
         setLoading(false);
@@ -778,51 +475,84 @@ export default function FeesPage() {
       URL.revokeObjectURL(url);
     };
 
+  const handleViewStudent =
+    (student) => {
+      navigate(
+        `/students/${student.id}`
+      );
+    };
+
+  const handleSavePayment =
+    (student) => {
+      setPaymentStudent(student);
+    };
+
+  const downloadReceipt =
+    async ({
+      studentId,
+      paymentId,
+    }) => {
+      if (!studentId || !paymentId) {
+        notify.error(
+          null,
+          "No payment receipt is available yet"
+        );
+        return;
+      }
+
+      try {
+        const result =
+          await downloadStudentPaymentReceipt({
+            studentId,
+            paymentId,
+          });
+        const url =
+          URL.createObjectURL(
+            result.blob
+          );
+        const link =
+          document.createElement("a");
+
+        link.href = url;
+        link.download =
+          result.fileName;
+        document.body.appendChild(
+          link
+        );
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch (apiError) {
+        notify.error(
+          apiError,
+          "Receipt could not be downloaded"
+        );
+      }
+    };
+
   const renderActions =
     (student) => (
-      <div className="relative">
+      <div className="flex items-center gap-2">
         <button
           type="button"
+          title="View student"
           onClick={() =>
-            setOpenMenuId((current) =>
-              current === student.id
-                ? ""
-                : student.id
-            )
+            handleViewStudent(student)
           }
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
         >
-          <MoreVertical size={17} />
+          <Eye size={17} />
         </button>
-        {
-          openMenuId === student.id && (
-            <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/students/${student.id}`
-                  )
-                }
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-slate-50"
-              >
-                <Eye size={16} />
-                View Student
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentStudent(student);
-                  setOpenMenuId("");
-                }}
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-slate-50"
-              >
-                <WalletCards size={16} />
-                Record Payment
-              </button>
-            </div>
-          )
-        }
+        <button
+          type="button"
+          title="Save payment"
+          onClick={() =>
+            handleSavePayment(student)
+          }
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
+        >
+          <WalletCards size={17} />
+        </button>
       </div>
     );
 
@@ -859,7 +589,7 @@ export default function FeesPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-4">
-          <div className="hidden gap-3 md:grid md:grid-cols-5">
+          <div className="hidden gap-3 md:grid md:grid-cols-4">
             <label className="space-y-1">
               <span className="text-xs font-semibold text-slate-500">
                 Class
@@ -921,35 +651,8 @@ export default function FeesPage() {
                 }
               </select>
             </label>
-            <label className="space-y-1">
-              <span className="text-xs font-semibold text-slate-500">
-                Status
-              </span>
-              <select
-                value={status}
-                onChange={(event) =>
-                  setStatus(
-                    event.target.value
-                  )
-                }
-                className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
-              >
-                {
-                  statusTabs.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item} Status
-                      </option>
-                    )
-                  )
-                }
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs font-semibold text-slate-500">
+            <label className="flex items-center gap-3">
+              <span className="whitespace-nowrap text-xs font-semibold text-slate-500">
                 Month / Year
               </span>
               <input
@@ -960,7 +663,7 @@ export default function FeesPage() {
                     event.target.value
                   )
                 }
-                className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                className="h-11 w-full flex-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
               />
             </label>
             <label className="space-y-1">
@@ -1019,10 +722,10 @@ export default function FeesPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-extrabold text-slate-700"
+                onClick={resetFilters}
+                className="flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-extrabold text-slate-700"
               >
-                <Filter size={17} />
-                Filters
+                Reset
               </button>
               <button
                 type="button"
@@ -1118,35 +821,8 @@ export default function FeesPage() {
                     }
                   </select>
                 </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-500">
-                    Status
-                  </span>
-                  <select
-                    value={status}
-                    onChange={(event) =>
-                      setStatus(
-                        event.target.value
-                      )
-                    }
-                    className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
-                  >
-                    {
-                      statusTabs.map(
-                        (item) => (
-                          <option
-                            key={item}
-                            value={item}
-                          >
-                            {item} Status
-                          </option>
-                        )
-                      )
-                    }
-                  </select>
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-500">
+                <label className="flex items-center gap-3">
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-500">
                     Month / Year
                   </span>
                   <input
@@ -1157,7 +833,7 @@ export default function FeesPage() {
                         event.target.value
                       )
                     }
-                    className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                    className="h-11 w-full flex-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
                   />
                 </label>
                 <label className="space-y-1">
@@ -1256,14 +932,6 @@ export default function FeesPage() {
           }
         </div>
 
-        {
-          error && (
-            <p className="m-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
-              {error}
-            </p>
-          )
-        }
-
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[980px] text-left">
             <thead className="bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
@@ -1344,9 +1012,12 @@ export default function FeesPage() {
                             type="button"
                             disabled={!student.hasReceipt}
                             onClick={() =>
-                              setReceiptStudent(
-                                student
-                              )
+                              downloadReceipt({
+                                studentId:
+                                  student.id,
+                                paymentId:
+                                  student.lastPayment?.id,
+                              })
                             }
                             className="flex h-9 w-9 items-center justify-center rounded-xl text-red-500 disabled:text-slate-300"
                           >
@@ -1380,7 +1051,7 @@ export default function FeesPage() {
                 (student) => (
                   <article
                     key={student.id}
-                    className="rounded-2xl bg-white p-4 shadow-sm"
+                    className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
@@ -1394,33 +1065,25 @@ export default function FeesPage() {
                           </p>
                         </div>
                       </div>
-                      <span className={`${statusClass[student.status] || statusClass.Unpaid} shrink-0 rounded-full px-3 py-1 text-xs font-extrabold`}>
+                      <span className={`${statusClass[student.status] || statusClass.Unpaid} shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold`}>
                         {student.status}
                       </span>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
-                      <div>
-                        <p className="font-bold text-slate-400">Paid</p>
-                        <p className="mt-1 font-extrabold text-emerald-600">
-                          {formatCurrency(student.paidAmount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-400">Total</p>
-                        <p className="mt-1 font-extrabold text-slate-800">
-                          {formatCurrency(student.totalFees)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-400">Due</p>
-                        <p className="mt-1 font-extrabold text-red-600">
-                          {formatCurrency(student.dueAmount)}
-                        </p>
-                      </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold">
+                      <p className="text-emerald-600">
+                        Paid {formatCurrency(student.paidAmount)}
+                        <span className="text-slate-400"> / </span>
+                        <span className="text-slate-600">
+                          Total {formatCurrency(student.totalFees)}
+                        </span>
+                      </p>
+                      <p className="text-red-600">
+                        Due {formatCurrency(student.dueAmount)}
+                      </p>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
                       <p className="text-xs font-bold text-slate-500">
                         Last: {formatDate(student.lastPayment?.paidAt)}
                       </p>
@@ -1429,9 +1092,12 @@ export default function FeesPage() {
                           type="button"
                           disabled={!student.hasReceipt}
                           onClick={() =>
-                            setReceiptStudent(
-                              student
-                            )
+                            downloadReceipt({
+                              studentId:
+                                student.id,
+                              paymentId:
+                                student.lastPayment?.id,
+                            })
                           }
                           className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-red-500 disabled:text-slate-300"
                         >
@@ -1439,14 +1105,23 @@ export default function FeesPage() {
                         </button>
                         <button
                           type="button"
+                          title="View student"
                           onClick={() =>
-                            navigate(
-                              `/students/${student.id}`
-                            )
+                            handleViewStudent(student)
                           }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
                         >
-                          <ChevronRight size={18} />
+                          <Eye size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Save payment"
+                          onClick={() =>
+                            handleSavePayment(student)
+                          }
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
+                        >
+                          <WalletCards size={17} />
                         </button>
                       </div>
                     </div>
@@ -1523,18 +1198,15 @@ export default function FeesPage() {
         </div>
       </section>
 
-      <ReceiptModal
-        student={receiptStudent}
-        onClose={() =>
-          setReceiptStudent(null)
-        }
-      />
-      <PaymentModal
+      <RecordPaymentModal
+        open={Boolean(paymentStudent)}
         student={paymentStudent}
         onClose={() =>
           setPaymentStudent(null)
         }
         onSaved={refreshLedger}
+        onReceiptReady={downloadReceipt}
+        paymentModes={paymentModes}
       />
     </div>
   );

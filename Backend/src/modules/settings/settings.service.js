@@ -1,0 +1,996 @@
+import crypto from "crypto";
+
+import {
+  and,
+  asc,
+  eq,
+} from "drizzle-orm";
+
+import {
+  db,
+  sqlClient,
+} from "../../cors/database/DB.Connect.js";
+
+import {
+  principals,
+} from "../auth/auth.schema.js";
+
+import {
+  classesTable,
+} from "../../cors/schema/classes.schema.js";
+
+import {
+  sectionsTable,
+} from "../../cors/schema/sections.schema.js";
+
+import {
+  classFeesTable,
+} from "../../cors/schema/classFee.schema.js";
+
+import {
+  getClassCatalog,
+  getCurrentAcademicYear,
+  getPreviousAcademicYear,
+} from "../classes/class.catalog.js";
+
+import {
+  checkProfileCompletion,
+} from "../../cors/utils/profile.js";
+
+const settingsColumns = [
+  {
+    name: "city",
+    definition: "text",
+  },
+  {
+    name: "state",
+    definition: "text",
+  },
+  {
+    name: "district",
+    definition: "text",
+  },
+  {
+    name: "pin_code",
+    definition: "text",
+  },
+  {
+    name: "logo_url",
+    definition: "text",
+  },
+  {
+    name: "logo_file_id",
+    definition: "text",
+  },
+  {
+    name: "principal_signature_url",
+    definition: "text",
+  },
+  {
+    name: "principal_signature_file_id",
+    definition: "text",
+  },
+  {
+    name: "latitude",
+    definition: "integer",
+  },
+  {
+    name: "longitude",
+    definition: "integer",
+  },
+  {
+    name: "stamp_url",
+    definition: "text",
+  },
+  {
+    name: "stamp_file_id",
+    definition: "text",
+  },
+  {
+    name: "active_academic_year",
+    definition: "text",
+  },
+  {
+    name: "receipt_prefix",
+    definition: "text",
+  },
+  {
+    name: "receipt_qr",
+    definition: "integer",
+  },
+  {
+    name: "receipt_signature",
+    definition: "integer",
+  },
+  {
+    name: "receipt_stamp",
+    definition: "integer",
+  },
+  {
+    name: "receipt_footer",
+    definition: "text",
+  },
+  {
+    name: "payment_modes",
+    definition: "text",
+  },
+];
+
+const defaultReceiptSettings = {
+  prefix: "FB",
+  signature: true,
+  stamp: true,
+  footer:
+    "Thank you for your payment. This is a computer generated receipt.",
+};
+
+const defaultPaymentModes = [
+  "Cash",
+  "UPI",
+  "Bank Transfer",
+];
+
+export const ensureSettingsColumns =
+  async () => {
+    await sqlClient.execute(`
+      CREATE TABLE IF NOT EXISTS principals (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clerk_id text NOT NULL UNIQUE,
+        email text NOT NULL,
+        name text NOT NULL,
+        photo text,
+        school_name text,
+        school_address text,
+        city text,
+        state text,
+        district text,
+        pin_code text,
+        mobile text,
+        is_profile_complete integer DEFAULT false,
+        created_at integer,
+        logo_url text,
+        logo_file_id text,
+        principal_signature_url text,
+        principal_signature_file_id text,
+        stamp_url text,
+        stamp_file_id text,
+        active_academic_year text,
+        latitude integer,
+        longitude integer,
+        receipt_prefix text,
+        receipt_qr integer,
+        receipt_signature integer,
+        receipt_stamp integer,
+        receipt_footer text,
+        payment_modes text
+      )
+    `);
+
+    const result =
+      await sqlClient.execute(
+        "PRAGMA table_info(principals)"
+      );
+
+    const existing =
+      new Set(
+        result.rows.map(
+          (row) => row.name
+        )
+      );
+
+    for (const column of settingsColumns) {
+      if (!existing.has(column.name)) {
+        await sqlClient.execute(
+          `ALTER TABLE principals ADD COLUMN ${column.name} ${column.definition}`
+        );
+      }
+    }
+  };
+
+const emptyProfile =
+  (schoolId) => ({
+    clerkId:
+      schoolId,
+    email:
+      `${schoolId}@feesbook.local`,
+    name:
+      "Principal",
+    photo:
+      null,
+    schoolName:
+      null,
+    address:
+      null,
+    mobile:
+      null,
+    city:
+      null,
+    state:
+      null,
+    district:
+      null,
+    pinCode:
+      null,
+    logoUrl:
+      null,
+    logoFileId:
+      null,
+    principalSignatureUrl:
+      null,
+    principalSignatureFileId:
+      null,
+    stampUrl:
+      null,
+    stampFileId:
+      null,
+    activeAcademicYear:
+      getCurrentAcademicYear(),
+    latitude:
+      null,
+    longitude:
+      null,
+    receiptPrefix:
+      defaultReceiptSettings.prefix,
+    receiptSignature:
+      defaultReceiptSettings.signature,
+    receiptStamp:
+      defaultReceiptSettings.stamp,
+    receiptFooter:
+      defaultReceiptSettings.footer,
+    paymentModes:
+      JSON.stringify(
+        defaultPaymentModes
+      ),
+  });
+
+const normalizeProfile =
+  (principal) => ({
+    ...principal,
+    latitude:
+      principal.latitude === null ||
+      principal.latitude === undefined
+        ? null
+        : Number(principal.latitude) /
+          10000000,
+    longitude:
+      principal.longitude === null ||
+      principal.longitude === undefined
+        ? null
+        : Number(principal.longitude) /
+          10000000,
+    isProfileComplete:
+      checkProfileCompletion(
+        principal
+      ),
+  });
+
+export const getSchoolProfileService =
+  async ({ schoolId }) => {
+    const [principal] =
+      await db
+        .select()
+        .from(principals)
+        .where(
+          eq(
+            principals.clerkId,
+            schoolId
+          )
+        );
+
+    if (principal) {
+      return normalizeProfile(
+        principal
+      );
+    }
+
+    const [created] =
+      await db
+        .insert(principals)
+        .values(
+          emptyProfile(
+            schoolId
+          )
+        )
+        .returning();
+
+    return normalizeProfile(
+      created
+    );
+  };
+
+export const updateSchoolProfileService =
+  async ({
+    schoolId,
+    data,
+  }) => {
+    const profile =
+      await getSchoolProfileService({
+        schoolId,
+      });
+
+    const updates = {
+      ...data,
+    };
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        updates,
+        "latitude"
+      ) &&
+      updates.latitude !== null
+    ) {
+      updates.latitude =
+        Math.round(
+          Number(updates.latitude) *
+            10000000
+        );
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        updates,
+        "longitude"
+      ) &&
+      updates.longitude !== null
+    ) {
+      updates.longitude =
+        Math.round(
+          Number(updates.longitude) *
+            10000000
+        );
+    }
+
+    await db
+      .update(principals)
+      .set(updates)
+      .where(
+        eq(
+          principals.id,
+          profile.id
+        )
+      );
+
+    return getSchoolProfileService({
+      schoolId,
+    });
+  };
+
+const parsePaymentModes =
+  (value) => {
+    if (!value) {
+      return defaultPaymentModes;
+    }
+
+    try {
+      const parsed =
+        JSON.parse(value);
+
+      return Array.isArray(parsed) &&
+        parsed.length > 0
+        ? parsed
+        : defaultPaymentModes;
+    } catch {
+      return defaultPaymentModes;
+    }
+  };
+
+export const getSettingsPreferencesService =
+  async ({ schoolId }) => {
+    const profile =
+      await getSchoolProfileService({
+        schoolId,
+      });
+
+    return {
+      receipt: {
+        prefix:
+          profile.receiptPrefix ||
+          defaultReceiptSettings.prefix,
+        signature:
+          profile.receiptSignature ??
+          defaultReceiptSettings.signature,
+        stamp:
+          profile.receiptStamp ??
+          defaultReceiptSettings.stamp,
+        footer:
+          profile.receiptFooter ||
+          defaultReceiptSettings.footer,
+      },
+      paymentModes:
+        parsePaymentModes(
+          profile.paymentModes
+        ),
+    };
+  };
+
+export const updateSettingsPreferencesService =
+  async ({
+    schoolId,
+    data,
+  }) => {
+    const profile =
+      await getSchoolProfileService({
+        schoolId,
+      });
+    const updates = {};
+
+    if (data.receipt) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          data.receipt,
+          "prefix"
+        )
+      ) {
+        updates.receiptPrefix =
+          data.receipt.prefix;
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          data.receipt,
+          "signature"
+        )
+      ) {
+        updates.receiptSignature =
+          data.receipt.signature;
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          data.receipt,
+          "stamp"
+        )
+      ) {
+        updates.receiptStamp =
+          data.receipt.stamp;
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          data.receipt,
+          "footer"
+        )
+      ) {
+        updates.receiptFooter =
+          data.receipt.footer;
+      }
+    }
+
+    if (data.paymentModes) {
+      updates.paymentModes =
+        JSON.stringify(
+          data.paymentModes
+        );
+    }
+
+    if (
+      Object.keys(updates)
+        .length > 0
+    ) {
+      await db
+        .update(principals)
+        .set(updates)
+        .where(
+          eq(
+            principals.id,
+            profile.id
+          )
+        );
+    }
+
+    return getSettingsPreferencesService({
+      schoolId,
+    });
+  };
+
+export const getActiveAcademicYearService =
+  async ({ schoolId }) => {
+    const profile =
+      await getSchoolProfileService({
+        schoolId,
+      });
+
+    return (
+      profile.activeAcademicYear ||
+      getCurrentAcademicYear()
+    );
+  };
+
+export const getAcademicYearsService =
+  async ({ schoolId }) => {
+    const activeAcademicYear =
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+
+    const classes =
+      await db
+        .select()
+        .from(classesTable)
+        .where(
+          eq(
+            classesTable.schoolId,
+            schoolId
+          )
+        )
+        .orderBy(
+          asc(
+            classesTable.academicYear
+          )
+        );
+
+    const years =
+      [
+        ...new Set(
+          classes.map(
+            (singleClass) =>
+              singleClass.academicYear
+          )
+        ),
+      ]
+        .filter(Boolean)
+        .sort()
+        .reverse();
+
+    if (
+      !years.includes(
+        activeAcademicYear
+      )
+    ) {
+      years.unshift(
+        activeAcademicYear
+      );
+    }
+
+    return {
+      activeAcademicYear,
+      currentAcademicYear:
+        getCurrentAcademicYear(),
+      previousAcademicYear:
+        getPreviousAcademicYear(
+          activeAcademicYear
+        ),
+      years:
+        years.map((year) => {
+          const yearClasses =
+            classes.filter(
+              (singleClass) =>
+                singleClass.academicYear ===
+                year
+            );
+
+          return {
+            year,
+            isActive:
+              year ===
+              activeAcademicYear,
+            classes:
+              yearClasses.length,
+            archivedClasses:
+              yearClasses.filter(
+                (singleClass) =>
+                  singleClass.isArchived
+              ).length,
+          };
+        }),
+    };
+  };
+
+const ensureAcademicYearStructure =
+  async ({
+    schoolId,
+    fromAcademicYear,
+    targetAcademicYear,
+  }) => {
+    const sourceClasses =
+      await db
+        .select()
+        .from(classesTable)
+        .where(
+          and(
+            eq(
+              classesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classesTable.academicYear,
+              fromAcademicYear
+            )
+          )
+        );
+
+    const existingClasses =
+      await db
+        .select()
+        .from(classesTable)
+        .where(
+          and(
+            eq(
+              classesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classesTable.academicYear,
+              targetAcademicYear
+            )
+          )
+        );
+
+    const targetByName =
+      new Map(
+        existingClasses.map(
+          (singleClass) => [
+            singleClass.name,
+            singleClass,
+          ]
+        )
+      );
+
+    const sourceByName =
+      new Map(
+        sourceClasses.map(
+          (singleClass) => [
+            singleClass.name,
+            singleClass,
+          ]
+        )
+      );
+
+    let createdClasses = 0;
+    let copiedSections = 0;
+    let copiedFees = 0;
+
+    for (const catalogClass of getClassCatalog(
+      targetAcademicYear
+    )) {
+      if (
+        !targetByName.has(
+          catalogClass.name
+        )
+      ) {
+        const newClass = {
+          id:
+            crypto.randomUUID(),
+          schoolId,
+          name:
+            catalogClass.name,
+          sequence:
+            catalogClass.sequence,
+          academicYear:
+            catalogClass.academicYear,
+          isArchived:
+            false,
+          createdAt:
+            Date.now(),
+        };
+
+        await db
+          .insert(classesTable)
+          .values(newClass);
+        targetByName.set(
+          newClass.name,
+          newClass
+        );
+        createdClasses += 1;
+      }
+    }
+
+    for (const [
+      className,
+      sourceClass,
+    ] of sourceByName) {
+      const targetClass =
+        targetByName.get(
+          className
+        );
+
+      if (!targetClass) {
+        continue;
+      }
+
+      const [
+        sourceSections,
+        targetSections,
+        sourceFees,
+        targetFees,
+      ] =
+        await Promise.all([
+          db
+            .select()
+            .from(sectionsTable)
+            .where(
+              and(
+                eq(
+                  sectionsTable.schoolId,
+                  schoolId
+                ),
+                eq(
+                  sectionsTable.classId,
+                  sourceClass.id
+                ),
+                eq(
+                  sectionsTable.isArchived,
+                  false
+                )
+              )
+            ),
+          db
+            .select()
+            .from(sectionsTable)
+            .where(
+              and(
+                eq(
+                  sectionsTable.schoolId,
+                  schoolId
+                ),
+                eq(
+                  sectionsTable.classId,
+                  targetClass.id
+                )
+              )
+            ),
+          db
+            .select()
+            .from(classFeesTable)
+            .where(
+              and(
+                eq(
+                  classFeesTable.schoolId,
+                  schoolId
+                ),
+                eq(
+                  classFeesTable.classId,
+                  sourceClass.id
+                ),
+                eq(
+                  classFeesTable.isArchived,
+                  false
+                )
+              )
+            ),
+          db
+            .select()
+            .from(classFeesTable)
+            .where(
+              and(
+                eq(
+                  classFeesTable.schoolId,
+                  schoolId
+                ),
+                eq(
+                  classFeesTable.classId,
+                  targetClass.id
+                )
+              )
+            ),
+        ]);
+
+      const targetSectionNames =
+        new Set(
+          targetSections.map(
+            (section) =>
+              section.name
+          )
+        );
+
+      for (const sourceSection of sourceSections) {
+        if (
+          targetSectionNames.has(
+            sourceSection.name
+          )
+        ) {
+          continue;
+        }
+
+        await db
+          .insert(sectionsTable)
+          .values({
+            id:
+              crypto.randomUUID(),
+            schoolId,
+            classId:
+              targetClass.id,
+            name:
+              sourceSection.name,
+            isArchived:
+              false,
+            createdAt:
+              Date.now(),
+          });
+        copiedSections += 1;
+      }
+
+      const targetFeeTypeIds =
+        new Set(
+          targetFees.map(
+            (fee) =>
+              fee.feeTypeId
+          )
+        );
+
+      for (const sourceFee of sourceFees) {
+        if (
+          targetFeeTypeIds.has(
+            sourceFee.feeTypeId
+          )
+        ) {
+          continue;
+        }
+
+        await db
+          .insert(classFeesTable)
+          .values({
+            id:
+              crypto.randomUUID(),
+            schoolId,
+            classId:
+              targetClass.id,
+            feeTypeId:
+              sourceFee.feeTypeId,
+            amount:
+              sourceFee.amount,
+            isDefault:
+              sourceFee.isDefault,
+            isArchived:
+              false,
+          });
+        copiedFees += 1;
+      }
+    }
+
+    return {
+      createdClasses,
+      copiedSections,
+      copiedFees,
+    };
+  };
+
+export const createAcademicYearService =
+  async ({
+    schoolId,
+    data,
+  }) => {
+    const fromAcademicYear =
+      data.fromAcademicYear ||
+      getPreviousAcademicYear(
+        data.year
+      );
+
+    const setup =
+      await ensureAcademicYearStructure({
+        schoolId,
+        fromAcademicYear,
+        targetAcademicYear:
+          data.year,
+      });
+
+    await updateSchoolProfileService({
+      schoolId,
+      data: {
+        activeAcademicYear:
+          data.year,
+      },
+    });
+
+    const {
+      bulkPromoteStudentsService,
+    } =
+      await import(
+        "../students/students.service.js"
+      );
+
+    const promotion =
+      await bulkPromoteStudentsService({
+        schoolId,
+        data: {
+          fromAcademicYear,
+          targetAcademicYear:
+            data.year,
+          note:
+            data.note ||
+            "Academic year promotion from Settings",
+        },
+      });
+
+    if (data.archiveOldYear) {
+      await archiveAcademicYearService({
+        schoolId,
+        year:
+          fromAcademicYear,
+        archived: true,
+      });
+    }
+
+    return {
+      year:
+        data.year,
+      fromAcademicYear,
+      ...setup,
+      promotion,
+    };
+  };
+
+export const setActiveAcademicYearService =
+  async ({
+    schoolId,
+    year,
+  }) =>
+    updateSchoolProfileService({
+      schoolId,
+      data: {
+        activeAcademicYear:
+          year,
+      },
+    });
+
+export const archiveAcademicYearService =
+  async ({
+    schoolId,
+    year,
+    archived,
+  }) => {
+    await db
+      .update(classesTable)
+      .set({
+        isArchived:
+          Boolean(archived),
+      })
+      .where(
+        and(
+          eq(
+            classesTable.schoolId,
+            schoolId
+          ),
+          eq(
+            classesTable.academicYear,
+            year
+          )
+        )
+      );
+
+    const yearClasses =
+      await db
+        .select()
+        .from(classesTable)
+        .where(
+          and(
+            eq(
+              classesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classesTable.academicYear,
+              year
+            )
+          )
+        );
+
+    for (const singleClass of yearClasses) {
+      await db
+        .update(sectionsTable)
+        .set({
+          isArchived:
+            Boolean(archived),
+        })
+        .where(
+          and(
+            eq(
+              sectionsTable.schoolId,
+              schoolId
+            ),
+            eq(
+              sectionsTable.classId,
+              singleClass.id
+            )
+          )
+        );
+    }
+
+    return {
+      year,
+      archived:
+        Boolean(archived),
+      classes:
+        yearClasses.length,
+    };
+  };

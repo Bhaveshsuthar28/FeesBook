@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   Edit3,
+  Image,
   LoaderCircle,
   MessageCircle,
   Phone,
@@ -26,12 +27,18 @@ import {
   useParams,
 } from "react-router-dom";
 
+import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
+
 import {
+  getImageKitAuth,
   getStudentDetail,
-  recordStudentPayment,
   updateStudent,
   updateStudentFee,
 } from "../lib/api/studentapi.js";
+
+import {
+  notify,
+} from "../lib/toast.js";
 
 const emptyStudentForm = {
   schoolRegisterNo: "",
@@ -318,9 +325,9 @@ function EditStudentModal({
     setSaving,
   ] = useState(false);
   const [
-    error,
-    setError,
-  ] = useState("");
+    photoUploading,
+    setPhotoUploading,
+  ] = useState(false);
 
   const update =
     (field, value) =>
@@ -329,24 +336,82 @@ function EditStudentModal({
         [field]: value,
       }));
 
+  const uploadPhoto =
+    async (file) => {
+      if (!file) {
+        return;
+      }
+
+      try {
+        setPhotoUploading(true);
+        const auth =
+          await getImageKitAuth();
+
+        const body =
+          new FormData();
+
+        body.append("file", file);
+        body.append("fileName", file.name);
+        body.append("publicKey", auth.publicKey);
+        body.append("signature", auth.signature);
+        body.append("expire", auth.expire);
+        body.append("token", auth.token);
+        body.append("folder", "/feesbook/students");
+
+        const response =
+          await fetch(
+            "https://upload.imagekit.io/api/v1/files/upload",
+            {
+              method: "POST",
+              body,
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Photo upload failed"
+          );
+        }
+
+        const uploaded =
+          await response.json();
+
+        setForm((current) => ({
+          ...current,
+          photoUrl:
+            uploaded.url || "",
+          photoFileId:
+            uploaded.fileId || "",
+        }));
+      } catch (uploadError) {
+        notify.error(
+          uploadError,
+          "Photo could not be uploaded"
+        );
+      } finally {
+        setPhotoUploading(false);
+      }
+    };
+
   const save =
     async () => {
       try {
         setSaving(true);
-        setError("");
         const result =
           await updateStudent({
             studentId:
               detail.student.id,
             data: form,
           });
+        notify.success(
+          "Student updated successfully"
+        );
         onSaved(result);
         onClose();
       } catch (requestError) {
-        setError(
-          requestError.response?.data?.message ||
-            requestError.message ||
-            "Student could not be updated"
+        notify.error(
+          requestError,
+          "Student could not be updated"
         );
       } finally {
         setSaving(false);
@@ -382,16 +447,45 @@ function EditStudentModal({
           <InputField label="Admission date" type="date" value={toInputDate(form.admissionDate)} onChange={(value) => update("admissionDate", fromInputDate(value))} />
           <InputField label="Aadhar no" value={form.aadharNo || ""} onChange={(value) => update("aadharNo", value)} />
           <InputField label="Aadhar verification" value={form.aadharVerificationStatus || ""} onChange={(value) => update("aadharVerificationStatus", value)} />
-          <InputField label="Photo URL" value={form.photoUrl || ""} onChange={(value) => update("photoUrl", value)} />
-          <InputField label="Photo file ID" value={form.photoFileId || ""} onChange={(value) => update("photoFileId", value)} />
-        </div>
-        {
-          error && (
-            <div className="mx-5 mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              {error}
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="text-xs font-bold text-slate-600">Student photo</span>
+            <div className="flex flex-wrap items-center gap-4">
+              {
+                form.photoUrl ? (
+                  <img
+                    src={form.photoUrl}
+                    alt="Student"
+                    className="h-16 w-16 rounded-xl border border-slate-200 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-xs font-semibold text-slate-500">
+                    No photo
+                  </div>
+                )
+              }
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-medium text-slate-600 hover:border-blue-300 hover:text-blue-700">
+                {
+                  photoUploading ? (
+                    <LoaderCircle size={16} className="animate-spin" />
+                  ) : (
+                    <Image size={16} />
+                  )
+                }
+                {form.photoUrl ? "Change photo" : "Upload from computer"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) =>
+                    uploadPhoto(
+                      event.target.files?.[0]
+                    )
+                  }
+                />
+              </label>
             </div>
-          )
-        }
+          </label>
+        </div>
         <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700">
             Cancel
@@ -399,133 +493,6 @@ function EditStudentModal({
           <button type="button" onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-300">
             {saving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
             Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PaymentModal({
-  detail,
-  onClose,
-  onSaved,
-}) {
-  const unpaidFees =
-    detail.fees.filter(
-      (fee) =>
-        Number(fee.dueAmount || 0) >
-        0
-    );
-  const [
-    form,
-    setForm,
-  ] = useState({
-    studentFeeId:
-      unpaidFees[0]?.id || "",
-    amount: "",
-    paidAt:
-      new Date()
-        .toISOString()
-        .slice(0, 10),
-    note: "",
-  });
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  const selectedFee =
-    unpaidFees.find(
-      (fee) =>
-        fee.id ===
-        form.studentFeeId
-    );
-
-  const save =
-    async () => {
-      try {
-        setSaving(true);
-        setError("");
-        const result =
-          await recordStudentPayment({
-            studentId:
-              detail.student.id,
-            data: {
-              studentFeeId:
-                form.studentFeeId,
-              amount:
-                Number(form.amount),
-              paidAt:
-                new Date(
-                  form.paidAt
-                ).getTime(),
-              note:
-                form.note,
-            },
-          });
-        onSaved(result);
-        onClose();
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.message ||
-            requestError.message ||
-            "Payment could not be recorded"
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-lg font-extrabold text-slate-950">Record Payment</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">This creates a real dated payment record.</p>
-        </div>
-        <div className="space-y-4 px-5 py-5">
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold text-slate-600">Fee item</span>
-            <select
-              value={form.studentFeeId}
-              onChange={(event) => setForm((current) => ({ ...current, studentFeeId: event.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-            >
-              {
-                unpaidFees.map((fee) => (
-                  <option key={fee.id} value={fee.id}>
-                    {fee.feeTypeName} - remaining {formatCurrency(fee.dueAmount)}
-                  </option>
-                ))
-              }
-            </select>
-          </label>
-          <InputField label="Amount" type="number" value={form.amount} onChange={(value) => setForm((current) => ({ ...current, amount: value }))} />
-          <InputField label="Payment date" type="date" value={form.paidAt} onChange={(value) => setForm((current) => ({ ...current, paidAt: value }))} />
-          <InputField label="Note" value={form.note} onChange={(value) => setForm((current) => ({ ...current, note: value }))} />
-          <div className="rounded-xl bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
-            Available remaining balance: {formatCurrency(selectedFee?.dueAmount || 0)}
-          </div>
-        </div>
-        {
-          error && (
-            <div className="mx-5 mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              {error}
-            </div>
-          )
-        }
-        <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700">
-            Cancel
-          </button>
-          <button type="button" onClick={save} disabled={saving || !form.studentFeeId || !Number(form.amount)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-300">
-            {saving ? <LoaderCircle size={16} className="animate-spin" /> : <CreditCard size={16} />}
-            Record
           </button>
         </div>
       </div>
@@ -737,6 +704,14 @@ export default function StudentDetailsPage() {
       `conic-gradient(#10b981 0 ${stats.paidPercent}%, #f97316 ${stats.paidPercent}% 100%)`,
   };
 
+  const hasUnpaidFees =
+    fees.some(
+      (fee) =>
+        Number(
+          fee.dueAmount || 0
+        ) > 0
+    );
+
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-5 pb-24 lg:pb-0">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -784,7 +759,19 @@ export default function StudentDetailsPage() {
               <Edit3 size={17} />
               Edit Student
             </button>
-            <button type="button" onClick={() => setShowPayment(true)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <button
+              type="button"
+              disabled={!hasUnpaidFees}
+              title={
+                hasUnpaidFees
+                  ? "Record payment"
+                  : "No pending fees to record"
+              }
+              onClick={() =>
+                setShowPayment(true)
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <CreditCard size={17} />
               Record Payment
             </button>
@@ -1023,15 +1010,16 @@ export default function StudentDetailsPage() {
         )
       }
 
-      {
-        showPayment && (
-          <PaymentModal
-            detail={detail}
-            onClose={() => setShowPayment(false)}
-            onSaved={setDetail}
-          />
-        )
-      }
+      <RecordPaymentModal
+        open={showPayment}
+        detail={detail}
+        onClose={() =>
+          setShowPayment(false)
+        }
+        onSaved={setDetail}
+        showPaidAt
+        showNote
+      />
     </div>
   );
 }

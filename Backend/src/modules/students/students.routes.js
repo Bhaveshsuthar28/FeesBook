@@ -3,6 +3,7 @@ import {
   bulkPromoteStudentsController,
   getFeesLedgerController,
   getImageKitAuthController,
+  getStudentPaymentReceiptPdfController,
   getStudentDirectoryController,
   getStudentDetailController,
   getStudentsBySectionController,
@@ -86,5 +87,10 @@ export default async function (
   fastify.post(
     "/:studentId/payments",
     recordStudentPaymentController
+  );
+
+  fastify.get(
+    "/:studentId/payments/:paymentId/receipt.pdf",
+    getStudentPaymentReceiptPdfController
   );
 }

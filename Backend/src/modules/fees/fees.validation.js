@@ -11,6 +11,13 @@ export const createFeeTypeSchema =
     defaultAmount:
       z.number().positive(),
 
+    frequency:
+      z.enum([
+        "Monthly",
+        "Quarterly",
+        "Yearly",
+      ]).optional(),
+
     isOptional:
       z.boolean(),
   });
@@ -35,3 +42,28 @@ export const assignFeeToClassSchema =
 
 export const updateClassFeeSchema =
   assignFeeToClassSchema.partial();
+
+export const archiveSchema =
+  z.object({
+    isArchived:
+      z.boolean().optional(),
+  });
+
+export const allocateClassFeesSchema =
+  z.object({
+    classId:
+      z.string().min(1),
+
+    sectionId:
+      z.string().min(1).optional(),
+
+    studentIds:
+      z.array(
+        z.string().min(1)
+      ).optional(),
+
+    feeTypeIds:
+      z.array(
+        z.string().min(1)
+      ).min(1),
+  });

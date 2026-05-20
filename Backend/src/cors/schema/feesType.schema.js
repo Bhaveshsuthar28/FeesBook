@@ -24,6 +24,9 @@ export const feeTypesTable =
         "default_amount"
       ).notNull(),
 
+      frequency: text("frequency")
+        .default("Yearly"),
+
       isOptional: integer(
         "is_optional",
         {

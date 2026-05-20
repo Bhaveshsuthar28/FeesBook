@@ -470,15 +470,7 @@ export default function ClassTable({
                                       />
                                     </button>
 
-                                    <button
-                                      className="
-                                        text-blue-600
-                                      "
-                                    >
-                                      <Pencil
-                                        size={18}
-                                      />
-                                    </button>
+                                    
 
                                     <button
                                       disabled={isBusy}

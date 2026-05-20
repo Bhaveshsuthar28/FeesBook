@@ -36,6 +36,15 @@ export const studentPaymentsTable =
         text("payment_mode")
           .default("Cash"),
 
+      receiptNo:
+        text("receipt_no"),
+
+      receiptSequence:
+        integer("receipt_sequence"),
+
+      receiptAcademicYear:
+        text("receipt_academic_year"),
+
       paidAt:
         integer("paid_at")
           .notNull(),
