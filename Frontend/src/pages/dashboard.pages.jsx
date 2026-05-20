@@ -8,6 +8,10 @@ import {
   useState,
 } from "react";
 
+import {
+  useReducedMotion,
+} from "framer-motion";
+
 import Sidebar
   from "../components/layout/sidebar/sidebar.jsx";
 
@@ -25,17 +29,14 @@ export default function DashboardLayout() {
     setIsCollapsed,
   ] = useState(false);
 
-  const [
-    isMobileSidebarOpen,
-
-    setIsMobileSidebarOpen,
-  ] = useState(false);
+  const prefersReducedMotion =
+    useReducedMotion();
 
   return (
     <div
       className="
         min-h-screen
-        bg-slate-100
+        bg-[#F8F9FA]
       "
     >
 
@@ -44,11 +45,7 @@ export default function DashboardLayout() {
         setIsCollapsed={setIsCollapsed}
       />
 
-      <MobileHeader
-        setIsMobileSidebarOpen={
-          setIsMobileSidebarOpen
-        }
-      />
+      <MobileHeader />
 
       <main
         className={`
@@ -59,8 +56,13 @@ export default function DashboardLayout() {
 
           pb-[90px]
 
-          transition-all
-          duration-300
+          md:pb-6
+
+          ${
+            prefersReducedMotion
+              ? ""
+              : "transition-[margin] duration-[380ms] ease-out"
+          }
 
           ${
             isCollapsed

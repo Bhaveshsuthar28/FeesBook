@@ -14,6 +14,10 @@ import {
   unarchiveSection,
 } from "../../lib/api/sectionapi.js";
 
+import {
+  notify,
+} from "../../lib/toast.js";
+
 export default function AddSectionModal({
   selectedClass,
   sectionCatalog,
@@ -71,7 +75,10 @@ export default function AddSectionModal({
         await onRefresh();
         onClose();
       } catch (error) {
-        console.log(error);
+        notify.error(
+          error,
+          "Section could not be created"
+        );
       } finally {
         setActionKey("");
       }
@@ -98,7 +105,10 @@ export default function AddSectionModal({
         await onRefresh();
         onClose();
       } catch (error) {
-        console.log(error);
+        notify.error(
+          error,
+          "Section could not be restored"
+        );
       } finally {
         setActionKey("");
       }
@@ -106,6 +116,15 @@ export default function AddSectionModal({
 
   return (
     <div
+      role="presentation"
+      onClick={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
       className="
         fixed
         inset-0
@@ -120,6 +139,12 @@ export default function AddSectionModal({
       "
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-section-title"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
         className="
           w-full
           max-w-xl
@@ -145,6 +170,7 @@ export default function AddSectionModal({
         >
           <div>
             <h2
+              id="add-section-title"
               className="
                 text-lg
                 font-bold

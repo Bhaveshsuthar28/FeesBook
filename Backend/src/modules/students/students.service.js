@@ -1,7 +1,5 @@
 import crypto from "crypto";
 import XLSX from "xlsx";
-import { jsPDF } from "jspdf";
-
 import {
   db,
   sqlClient,
@@ -19,6 +17,10 @@ import {
 import {
   studentPaymentsTable,
 } from "../../cors/schema/studentPayments.schema.js";
+
+import {
+  studentFeeConcessionsTable,
+} from "../../cors/schema/studentFeeConcession.schema.js";
 
 import {
   classesTable,
@@ -55,6 +57,27 @@ import {
   getSchoolProfileService,
 } from "../settings/settings.service.js";
 
+import {
+  classFeesTable,
+} from "../../cors/schema/classFee.schema.js";
+
+import {
+  allocateClassFeesService,
+  assertClassHasFeeStructure,
+} from "../fees/fees.service.js";
+
+import {
+  buildReceiptFileName,
+} from "./receipt/receiptFormatters.js";
+import {
+  buildPaymentReceiptViewModel,
+} from "./receipt/receiptViewModel.js";
+import {
+  generateReceiptPdf,
+} from "./receipt/generateReceiptPdf.js";
+import {
+  renderReceiptHtml,
+} from "./receipt/receiptTemplate.js";
 import {
   createStudentSchema,
   bulkPromoteStudentsSchema,
@@ -232,12 +255,15 @@ const makePaymentStatus =
   ({
     pendingFees,
     collectedFees,
+    totalFees,
   }) =>
-    pendingFees === 0
-      ? "Paid"
-      : collectedFees > 0
-        ? "Partial"
-        : "Pending";
+    totalFees === 0
+      ? "Pending"
+      : pendingFees === 0
+        ? "Paid"
+        : collectedFees > 0
+          ? "Partial"
+          : "Pending";
 
 const makeFeeStatus =
   ({
@@ -484,7 +510,7 @@ const ensureAcademicYearStructure =
           academicYear:
             catalogClass.academicYear,
           createdAt:
-            Date.now(),
+            new Date(),
         };
 
         await db
@@ -595,7 +621,7 @@ const ensureAcademicYearStructure =
             isArchived:
               false,
             createdAt:
-              Date.now(),
+              new Date(),
           });
         targetSectionNames.add(
           sourceSection.name
@@ -779,20 +805,57 @@ const numberToWords =
     return `Rupees ${parts.join(" ")} Only`;
   };
 
+const getCalendarYear =
+  () => {
+    const parts =
+      new Intl.DateTimeFormat(
+        "en-IN",
+        {
+          timeZone:
+            "Asia/Kolkata",
+          year: "numeric",
+        }
+      ).formatToParts(
+        new Date()
+      );
+
+    const yearPart =
+      parts.find(
+        (part) =>
+          part.type === "year"
+      );
+
+    return (
+      yearPart?.value ||
+      String(
+        new Date().getFullYear()
+      )
+    );
+  };
+
 const getNextReceiptMeta =
   async ({
     schoolId,
     schoolName,
-    academicYear,
   }) => {
-    const counterId =
-      `${schoolId}:${academicYear}`;
+    const profile =
+      await getSchoolProfileService({
+        schoolId,
+      });
+    const prefix =
+      clean(
+        profile.receiptPrefix
+      ) ||
+      makeSchoolCode(schoolName);
+    const calendarYear =
+      getCalendarYear();
+    const counterId = `${schoolId}:${calendarYear}`;
     const result =
       await sqlClient.execute({
         sql:
           `INSERT INTO receipt_counters (id, school_id, academic_year, last_sequence, updated_at)
            VALUES (?, ?, ?, 1, ?)
-           ON CONFLICT(school_id, academic_year)
+           ON CONFLICT(id)
            DO UPDATE SET
              last_sequence = receipt_counters.last_sequence + 1,
              updated_at = excluded.updated_at
@@ -800,7 +863,7 @@ const getNextReceiptMeta =
         args: [
           counterId,
           schoolId,
-          academicYear,
+          calendarYear,
           Date.now(),
         ],
       });
@@ -810,73 +873,15 @@ const getNextReceiptMeta =
           1
       );
 
-    const receiptNo =
-      `${makeSchoolCode(schoolName)}/${academicYear}/${String(nextSequence).padStart(6, "0")}`;
+    const receiptNo = `${prefix}/${calendarYear}/${String(nextSequence).padStart(6, "0")}`;
 
     return {
       receiptNo,
       receiptSequence:
         nextSequence,
       receiptAcademicYear:
-        academicYear,
+        calendarYear,
     };
-  };
-
-const getImageDataUrl =
-  async (url) => {
-    if (!url) {
-      return null;
-    }
-
-    try {
-      const response =
-        await fetch(url);
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "image/png";
-      const buffer =
-        Buffer.from(
-          await response.arrayBuffer()
-        );
-
-      return {
-        dataUrl:
-          `data:${contentType};base64,${buffer.toString("base64")}`,
-        format:
-          contentType.includes("jpeg") ||
-          contentType.includes("jpg")
-            ? "JPEG"
-            : "PNG",
-      };
-    } catch {
-      return null;
-    }
-  };
-
-const drawWrappedText =
-  ({
-    doc,
-    text,
-    x,
-    y,
-    maxWidth,
-    lineHeight = 5,
-  }) => {
-    const lines =
-      doc.splitTextToSize(
-        String(text || ""),
-        maxWidth
-      );
-
-    doc.text(lines, x, y);
-
-    return y + lines.length * lineHeight;
   };
 
 export const ensureStudentLifecycleColumns =
@@ -962,6 +967,14 @@ export const ensureStudentLifecycleColumns =
       [
         "receipt_academic_year",
         "ALTER TABLE student_payments ADD receipt_academic_year text",
+      ],
+      [
+        "remark",
+        "ALTER TABLE student_payments ADD remark text",
+      ],
+      [
+        "transaction_ref",
+        "ALTER TABLE student_payments ADD transaction_ref text",
       ],
     ];
 
@@ -1276,6 +1289,12 @@ const createStudentRecord =
         data.sectionId,
     });
 
+    await assertClassHasFeeStructure({
+      schoolId,
+      classId:
+        data.classId,
+    });
+
     const schoolRegisterNo =
       clean(
         data.schoolRegisterNo
@@ -1369,7 +1388,70 @@ const createStudentRecord =
       .insert(studentsTable)
       .values(student);
 
+    await allocateMandatoryFeesForStudent({
+      schoolId,
+      student,
+    });
+
     return student;
+  };
+
+const allocateMandatoryFeesForStudent =
+  async ({
+    schoolId,
+    student,
+  }) => {
+    const mandatoryClassFees =
+      await db
+        .select({
+          feeTypeId:
+            classFeesTable.feeTypeId,
+        })
+        .from(classFeesTable)
+        .where(
+          and(
+            eq(
+              classFeesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classFeesTable.classId,
+              student.classId
+            ),
+            eq(
+              classFeesTable.isDefault,
+              true
+            ),
+            eq(
+              classFeesTable.isArchived,
+              false
+            )
+          )
+        );
+
+    const feeTypeIds =
+      mandatoryClassFees.map(
+        (fee) =>
+          fee.feeTypeId
+      );
+
+    if (
+      feeTypeIds.length === 0
+    ) {
+      return;
+    }
+
+    await allocateClassFeesService({
+      schoolId,
+      data: {
+        classId:
+          student.classId,
+        studentIds: [
+          student.id,
+        ],
+        feeTypeIds,
+      },
+    });
   };
 
 export const createStudentService =
@@ -1452,6 +1534,15 @@ export const getStudentsBySectionService =
                       0
                     )
                   `,
+                total:
+                  sql`
+                    coalesce(
+                      sum(
+                        ${studentFeesTable.amount}
+                      ),
+                      0
+                    )
+                  `,
               })
               .from(
                 studentFeesTable
@@ -1481,10 +1572,17 @@ export const getStudentsBySectionService =
                 ?.collected || 0
             );
 
+          const totalFees =
+            Number(
+              feeSummary[0]
+                ?.total || 0
+            );
+
           const paymentStatus =
             makePaymentStatus({
               pendingFees,
               collectedFees,
+              totalFees,
             });
 
           return {
@@ -1791,6 +1889,7 @@ export const getStudentDirectoryService =
                 makePaymentStatus({
                   pendingFees,
                   collectedFees,
+                  totalFees,
                 }),
               publicStatus:
                 (student.status ||
@@ -2090,6 +2189,37 @@ export const getFeesLedgerService =
       normalizeFeesLedgerQuery(query);
     const monthWindow =
       getMonthWindow(monthYear);
+    const activeAcademicYear =
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+    const concessionRows =
+      await db
+        .select()
+        .from(
+          studentFeeConcessionsTable
+        )
+        .where(
+          and(
+            eq(
+              studentFeeConcessionsTable.schoolId,
+              schoolId
+            ),
+            eq(
+              studentFeeConcessionsTable.academicYear,
+              activeAcademicYear
+            )
+          )
+        );
+    const concessionByStudent =
+      new Map(
+        concessionRows.map(
+          (row) => [
+            row.studentId,
+            row,
+          ]
+        )
+      );
     const allStudents =
       await db
         .select()
@@ -2197,8 +2327,47 @@ export const getFeesLedgerService =
                     )
                   ),
               ]);
+            const enrichedFees =
+              await Promise.all(
+                fees.map(
+                  async (fee) => {
+                    const [feeType] =
+                      await db
+                        .select()
+                        .from(
+                          feeTypesTable
+                        )
+                        .where(
+                          and(
+                            eq(
+                              feeTypesTable.id,
+                              fee.feeTypeId
+                            ),
+                            eq(
+                              feeTypesTable.schoolId,
+                              schoolId
+                            )
+                          )
+                        );
+
+                    return {
+                      ...fee,
+                      feeTypeName:
+                        feeType?.name ||
+                        "Fee",
+                      grossAmount:
+                        fee.grossAmount,
+                      concessionAmount:
+                        Number(
+                          fee.concessionAmount ||
+                            0
+                        ),
+                    };
+                  }
+                )
+              );
             const totalFees =
-              fees.reduce(
+              enrichedFees.reduce(
                 (sum, fee) =>
                   sum +
                   Number(
@@ -2207,7 +2376,7 @@ export const getFeesLedgerService =
                 0
               );
             const paidAmount =
-              fees.reduce(
+              enrichedFees.reduce(
                 (sum, fee) =>
                   sum +
                   Number(
@@ -2216,7 +2385,7 @@ export const getFeesLedgerService =
                 0
               );
             const dueAmount =
-              fees.reduce(
+              enrichedFees.reduce(
                 (sum, fee) =>
                   sum +
                   Number(
@@ -2244,11 +2413,13 @@ export const getFeesLedgerService =
               selectedMonthPayments
                 .length > 0;
             const baseStatus =
-              dueAmount === 0
-                ? "Paid"
-                : paidAmount > 0
-                  ? "Partial"
-                  : "Unpaid";
+              totalFees === 0
+                ? "Unpaid"
+                : dueAmount === 0
+                  ? "Paid"
+                  : paidAmount > 0
+                    ? "Partial"
+                    : "Unpaid";
             const ledgerStatus =
               dueAmount > 0 &&
               monthWindow &&
@@ -2257,15 +2428,53 @@ export const getFeesLedgerService =
                 : baseStatus;
             const normalizedPayments =
               payments.map(
-                (payment) => ({
-                  ...payment,
-                  paymentMode:
-                    payment.paymentMode ||
-                    "Cash",
-                })
+                (payment) => {
+                  const linkedFee =
+                    enrichedFees.find(
+                      (fee) =>
+                        fee.id ===
+                        payment.studentFeeId
+                    );
+
+                  return {
+                    id: payment.id,
+                    amount:
+                      Number(
+                        payment.amount ||
+                          0
+                      ),
+                    paidAt:
+                      payment.paidAt,
+                    paymentMode:
+                      payment.paymentMode ||
+                      "Cash",
+                    receiptNo:
+                      payment.receiptNo,
+                    receiptAcademicYear:
+                      payment.receiptAcademicYear,
+                    note:
+                      payment.note,
+                    studentFeeId:
+                      payment.studentFeeId,
+                    feeTypeId:
+                      payment.feeTypeId,
+                    feeTypeName:
+                      linkedFee?.feeTypeName ||
+                      "Fee",
+                    isPartial:
+                      Number(
+                        linkedFee?.dueAmount ||
+                          0
+                      ) > 0,
+                  };
+                }
+              );
+            const activeConcession =
+              concessionByStudent.get(
+                student.id
               );
             const dueFees =
-              fees
+              enrichedFees
                 .filter(
                   (fee) =>
                     Number(
@@ -2284,6 +2493,8 @@ export const getFeesLedgerService =
                     Number(
                       fee.dueAmount || 0
                     ),
+                  feeTypeName:
+                    fee.feeTypeName,
                 }));
 
             return {
@@ -2353,6 +2564,37 @@ export const getFeesLedgerService =
               ],
               hasReceipt:
                 normalizedPayments.length > 0,
+              payments:
+                normalizedPayments,
+              paymentCount:
+                normalizedPayments.length,
+              concession:
+                activeConcession
+                  ? {
+                      id:
+                        activeConcession.id,
+                      concessionType:
+                        activeConcession.concessionType,
+                      basis:
+                        activeConcession.basis,
+                      basisValue:
+                        Number(
+                          activeConcession.basisValue ||
+                            0
+                        ),
+                      concessionAmount:
+                        Number(
+                          activeConcession.concessionAmount ||
+                            0
+                        ),
+                      academicYear:
+                        activeConcession.academicYear,
+                      remark:
+                        activeConcession.remark,
+                      receiptNo:
+                        activeConcession.receiptNo,
+                    }
+                  : null,
               dueFees,
             };
           }
@@ -2651,6 +2893,17 @@ const getStudentFeeRows =
             Boolean(
               feeType?.isOptional
             ),
+          grossAmount:
+            fee.grossAmount != null
+              ? Number(
+                  fee.grossAmount
+                )
+              : null,
+          concessionAmount:
+            Number(
+              fee.concessionAmount ||
+                0
+            ),
         };
       })
     );
@@ -2884,6 +3137,33 @@ export const getStudentDetailService =
           makeFeeStatus(fee),
       }));
 
+    const activeAcademicYear =
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+    const [concession] =
+      await db
+        .select()
+        .from(
+          studentFeeConcessionsTable
+        )
+        .where(
+          and(
+            eq(
+              studentFeeConcessionsTable.schoolId,
+              schoolId
+            ),
+            eq(
+              studentFeeConcessionsTable.studentId,
+              studentId
+            ),
+            eq(
+              studentFeeConcessionsTable.academicYear,
+              activeAcademicYear
+            )
+          )
+        );
+
     return {
       student: {
         ...student,
@@ -2907,6 +3187,15 @@ export const getStudentDetailService =
                   ),
                 0
               ),
+            totalFees:
+              normalizedFees.reduce(
+                (sum, fee) =>
+                  sum +
+                  Number(
+                    fee.amount || 0
+                  ),
+                0
+              ),
           }),
       },
       class:
@@ -2915,6 +3204,9 @@ export const getStudentDetailService =
       fees:
         normalizedFees,
       payments,
+      concession:
+        concession || null,
+      activeAcademicYear,
       stats:
         makeStudentStats({
           fees:
@@ -3215,6 +3507,12 @@ export const promoteStudentService =
         parsed.targetClassId,
       sectionId:
         parsed.targetSectionId,
+    });
+
+    await assertClassHasFeeStructure({
+      schoolId,
+      classId:
+        parsed.targetClassId,
     });
 
     await db
@@ -3685,17 +3983,11 @@ export const recordStudentPaymentService =
       await getSchoolProfileService({
         schoolId,
       });
-    const activeAcademicYear =
-      await getActiveAcademicYearService({
-        schoolId,
-      });
     const receiptMeta =
       await getNextReceiptMeta({
         schoolId,
         schoolName:
           profile.schoolName,
-        academicYear:
-          activeAcademicYear,
       });
     const paymentId =
       crypto.randomUUID();
@@ -3731,6 +4023,14 @@ export const recordStudentPaymentService =
         note:
           normalizeOptional(
             parsed.note
+          ),
+        remark:
+          normalizeOptional(
+            parsed.remark
+          ),
+        transactionRef:
+          normalizeOptional(
+            parsed.transactionRef
           ),
         createdAt:
           Date.now(),
@@ -3818,106 +4118,6 @@ const getReceiptPayment =
     return payment;
   };
 
-const drawReceiptTable =
-  ({
-    doc,
-    fees,
-    startY,
-  }) => {
-    const x = 14;
-    const tableWidth = 182;
-    const columnWidths = [
-      18,
-      102,
-      32,
-      30,
-    ];
-    const headers = [
-      "#",
-      "PARTICULARS",
-      "DUE AMOUNT (₹)",
-      "PAID AMOUNT (₹)",
-    ];
-    const headerHeight = 9;
-    const rowHeight = 8;
-    let y = startY;
-
-    doc.setFillColor(8, 38, 95);
-    doc.rect(x, y, tableWidth, headerHeight, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7.5);
-    doc.setFont("helvetica", "bold");
-
-    let cursor = x;
-    headers.forEach((header, index) => {
-      const align = index > 1 ? "right" : "left";
-      const xPos = index > 1 ? cursor + columnWidths[index] - 2 : cursor + 2;
-      doc.text(header, xPos, y + 6, { align });
-      cursor += columnWidths[index];
-    });
-
-    doc.setDrawColor(200, 210, 225);
-    cursor = x;
-    columnWidths.slice(0, -1).forEach((width) => {
-      cursor += width;
-      doc.line(cursor, y, cursor, y + headerHeight);
-    });
-
-    y += headerHeight;
-    doc.setTextColor(30, 30, 30);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-
-    fees.forEach((fee, index) => {
-      if (y + rowHeight > 192) {
-        return;
-      }
-
-      let rowX = x;
-      columnWidths.forEach((width) => {
-        doc.setDrawColor(220, 220, 220);
-        doc.rect(rowX, y, width, rowHeight);
-        rowX += width;
-      });
-
-      const feeName =
-        String(fee.feeTypeName || "Fee");
-      const trimmedName =
-        feeName.length > 35
-          ? `${feeName.slice(0, 32)}...`
-          : feeName;
-      let cellX = x;
-      doc.text(
-        String(index + 1),
-        cellX + 2,
-        y + 5.5
-      );
-      cellX += columnWidths[0];
-      doc.text(
-        trimmedName,
-        cellX + 2,
-        y + 5.5
-      );
-      cellX += columnWidths[1];
-      doc.text(
-        formatMoney(fee.dueAmount),
-        cellX + columnWidths[2] - 2,
-        y + 5.5,
-        { align: "right" }
-      );
-      cellX += columnWidths[2];
-      doc.text(
-        formatMoney(fee.paidAmount),
-        cellX + columnWidths[3] - 2,
-        y + 5.5,
-        { align: "right" }
-      );
-      y += rowHeight;
-    });
-
-    return y;
-  };
-
 export const getStudentPaymentReceiptPdfService =
   async ({
     schoolId,
@@ -3939,543 +4139,33 @@ export const getStudentPaymentReceiptPdfService =
       await getSchoolProfileService({
         schoolId,
       });
-    const academicYear =
-      payment.receiptAcademicYear ||
-      (await getActiveAcademicYearService({
+    const viewModel =
+      await buildPaymentReceiptViewModel({
+        payment,
+        detail,
+        profile,
         schoolId,
-      }));
-    const [logoData, stampData, signatureData] =
-      await Promise.all([
-        getImageDataUrl(profile.logoUrl),
-        getImageDataUrl(profile.stampUrl),
-        getImageDataUrl(profile.principalSignatureUrl),
-      ]);
+      });
+    const html =
+      renderReceiptHtml(viewModel);
+    const buffer =
+      await generateReceiptPdf(html);
 
-    const fees = detail.fees || [];
-    const totalAmount = fees.reduce(
-      (sum, fee) => sum + Number(fee.amount || 0),
-      0
-    );
-    const paidAmount = fees.reduce(
-      (sum, fee) => sum + Number(fee.paidAmount || 0),
-      0
-    );
-    const dueAmount = fees.reduce(
-      (sum, fee) => sum + Number(fee.dueAmount || 0),
-      0
-    );
-    const paymentStatus =
-      dueAmount === 0
-        ? "PAID"
-        : paidAmount > 0
-          ? "PARTIAL"
-          : "UNPAID";
-    const transactionId =
-      clean(payment.note) ||
-      payment.id ||
-      "-";
-
-    const doc = new jsPDF({
-      unit: "mm",
-      format: "a4",
-    });
-
-    const pageLeft = 15;
-    const pageRight = 195;
-    const pageWidth = pageRight - pageLeft;
-
-    // ============ HEADER SECTION ============
-    const headerTop = 15;
-    const logoSize = 20;
-
-    // Logo
-    if (logoData) {
-      doc.addImage(
-        logoData.dataUrl,
-        logoData.format,
-        pageLeft,
-        headerTop,
-        logoSize,
-        logoSize
-      );
-    } else {
-      doc.setFillColor(240, 245, 250);
-      doc.rect(
-        pageLeft,
-        headerTop,
-        logoSize,
-        logoSize
-      );
-    }
-
-    // School name and info
-    const schoolInfoX = pageLeft + logoSize + 8;
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(
-      profile.schoolName || "School Name",
-      schoolInfoX,
-      headerTop + 4
-    );
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(60, 80, 100);
-    const addressLine =
-      clean(profile.address) || "-";
-    doc.text(`📍 ${addressLine}`, schoolInfoX, headerTop + 10);
-
-    const mobileText =
-      profile.mobile || "-";
-    doc.text(`📞 ${mobileText}`, schoolInfoX, headerTop + 15);
-
-    const emailText = clean(profile.email) || "-";
-    doc.text(
-      `📧 ${emailText}`,
-      schoolInfoX,
-      headerTop + 20
-    );
-
-    // Receipt box (top right)
-    const receiptBoxX = pageRight - 58;
-    const receiptBoxY = headerTop;
-    doc.setDrawColor(200, 210, 225);
-    doc.setLineWidth(1);
-    doc.rect(
-      receiptBoxX,
-      receiptBoxY,
-      58,
-      28
-    );
-
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(
-      "FEE RECEIPT",
-      receiptBoxX + 29,
-      receiptBoxY + 6,
-      { align: "center" }
-    );
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(60, 80, 100);
-    doc.text(
-      "Receipt No.",
-      receiptBoxX + 4,
-      receiptBoxY + 12
-    );
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.text(
-      payment.receiptNo || payment.id,
-      receiptBoxX + 4,
-      receiptBoxY + 16
-    );
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(60, 80, 100);
-    doc.text(
-      "Date",
-      receiptBoxX + 4,
-      receiptBoxY + 20
-    );
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.text(
-      formatReceiptDate(payment.paidAt),
-      receiptBoxX + 4,
-      receiptBoxY + 24
-    );
-
-    // Status badge
-    const statusY = receiptBoxY + 26;
-    const statusText = paymentStatus;
-    const statusColor =
-      paymentStatus === "PAID"
-        ? [22, 163, 74]
-        : paymentStatus === "PARTIAL"
-          ? [249, 115, 22]
-          : [185, 28, 28];
-
-    doc.setFillColor(...statusColor);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    const statusWidth = 40;
-    const statusX = receiptBoxX + (58 - statusWidth) / 2;
-    doc.roundedRect(
-      statusX,
-      statusY,
-      statusWidth,
-      6,
-      2,
-      2,
-      "F"
-    );
-    doc.text(
-      statusText,
-      statusX + statusWidth / 2,
-      statusY + 4,
-      { align: "center" }
-    );
-
-    // ============ STUDENT & PAYMENT DETAILS ============
-    const detailsY = headerTop + 32;
-    const colWidth = pageWidth / 2 - 1;
-
-    // Student Details Header
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("STUDENT DETAILS", pageLeft, detailsY);
-
-    // Payment Details Header
-    doc.text(
-      "PAYMENT DETAILS",
-      pageLeft + pageWidth / 2,
-      detailsY
-    );
-
-    // Student details rows
-    const detailsContentY = detailsY + 6;
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(40, 40, 40);
-
-    const studentDetails = [
+    const studentName =
+      detail.student?.fullName ||
       [
-        "Student Name",
-        detail.student.fullName || "-",
-      ],
-      [
-        "Admission No.",
-        detail.student.schoolRegisterNo || "-",
-      ],
-      [
-        "Class & Section",
-        `${detail.class?.name || "-"} ${detail.section?.name || ""}`,
-      ],
-      [
-        "Roll No.",
-        detail.student.rollNumber || "-",
-      ],
-      ["Father's Name", detail.student.fatherName || "-"],
-    ];
-
-    const paymentDetails = [
-      [
-        "Payment Mode",
-        payment.paymentMode || "Cash",
-      ],
-      ["Transaction ID", transactionId],
-      [
-        "Payment Date",
-        formatReceiptDateTime(payment.paidAt),
-      ],
-      ["Academic Year", academicYear],
-    ];
-
-    let rowY = detailsContentY;
-    studentDetails.forEach(([label, value]) => {
-      doc.setTextColor(100, 100, 100);
-      doc.text(label, pageLeft + 2, rowY);
-      doc.text(":", pageLeft + 54, rowY);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("helvetica", "normal");
-      doc.text(value, pageLeft + 58, rowY);
-      rowY += 5.5;
-    });
-
-    rowY = detailsContentY;
-    paymentDetails.forEach(([label, value]) => {
-      const colX = pageLeft + pageWidth / 2;
-      doc.setTextColor(100, 100, 100);
-      doc.text(label, colX + 2, rowY);
-      doc.text(":", colX + 54, rowY);
-      doc.setTextColor(30, 30, 30);
-      doc.text(value, colX + 58, rowY);
-      rowY += 5.5;
-    });
-
-    // ============ FEE TABLE ============
-    const tableY = detailsY + 36;
-    doc.setFillColor(8, 38, 95);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-
-    const tableHeight = 7;
-    doc.rect(
-      pageLeft,
-      tableY,
-      pageWidth,
-      tableHeight
-    );
-
-    const col1Width = 15;
-    const col2Width = 130;
-    const col3Width = 70;
-    const col4Width = 70;
-
-    doc.text("#", pageLeft + 2, tableY + 5.5);
-    doc.text(
-      "PARTICULARS",
-      pageLeft + col1Width + 4,
-      tableY + 5.5
-    );
-    doc.text(
-      "DUE AMOUNT (₹)",
-      pageLeft +
-        col1Width +
-        col2Width +
-        col3Width -
-        60,
-      tableY + 5.5,
-      { align: "right" }
-    );
-    doc.text(
-      "PAID AMOUNT (₹)",
-      pageRight - 4,
-      tableY + 5.5,
-      { align: "right" }
-    );
-
-    // Table rows
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(8);
-
-    let currentY = tableY + tableHeight;
-    fees.forEach((fee, index) => {
-      if (currentY > 220) return;
-
-      doc.setDrawColor(220, 220, 220);
-      doc.rect(
-        pageLeft,
-        currentY,
-        pageWidth,
-        6
-      );
-
-      doc.text(String(index + 1), pageLeft + 2, currentY + 4);
-      doc.text(
-        fee.feeTypeName || "Fee",
-        pageLeft + col1Width + 4,
-        currentY + 4
-      );
-      doc.text(
-        formatMoney(fee.dueAmount),
-        pageLeft +
-          col1Width +
-          col2Width +
-          col3Width -
-          60,
-        currentY + 4,
-        { align: "right" }
-      );
-      doc.text(
-        formatMoney(fee.paidAmount),
-        pageRight - 4,
-        currentY + 4,
-        { align: "right" }
-      );
-
-      currentY += 6;
-    });
-
-    // ============ AMOUNT IN WORDS (Left) ============
-    const amountWordsY = currentY + 8;
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.text("Amount in Words:", pageLeft, amountWordsY);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(22, 163, 74);
-    doc.setFontSize(8);
-    doc.text(
-      numberToWords(payment.amount),
-      pageLeft,
-      amountWordsY + 5
-    );
-
-    // ============ SUMMARY BOX (Right) ============
-    const summaryBoxY = currentY + 6;
-    const summaryBoxX = pageLeft + 110;
-    const summaryBoxWidth = pageRight - summaryBoxX;
-
-    // Total Due
-    doc.setFillColor(245, 245, 245);
-    doc.rect(
-      summaryBoxX,
-      summaryBoxY,
-      summaryBoxWidth,
-      7
-    );
-    doc.setTextColor(60, 80, 100);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Total Due Amount", summaryBoxX + 4, summaryBoxY + 5);
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.text(
-      `: ${formatMoney(totalAmount)}`,
-      summaryBoxX + 75,
-      summaryBoxY + 5,
-      { align: "right" }
-    );
-
-    // Total Paid
-    doc.setFillColor(245, 245, 245);
-    doc.rect(
-      summaryBoxX,
-      summaryBoxY + 7,
-      summaryBoxWidth,
-      7
-    );
-    doc.setTextColor(60, 80, 100);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(
-      "Total Paid Amount",
-      summaryBoxX + 4,
-      summaryBoxY + 12
-    );
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.text(
-      `: ${formatMoney(paidAmount)}`,
-      summaryBoxX + 75,
-      summaryBoxY + 12,
-      { align: "right" }
-    );
-
-    // Balance Amount (Green)
-    doc.setFillColor(22, 163, 74);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.rect(
-      summaryBoxX,
-      summaryBoxY + 14,
-      summaryBoxWidth,
-      8,
-      1
-    );
-    doc.setFontSize(8.5);
-    doc.text(
-      "Balance Amount",
-      summaryBoxX + 4,
-      summaryBoxY + 18.5
-    );
-    doc.setFontSize(9);
-    doc.text(
-      `₹ ${formatMoney(dueAmount)}`,
-      summaryBoxX + 75,
-      summaryBoxY + 18.5,
-      { align: "right" }
-    );
-
-    // ============ NOTES SECTION ============
-    const notesY = summaryBoxY + 25;
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("NOTES", pageLeft, notesY);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(30, 30, 30);
-    let notesLineY = notesY + 6;
-    const notesList = [
-      "This is a computer generated receipt.",
-      "No signature is required.",
-      "Please retain this receipt for future reference.",
-      "Fees once paid will not be refunded.",
-    ];
-    notesList.forEach((note) => {
-      doc.text(`• ${note}`, pageLeft + 2, notesLineY);
-      notesLineY += 4.5;
-    });
-
-    // ============ STAMP & SIGNATURE ============
-    const stampSignatureY = notesY + 28;
-    const stampX = pageLeft + 15;
-    const signatureX = pageRight - 40;
-
-    // Stamp
-    if (stampData) {
-      doc.addImage(
-        stampData.dataUrl,
-        stampData.format,
-        stampX,
-        stampSignatureY,
-        20,
-        20
-      );
-    } else {
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(stampX, stampSignatureY, 20, 20);
-    }
-
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(8, 38, 95);
-    doc.text(
-      "School Stamp",
-      stampX + 10,
-      stampSignatureY + 23,
-      { align: "center" }
-    );
-
-    // Signature
-    if (signatureData) {
-      doc.addImage(
-        signatureData.dataUrl,
-        signatureData.format,
-        signatureX - 15,
-        stampSignatureY,
-        30,
-        15
-      );
-    } else {
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(
-        signatureX - 15,
-        stampSignatureY,
-        30,
-        15
-      );
-    }
-
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(8, 38, 95);
-    doc.text(
-      "Authorized Signatory",
-      signatureX,
-      stampSignatureY + 20,
-      { align: "center" }
-    );
-
-    // ============ FOOTER ============
-    const footerY = 280;
-    doc.setTextColor(8, 38, 95);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.text(
-      "Thank you for your timely payment!",
-      pageLeft + pageWidth / 2,
-      footerY,
-      { align: "center" }
-    );
+        detail.student?.firstName,
+        detail.student?.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ");
 
     return {
-      fileName:
-        `${(payment.receiptNo || payment.id).replace(/[\\/]/g, "-")}.pdf`,
-      buffer: Buffer.from(doc.output("arraybuffer")),
+      fileName: buildReceiptFileName({
+        studentName,
+        paidAt: payment.paidAt,
+      }),
+      buffer,
     };
   };
 

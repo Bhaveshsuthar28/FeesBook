@@ -15,11 +15,17 @@ import {
 import settingsRoutes from "./src/modules/settings/settings.routes.js";
 import sectionRoutes from "./src/modules/sections/section.routes.js";
 import studentRoutes from "./src/modules/students/students.routes.js";
+import {
+  requireAuthenticatedUser,
+} from "./src/modules/auth/auth.middleware.js";
 import cron from "node-cron";
 import {
   ensureStudentLifecycleColumns,
   runMayAcademicYearAutomationService,
 } from "./src/modules/students/students.service.js";
+import {
+  ensureFeeConcessionColumns,
+} from "./src/modules/students/studentConcessions.service.js";
 import {
   ensureSettingsColumns,
 } from "./src/modules/settings/settings.service.js";
@@ -44,21 +50,6 @@ const app = Fastify({
   bodyLimit: 10 * 1024 * 1024,
 });
 
-app.addHook(
-  "preHandler",
-  async (request) => {
-
-    request.user = {
-      clerkUserId:
-        "user_test_123",
-
-      schoolId:
-        "user_test_123",
-    };
-  }
-);
-
-
 await app.register(corsPlugin);
 
 await app.register(helmetPlugin);
@@ -69,7 +60,38 @@ await app.register(sensiblePlugin);
 
 await app.register(clerkAuthPlugin);
 
+app.addHook(
+  "preHandler",
+  async (request, reply) => {
+    if (
+      request.method ===
+      "OPTIONS"
+    ) {
+      return;
+    }
 
+    const path =
+      request.url.split("?")[0];
+
+    if (
+      path.startsWith(
+        "/api/v1/health"
+      )
+    ) {
+      return;
+    }
+
+    const authenticated =
+      await requireAuthenticatedUser(
+        request,
+        reply
+      );
+
+    if (!authenticated) {
+      return reply;
+    }
+  }
+);
 
 app.addHook("onRequest", async (request) => {
   request.log.info({
@@ -142,6 +164,8 @@ await app.register(healthRoutes, {
 app.log.info({ BASE_URL: env.BASE_URL, PORT: env.PORT }, "Loaded env");
 
 await ensureStudentLifecycleColumns();
+
+await ensureFeeConcessionColumns();
 
 await ensureSettingsColumns();
 

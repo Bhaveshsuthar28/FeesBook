@@ -72,6 +72,10 @@ import {
   notify,
 } from "../lib/toast.js";
 
+import {
+  SettingsPageSkeleton,
+} from "../components/skeleton/PageSkeletons.jsx";
+
 const emptyProfile = {
   schoolName: "",
   address: "",
@@ -101,6 +105,9 @@ const emptyClassFee = {
   amount: "",
   isDefault: true,
 };
+
+const academicYearPattern =
+  /^\d{4}-\d{4}$/;
 
 const settingsTabs = [
   {
@@ -400,6 +407,10 @@ export default function SettingsPage() {
     setArchivingYear,
   ] = useState(false);
   const [
+    activatingYear,
+    setActivatingYear,
+  ] = useState(false);
+  const [
     receiptSettings,
     setReceiptSettings,
   ] = useState({
@@ -500,6 +511,55 @@ export default function SettingsPage() {
           ) || []
         ),
       [selectedClass]
+    );
+
+  const feeTypeIdsOnOtherClasses =
+    useMemo(() => {
+      const ids =
+        new Set();
+
+      structure.classes.forEach(
+        (singleClass) => {
+          if (
+            singleClass.id ===
+            selectedClass?.id
+          ) {
+            return;
+          }
+
+          singleClass.fees.forEach(
+            (fee) => {
+              ids.add(
+                fee.feeTypeId
+              );
+            }
+          );
+        }
+      );
+
+      return ids;
+    }, [
+      structure.classes,
+      selectedClass?.id,
+    ]);
+
+  const assignableFeeTypes =
+    useMemo(
+      () =>
+        structure.feeTypes.filter(
+          (feeType) =>
+            !assignedFeeTypeIds.has(
+              feeType.id
+            ) &&
+            !feeTypeIdsOnOtherClasses.has(
+              feeType.id
+            )
+        ),
+      [
+        structure.feeTypes,
+        assignedFeeTypeIds,
+        feeTypeIdsOnOtherClasses,
+      ]
     );
 
   const refreshData =
@@ -662,6 +722,26 @@ export default function SettingsPage() {
         )
     );
   }, [selectedClass]);
+
+  useEffect(() => {
+    setClassFeeForm((current) => {
+      if (
+        !current.feeTypeId ||
+        assignableFeeTypes.some(
+          (feeType) =>
+            feeType.id ===
+            current.feeTypeId
+        )
+      ) {
+        return current;
+      }
+
+      return emptyClassFee;
+    });
+  }, [
+    selectedClassId,
+    assignableFeeTypes,
+  ]);
 
   const updateProfileField =
     (field, value) => {
@@ -933,26 +1013,47 @@ export default function SettingsPage() {
 
       try {
         setSavingFee(true);
-                await createFeeType({
-          name:
-            feeTypeForm.name.trim(),
-          defaultAmount:
-            Number(
-              feeTypeForm.defaultAmount
-            ),
-          frequency:
-            feeTypeForm.frequency ||
-            "Yearly",
-          isOptional:
-            Boolean(
-              feeTypeForm.isOptional
-            ),
-        });
+        const createdFeeType =
+          await createFeeType({
+            name:
+              feeTypeForm.name.trim(),
+            defaultAmount:
+              Number(
+                feeTypeForm.defaultAmount
+              ),
+            frequency:
+              feeTypeForm.frequency ||
+              "Yearly",
+            isOptional:
+              Boolean(
+                feeTypeForm.isOptional
+              ),
+          });
+
+        if (selectedClass) {
+          await assignFeeToClass({
+            classId:
+              selectedClass.id,
+            feeTypeId:
+              createdFeeType.id,
+            amount:
+              Number(
+                feeTypeForm.defaultAmount
+              ),
+            isDefault:
+              !feeTypeForm.isOptional,
+          });
+        }
+
         setFeeTypeForm(
           emptyFeeType
         );
         await refreshData();
-        notify.success("Fee type created");
+        notify.success(
+          selectedClass
+            ? "Fee item created and assigned to this class"
+            : "Fee type created"
+        );
       } catch (apiError) {
         notify.error(apiError, "Fee type could not be created");
       } finally {
@@ -1083,8 +1184,23 @@ export default function SettingsPage() {
 
   const createAndPromoteAcademicYear =
     async () => {
-      if (!newAcademicYear) {
+      const year =
+        newAcademicYear.trim();
+
+      if (!year) {
         notify.error(null, "Enter academic year");
+        return;
+      }
+
+      if (
+        !academicYearPattern.test(
+          year
+        )
+      ) {
+        notify.error(
+          null,
+          "Use format YYYY-YYYY (e.g. 2026-2027)"
+        );
         return;
       }
 
@@ -1092,8 +1208,7 @@ export default function SettingsPage() {
         setCreatingYear(true);
                 const result =
           await createAcademicYear({
-            year:
-              newAcademicYear,
+            year,
             fromAcademicYear:
               academicYears.activeAcademicYear ||
               academicYears.previousAcademicYear,
@@ -1101,6 +1216,7 @@ export default function SettingsPage() {
               false,
           });
 
+        setNewAcademicYear("");
         await refreshData();
         notify.success(
           `Created ${result.createdClasses} classes, copied ${result.copiedSections} sections, copied ${result.copiedFees} fee templates, promoted ${result.promotion?.promoted || 0} students.`
@@ -1135,14 +1251,33 @@ export default function SettingsPage() {
 
   const activateAcademicYear =
     async (year) => {
+      const normalized =
+        String(year || "").trim();
+
+      if (
+        !normalized ||
+        !academicYearPattern.test(
+          normalized
+        )
+      ) {
+        notify.error(
+          null,
+          "Select a valid academic year"
+        );
+        return;
+      }
+
       try {
-                await setActiveAcademicYear(
-          year
+        setActivatingYear(true);
+        await setActiveAcademicYear(
+          normalized
         );
         await refreshData();
         notify.success("Active academic year updated");
       } catch (apiError) {
         notify.error(apiError, "Active year could not be updated");
+      } finally {
+        setActivatingYear(false);
       }
     };
 
@@ -1165,7 +1300,7 @@ export default function SettingsPage() {
       }
 
       try {
-                await archiveClassFee({
+        await archiveClassFee({
           classFeeId:
             fee.classFeeId,
           isArchived: true,
@@ -1177,11 +1312,31 @@ export default function SettingsPage() {
       }
     };
 
+  const restoreFeeAssignment =
+    async (fee) => {
+      if (!fee.classFeeId) {
+        return;
+      }
+
+      try {
+        await archiveClassFee({
+          classFeeId:
+            fee.classFeeId,
+          isArchived: false,
+        });
+        await refreshData();
+        notify.success("Class fee restored");
+      } catch (apiError) {
+        notify.error(apiError, "Class fee could not be restored");
+      }
+    };
+
   const renderFeeTable =
     ({
       title,
       fees,
       optional = false,
+      archived = false,
     }) => (
       <div className="rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -1262,26 +1417,45 @@ export default function SettingsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            editClassFee(fee)
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            archiveFeeAssignment(
-                              fee
-                            )
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-500"
-                        >
-                          <Archive size={14} />
-                        </button>
+                        {!archived && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editClassFee(fee)
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
+                            title="Edit"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {archived ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              restoreFeeAssignment(
+                                fee
+                              )
+                            }
+                            className="flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-extrabold text-emerald-700"
+                          >
+                            <RefreshCw size={14} />
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              archiveFeeAssignment(
+                                fee
+                              )
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-500"
+                            title="Archive"
+                          >
+                            <Archive size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1361,11 +1535,7 @@ export default function SettingsPage() {
     );
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <LoaderCircle className="animate-spin text-indigo-600" />
-      </div>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   return (
@@ -1660,6 +1830,7 @@ export default function SettingsPage() {
               </div>
               <select
                 value={academicYears.activeAcademicYear || ""}
+                disabled={activatingYear}
                 onChange={(event) =>
                   activateAcademicYear(
                     event.target.value
@@ -1667,14 +1838,20 @@ export default function SettingsPage() {
                 }
                 className={`mt-4 ${inputClassName}`}
               >
-                {academicYears.years.map(
-                  (item) => (
-                    <option
-                      key={item.year}
-                      value={item.year}
-                    >
-                      {item.year}
-                    </option>
+                {(academicYears.years || []).length === 0 ? (
+                  <option value="">
+                    No academic years yet
+                  </option>
+                ) : (
+                  (academicYears.years || []).map(
+                    (item) => (
+                      <option
+                        key={item.year}
+                        value={item.year}
+                      >
+                        {item.year}
+                      </option>
+                    )
                   )
                 )}
               </select>
@@ -1687,6 +1864,8 @@ export default function SettingsPage() {
                     )
                   }
                   placeholder="2026-2027"
+                  pattern="\d{4}-\d{4}"
+                  title="Format: YYYY-YYYY (e.g. 2026-2027)"
                   className={inputClassName}
                 />
                 <button
@@ -1721,7 +1900,12 @@ export default function SettingsPage() {
               <p className="text-sm font-extrabold text-slate-950">
                 Academic Years
               </p>
-              {academicYears.years.map((item) => (
+              {(academicYears.years || []).length === 0 ? (
+                <p className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-sm font-semibold text-slate-500">
+                  No academic years yet. Create one using the form on the left.
+                </p>
+              ) : (
+                (academicYears.years || []).map((item) => (
                 <div
                   key={item.year}
                   className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-3"
@@ -1736,6 +1920,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     type="button"
+                    disabled={activatingYear}
                     onClick={() =>
                       item.isActive
                         ? null
@@ -1754,7 +1939,8 @@ export default function SettingsPage() {
                       : "Set Active"}
                   </button>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </SectionCard>
@@ -1791,7 +1977,11 @@ export default function SettingsPage() {
                     >
                       <span>{singleClass.name}</span>
                       <span className="text-xs opacity-80">
-                        {singleClass.fees.length}
+                        {singleClass.fees.length === 0 ? (
+                          <span className="text-amber-200">0 fees</span>
+                        ) : (
+                          singleClass.fees.length
+                        )}
                       </span>
                     </button>
                   )
@@ -1905,12 +2095,15 @@ export default function SettingsPage() {
                   <p className="text-sm font-extrabold text-slate-950">
                     Assign To Class
                   </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    Only fees for {selectedClass?.name || "this class"} — not used on other classes.
+                  </p>
                   <div className="mt-4 grid gap-3">
                     <select
                       value={classFeeForm.feeTypeId}
                       onChange={(event) => {
                         const feeType =
-                          structure.feeTypes.find(
+                          assignableFeeTypes.find(
                             (item) =>
                               item.id ===
                               event.target.value
@@ -1929,20 +2122,25 @@ export default function SettingsPage() {
                         );
                       }}
                       className={inputClassName}
+                      disabled={
+                        !selectedClass ||
+                        assignableFeeTypes.length ===
+                          0
+                      }
                     >
-                      <option value="">Select fee type</option>
-                      {structure.feeTypes.map(
+                      <option value="">
+                        {assignableFeeTypes.length ===
+                        0
+                          ? "No fees available — create one above"
+                          : "Select fee type"}
+                      </option>
+                      {assignableFeeTypes.map(
                         (feeType) => (
                           <option
                             key={feeType.id}
                             value={feeType.id}
                           >
                             {feeType.name}
-                            {assignedFeeTypeIds.has(
-                              feeType.id
-                            )
-                              ? " (assigned)"
-                              : ""}
                           </option>
                         )
                       )}
@@ -2009,6 +2207,12 @@ export default function SettingsPage() {
                 optionalFees,
               optional: true,
             })}
+            {(selectedClass?.archivedFees || []).length > 0 &&
+              renderFeeTable({
+                title: "Archived Fees",
+                fees: selectedClass.archivedFees,
+                archived: true,
+              })}
             <button
               type="button"
               disabled={
@@ -2051,8 +2255,12 @@ export default function SettingsPage() {
                       })
                     )
                   }
+                  placeholder="e.g. FB"
                   className={inputClassName}
                 />
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Receipt number format: PREFIX/CURRENT_YEAR/000001 (calendar year, not academic year)
+                </p>
               </Field>
               <button
                 type="button"

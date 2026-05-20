@@ -8,13 +8,18 @@ import {
   useState,
 } from "react";
 
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+} from "framer-motion";
+
 import Logo
   from "../../common/logo.components.jsx";
 
 import {
   LogOut,
   User,
-  X,
 } from "lucide-react";
 
 export default function MobileHeader() {
@@ -38,6 +43,9 @@ export default function MobileHeader() {
     setShowLogoutPopup,
   ] = useState(false);
 
+  const prefersReducedMotion =
+    useReducedMotion();
+
   return (
     <>
 
@@ -47,10 +55,12 @@ export default function MobileHeader() {
           top-0
           z-40
 
+          relative
+
           flex
           h-[64px]
           items-center
-          justify-between
+          justify-center
 
           border-b
           border-slate-200
@@ -63,181 +73,276 @@ export default function MobileHeader() {
         "
       >
 
-        <Logo />
-
         <div
           className="
-            relative
+            flex
+            justify-center
           "
         >
 
-          <button
+          <Logo />
 
-            onClick={() =>
-              setShowProfileMenu(
-                !showProfileMenu
-              )
-            }
+        </div>
+
+        <div
+          className="
+            absolute
+            right-4
+            top-1/2
+            -translate-y-1/2
+          "
+        >
+
+          <div
+            className="
+              relative
+            "
           >
 
-            <img
-              src={user?.imageUrl}
+            <button
 
-              alt="profile"
+              type="button"
 
-              className="
-                h-10
-                w-10
+              onClick={() =>
+                setShowProfileMenu(
+                  !showProfileMenu
+                )
+              }
+            >
 
-                rounded-full
-                object-cover
-              "
-            />
+              <img
+                src={user?.imageUrl}
 
-          </button>
+                alt="Account"
 
-          {
-            showProfileMenu && (
-
-              <div
                 className="
-                  absolute
-                  right-0
-                  top-14
+                  h-10
+                  w-10
 
-                  w-[180px]
-
-                  rounded-2xl
-
-                  border
-                  border-slate-200
-
-                  bg-white
-
-                  p-2
-
-                  shadow-lg
+                  rounded-full
+                  object-cover
                 "
-              >
+              />
 
-                <button
+            </button>
 
-                  onClick={() => {
+            {
+              showProfileMenu && (
 
-                    openUserProfile();
-
-                    setShowProfileMenu(
-                      false
-                    );
-                  }}
-
+                <div
                   className="
-                    flex
-                    w-full
-                    items-center
+                    absolute
+                    right-0
+                    top-14
 
-                    gap-3
+                    z-50
 
-                    rounded-xl
+                    w-[180px]
 
-                    px-3
-                    py-3
+                    rounded-2xl
 
-                    text-sm
-                    font-medium
+                    border
+                    border-slate-200
 
-                    hover:bg-slate-100
+                    bg-white
+
+                    p-2
+
+                    shadow-lg
                   "
                 >
 
-                  <User
-                    size={18}
-                  />
+                  <button
 
-                  Profile
+                    type="button"
 
-                </button>
+                    onClick={() => {
 
-                <button
+                      openUserProfile();
 
-                  onClick={() => {
+                      setShowProfileMenu(
+                        false
+                      );
+                    }}
 
-                    setShowProfileMenu(
-                      false
-                    );
+                    className="
+                      flex
+                      w-full
+                      items-center
 
-                    setShowLogoutPopup(
-                      true
-                    );
-                  }}
+                      gap-3
 
-                  className="
-                    flex
-                    w-full
-                    items-center
+                      rounded-xl
 
-                    gap-3
+                      px-3
+                      py-3
 
-                    rounded-xl
+                      text-sm
+                      font-medium
 
-                    px-3
-                    py-3
+                      hover:bg-slate-100
+                    "
+                  >
 
-                    text-sm
-                    font-medium
+                    <User
+                      size={18}
+                    />
 
-                    text-red-500
+                    Profile
 
-                    hover:bg-red-50
-                  "
-                >
+                  </button>
 
-                  <LogOut
-                    size={18}
-                  />
+                  <button
 
-                  Logout
+                    type="button"
 
-                </button>
+                    onClick={() => {
 
-              </div>
-            )
-          }
+                      setShowProfileMenu(
+                        false
+                      );
+
+                      setShowLogoutPopup(
+                        true
+                      );
+                    }}
+
+                    className="
+                      flex
+                      w-full
+                      items-center
+
+                      gap-3
+
+                      rounded-xl
+
+                      px-3
+                      py-3
+
+                      text-sm
+                      font-medium
+
+                      text-red-500
+
+                      hover:bg-red-50
+                    "
+                  >
+
+                    <LogOut
+                      size={18}
+                    />
+
+                    Logout
+
+                  </button>
+
+                </div>
+              )
+            }
+
+          </div>
 
         </div>
 
       </header>
 
-      {
-        showLogoutPopup && (
+      <AnimatePresence>
 
-          <div
-            className="
-              fixed
-              inset-0
-              z-[100]
+        {
+          showLogoutPopup && (
 
-              flex
-              items-center
-              justify-center
-
-              bg-black/40
-
-              md:hidden
-            "
-          >
-
-            <div
+            <motion.div
+              key="mobile-logout-overlay"
+              role="presentation"
+              initial={{
+                opacity: 0,
+              }}
+              animate={{
+                opacity: 1,
+              }}
+              exit={{
+                opacity: 0,
+              }}
+              transition={{
+                duration:
+                  prefersReducedMotion
+                    ? 0
+                    : 0.22,
+              }}
               className="
-                w-[320px]
+                fixed
+                inset-0
+                z-[100]
 
-                rounded-3xl
+                flex
+                items-center
+                justify-center
 
-                bg-white
+                bg-black/40
 
-                p-6
+                md:hidden
               "
+              onClick={() =>
+                setShowLogoutPopup(
+                  false
+                )
+              }
             >
+
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="mobile-logout-title"
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : {
+                        opacity: 0,
+                        scale: 0.96,
+                        y: 8,
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={
+                  prefersReducedMotion
+                    ? {
+                        opacity: 0,
+                      }
+                    : {
+                        opacity: 0,
+                        scale: 0.96,
+                        y: 8,
+                      }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? {
+                        duration: 0,
+                      }
+                    : {
+                        type: "spring",
+                        stiffness: 420,
+                        damping: 32,
+                        mass: 0.85,
+                      }
+                }
+                onClick={(event) =>
+                  event.stopPropagation()
+                }
+                className="
+                  w-[320px]
+
+                  rounded-3xl
+
+                  bg-white
+
+                  p-6
+                "
+              >
 
               <div
                 className="
@@ -250,6 +355,7 @@ export default function MobileHeader() {
               >
 
                 <h2
+                  id="mobile-logout-title"
                   className="
                     text-lg
                     font-semibold
@@ -282,6 +388,8 @@ export default function MobileHeader() {
 
                 <button
 
+                  type="button"
+
                   onClick={() =>
                     setShowLogoutPopup(
                       false
@@ -303,6 +411,7 @@ export default function MobileHeader() {
                 <SignOutButton>
 
                   <button
+                    type="button"
                     className="
                       rounded-xl
 
@@ -321,11 +430,13 @@ export default function MobileHeader() {
 
               </div>
 
-            </div>
+              </motion.div>
 
-          </div>
-        )
-      }
+            </motion.div>
+          )
+        }
+
+      </AnimatePresence>
 
     </>
   );

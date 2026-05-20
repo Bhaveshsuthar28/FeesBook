@@ -78,6 +78,83 @@ export const getFeeTypesService =
         )
       );
 
+export const assertClassHasFeeStructure =
+  async ({
+    schoolId,
+    classId,
+  }) => {
+    const activeFees =
+      await db
+        .select({
+          id: classFeesTable.id,
+        })
+        .from(classFeesTable)
+        .where(
+          and(
+            eq(
+              classFeesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classFeesTable.classId,
+              classId
+            ),
+            eq(
+              classFeesTable.isArchived,
+              false
+            )
+          )
+        )
+        .limit(1);
+
+    if (activeFees.length === 0) {
+      const error = new Error(
+        "Fee structure is not defined for this class. Go to Settings → Fees, select the class, and assign fees before adding students."
+      );
+      error.statusCode = 409;
+      error.code =
+        "FEE_STRUCTURE_NOT_DEFINED";
+      throw error;
+    }
+  };
+
+export const getClassFeeStructureStatusService =
+  async ({
+    schoolId,
+    classId,
+  }) => {
+    const activeFees =
+      await db
+        .select({
+          id: classFeesTable.id,
+        })
+        .from(classFeesTable)
+        .where(
+          and(
+            eq(
+              classFeesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classFeesTable.classId,
+              classId
+            ),
+            eq(
+              classFeesTable.isArchived,
+              false
+            )
+          )
+        );
+
+    return {
+      classId,
+      hasFeeStructure:
+        activeFees.length > 0,
+      feeCount:
+        activeFees.length,
+    };
+  };
+
 export const getFeeStructureService =
   async ({ schoolId }) => {
     const activeAcademicYear =
@@ -116,18 +193,17 @@ export const getFeeStructureService =
           .select()
           .from(classFeesTable)
           .where(
-            and(
-              eq(
-                classFeesTable.schoolId,
-                schoolId
-              ),
-              eq(
-                classFeesTable.isArchived,
-                false
-              )
+            eq(
+              classFeesTable.schoolId,
+              schoolId
             )
           ),
       ]);
+
+    const activeClassFees =
+      classFees.filter(
+        (fee) => !fee.isArchived
+      );
 
     const feeTypeById =
       new Map(
@@ -152,7 +228,7 @@ export const getFeeStructureService =
             (singleClass) => ({
               ...singleClass,
               fees:
-                classFees
+                activeClassFees
                   .filter(
                     (fee) =>
                       fee.classId ===
@@ -190,6 +266,43 @@ export const getFeeStructureService =
                           fee.isArchived ||
                             feeType?.isArchived
                         ),
+                    };
+                  }),
+              archivedFees:
+                classFees
+                  .filter(
+                    (fee) =>
+                      fee.classId ===
+                        singleClass.id &&
+                      fee.isArchived
+                  )
+                  .map((fee) => {
+                    const feeType =
+                      feeTypeById.get(
+                        fee.feeTypeId
+                      );
+
+                    return {
+                      classFeeId:
+                        fee.id,
+                      feeTypeId:
+                        fee.feeTypeId,
+                      name:
+                        feeType?.name ||
+                        "Fee",
+                      amount:
+                        fee.amount,
+                      isDefault:
+                        Boolean(
+                          fee.isDefault
+                        ),
+                      isOptional:
+                        Boolean(
+                          feeType?.isOptional
+                        ),
+                      frequency:
+                        feeType?.frequency ||
+                        "Yearly",
                     };
                   }),
             })
@@ -457,7 +570,44 @@ export const allocateClassFeesService =
   async ({
     schoolId,
     data,
+    optionalOnly = false,
   }) => {
+    if (optionalOnly) {
+      const feeTypes =
+        await db
+          .select()
+          .from(feeTypesTable)
+          .where(
+            and(
+              eq(
+                feeTypesTable.schoolId,
+                schoolId
+              ),
+              inArray(
+                feeTypesTable.id,
+                data.feeTypeIds
+              )
+            )
+          );
+
+      const hasMandatory =
+        feeTypes.some(
+          (feeType) =>
+            !feeType.isOptional
+        );
+
+      if (hasMandatory) {
+        const error =
+          new Error(
+            "Only optional fees can be assigned to individual students or sections"
+          );
+        error.statusCode = 400;
+        error.code =
+          "MANDATORY_FEE_NOT_ALLOWED";
+        throw error;
+      }
+    }
+
     const selectedClassFees =
       await db
         .select()

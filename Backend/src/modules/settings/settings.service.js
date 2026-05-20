@@ -661,7 +661,7 @@ const ensureAcademicYearStructure =
           isArchived:
             false,
           createdAt:
-            Date.now(),
+            new Date(),
         };
 
         await db
@@ -795,7 +795,7 @@ const ensureAcademicYearStructure =
             isArchived:
               false,
             createdAt:
-              Date.now(),
+              new Date(),
           });
         copiedSections += 1;
       }

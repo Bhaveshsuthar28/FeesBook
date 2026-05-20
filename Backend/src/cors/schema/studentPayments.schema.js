@@ -52,6 +52,12 @@ export const studentPaymentsTable =
       note:
         text("note"),
 
+      remark:
+        text("remark"),
+
+      transactionRef:
+        text("transaction_ref"),
+
       createdAt:
         integer("created_at")
           .notNull(),

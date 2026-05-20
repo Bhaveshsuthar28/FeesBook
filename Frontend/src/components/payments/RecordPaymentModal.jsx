@@ -71,7 +71,6 @@ export default function RecordPaymentModal({
   paymentModes =
     defaultPaymentModes,
   showPaidAt = false,
-  showNote = false,
 }) {
   const resolvedStudentId =
     student?.id ||
@@ -111,8 +110,12 @@ export default function RecordPaymentModal({
       .slice(0, 10)
   );
   const [
-    note,
-    setNote,
+    remark,
+    setRemark,
+  ] = useState("");
+  const [
+    transactionRef,
+    setTransactionRef,
   ] = useState("");
   const [
     saving,
@@ -164,6 +167,21 @@ export default function RecordPaymentModal({
       .filter(Boolean)
       .join(" ") ||
     "Student";
+
+  const registeredPhone =
+    student?.phone ??
+    detail?.student?.phone ??
+    fetchedDetail?.student
+      ?.phone ??
+    "";
+
+  const registeredPhoneDigits =
+    String(
+      registeredPhone || ""
+    ).replace(
+      /\D/g,
+      ""
+    );
 
   const totalDue =
     student?.dueAmount ??
@@ -266,7 +284,8 @@ export default function RecordPaymentModal({
         .toISOString()
         .slice(0, 10)
     );
-    setNote("");
+    setRemark("");
+    setTransactionRef("");
   }, [
     open,
     dueFees,
@@ -323,15 +342,98 @@ export default function RecordPaymentModal({
       URL.revokeObjectURL(url);
     };
 
+  const changeAmountDigits =
+    (
+      raw,
+      maxDue
+    ) => {
+      const digits =
+        String(
+          raw || ""
+        ).replace(
+          /\D/g,
+          ""
+        );
+
+      if (
+        digits === ""
+      ) {
+        setAmount("");
+        return;
+      }
+
+      let n =
+        Number.parseInt(
+          digits,
+          10
+        );
+
+      if (
+        !Number.isFinite(
+          n
+        )
+      ) {
+        setAmount("");
+        return;
+      }
+
+      const cap =
+        Number(
+          maxDue || 0
+        );
+
+      if (
+        n > cap
+      ) {
+        n = cap;
+      }
+
+      setAmount(
+        String(n)
+      );
+    };
+
   const savePayment =
     async () => {
+      const dueCap =
+        Number(
+          selectedFee?.dueAmount ||
+            0
+        );
+
+      const paid =
+        Number.parseInt(
+          String(
+            amount ||
+              ""
+          ).replace(
+            /\D/g,
+            ""
+          ),
+          10
+        );
+
       if (
         !studentFeeId ||
-        Number(amount) <= 0
+        !Number.isFinite(
+          paid
+        ) ||
+        paid < 1
       ) {
         notify.error(
           null,
-          "Select a fee and enter payment amount"
+          "Select a fee and enter a valid amount (whole rupees)"
+        );
+        return;
+      }
+
+      if (
+        paid >
+        dueCap
+      ) {
+        notify.error(
+          null,
+          `Amount cannot exceed due ${formatCurrency(dueCap)}`
         );
         return;
       }
@@ -341,8 +443,7 @@ export default function RecordPaymentModal({
 
         const payload = {
           studentFeeId,
-          amount:
-            Number(amount),
+          amount: paid,
           paymentMode,
           paidAt:
             showPaidAt
@@ -352,8 +453,21 @@ export default function RecordPaymentModal({
               : Date.now(),
         };
 
-        if (showNote && note) {
-          payload.note = note;
+        if (remark.trim()) {
+          payload.remark = remark.trim();
+        }
+
+        const refTrim =
+          transactionRef
+            .trim()
+            .slice(
+              0,
+              50
+            );
+
+        if (refTrim) {
+          payload.transactionRef =
+            refTrim;
         }
 
         const result =
@@ -400,19 +514,73 @@ export default function RecordPaymentModal({
     };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+    <div
+      role="presentation"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4"
+      onClick={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="record-payment-title"
+        className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-extrabold uppercase text-indigo-600">
               Record Payment
             </p>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-950">
+            <h2
+              id="record-payment-title"
+              className="mt-1 text-xl font-extrabold text-slate-950"
+            >
               {displayName}
             </h2>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               Due {formatCurrency(totalDue)}
             </p>
+            {
+              registeredPhoneDigits.length >
+                0 && (
+                <p
+                  className={`
+                    mt-2
+                    text-xs
+                    font-semibold
+                    ${
+                      registeredPhoneDigits.length ===
+                      10
+                        ? "text-slate-600"
+                        : "text-amber-700"
+                    }
+                  `}
+                >
+                  Mobile on file:{" "}
+                  {registeredPhoneDigits}
+                  {registeredPhoneDigits.length !==
+                    10 && (
+                    <span
+                      className="
+                        ml-1
+                        font-bold
+                      "
+                    >
+                      (use 10 digits in student profile)
+                    </span>
+                  )}
+                </p>
+              )
+            }
           </div>
           <button
             type="button"
@@ -486,19 +654,39 @@ export default function RecordPaymentModal({
                   Amount
                 </span>
                 <input
-                  type="number"
-                  min="1"
-                  max={
-                    selectedFee?.dueAmount
-                  }
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={12}
                   value={amount}
                   onChange={(event) =>
-                    setAmount(
-                      event.target.value
+                    changeAmountDigits(
+                      event.target
+                        .value,
+                      selectedFee?.dueAmount
                     )
                   }
                   className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
                 />
+                <p
+                  className="
+                    text-[11px]
+                    font-medium
+                    text-slate-500
+                  "
+                >
+                  Whole rupees only, max due for this fee.
+                </p>
+                {selectedFee &&
+                  Number(amount) > 0 &&
+                  Number(amount) <
+                    Number(
+                      selectedFee.dueAmount || 0
+                    ) && (
+                    <p className="text-xs font-semibold text-orange-600">
+                      Partial payment — a partial fee receipt PDF will be generated with the remaining balance.
+                    </p>
+                  )}
               </label>
 
               <label className="space-y-2">
@@ -549,26 +737,46 @@ export default function RecordPaymentModal({
                 )
               }
 
-              {
-                showNote && (
-                  <label className="space-y-2">
-                    <span className="text-xs font-extrabold text-slate-600">
-                      Note
-                    </span>
-                    <textarea
-                      value={note}
-                      onChange={(event) =>
-                        setNote(
-                          event.target.value
+              <label className="space-y-2">
+                <span className="text-xs font-extrabold text-slate-600">
+                  Transaction reference
+                </span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  maxLength={50}
+                  value={transactionRef}
+                  onChange={(event) =>
+                    setTransactionRef(
+                      event.target
+                        .value
+                        .slice(
+                          0,
+                          50
                         )
-                      }
-                      rows={2}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
-                      placeholder="Optional note"
-                    />
-                  </label>
-                )
-              }
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 outline-none"
+                  placeholder="UPI ref, cheque no., etc. (optional)"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-extrabold text-slate-600">
+                  Remark (on PDF)
+                </span>
+                <textarea
+                  value={remark}
+                  onChange={(event) =>
+                    setRemark(
+                      event.target.value
+                    )
+                  }
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
+                  placeholder="Optional note printed on receipt"
+                />
+              </label>
             </div>
           )
         }

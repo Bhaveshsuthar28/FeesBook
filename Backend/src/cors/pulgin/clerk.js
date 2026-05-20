@@ -1,11 +1,13 @@
+import fp from "fastify-plugin";
 import { clerkPlugin } from "@clerk/fastify";
 
 import { env } from "../config/env.js";
 
-export default async function clerkAuthPlugin(app) {
-
+async function clerkAuthPlugin(app) {
   await app.register(clerkPlugin, {
     secretKey: env.CLERK_SECRET_KEY,
-    publishableKey : env.CLERK_PUBLISHABLE_KEY
+    publishableKey: env.CLERK_PUBLISHABLE_KEY,
   });
 }
+
+export default fp(clerkAuthPlugin);

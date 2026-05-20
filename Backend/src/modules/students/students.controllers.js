@@ -23,6 +23,13 @@ import {
   updateStudentService,
 } from "./students.service.js";
 
+import {
+  getStudentFeeConcessionService,
+  getStudentFeeConcessionReceiptPdfService,
+  removeStudentFeeConcessionService,
+  upsertStudentFeeConcessionService,
+} from "./studentConcessions.service.js";
+
 export const createStudentController =
   async (request, reply) => {
     const parsed =
@@ -269,6 +276,24 @@ export const getStudentPaymentReceiptPdfController =
           request.params.paymentId,
       });
 
+    const asciiFallback =
+      result.fileName.replace(
+        /[^\x20-\x7E]/g,
+        "_"
+      );
+    const encoded =
+      encodeURIComponent(
+        result.fileName
+      ).replace(
+        /['()*]/g,
+        (c) =>
+          "%" +
+          c
+            .charCodeAt(0)
+            .toString(16)
+            .toUpperCase()
+      );
+
     return reply
       .header(
         "Content-Type",
@@ -276,7 +301,7 @@ export const getStudentPaymentReceiptPdfController =
       )
       .header(
         "Content-Disposition",
-        `attachment; filename="${result.fileName}"`
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`
       )
       .send(result.buffer);
   };
@@ -310,4 +335,82 @@ export const getImageKitAuthController =
       success: true,
       data: result,
     });
+  };
+
+export const getStudentFeeConcessionController =
+  async (request, reply) => {
+    const result =
+      await getStudentFeeConcessionService({
+        schoolId:
+          request.user.schoolId,
+        studentId:
+          request.params.studentId,
+        academicYear:
+          request.query.academicYear,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const upsertStudentFeeConcessionController =
+  async (request, reply) => {
+    const result =
+      await upsertStudentFeeConcessionService({
+        schoolId:
+          request.user.schoolId,
+        studentId:
+          request.params.studentId,
+        data:
+          request.body,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const removeStudentFeeConcessionController =
+  async (request, reply) => {
+    const result =
+      await removeStudentFeeConcessionService({
+        schoolId:
+          request.user.schoolId,
+        studentId:
+          request.params.studentId,
+        concessionId:
+          request.params.concessionId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const getStudentFeeConcessionReceiptPdfController =
+  async (request, reply) => {
+    const result =
+      await getStudentFeeConcessionReceiptPdfService({
+        schoolId:
+          request.user.schoolId,
+        studentId:
+          request.params.studentId,
+        concessionId:
+          request.params.concessionId,
+      });
+
+    return reply
+      .header(
+        "Content-Type",
+        "application/pdf"
+      )
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${result.fileName}"`
+      )
+      .send(result.buffer);
   };

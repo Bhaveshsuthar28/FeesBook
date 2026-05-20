@@ -8,6 +8,17 @@
     font-family: "Outfit", sans-serif;
 }
 
+/* Native smooth scrolling for anchor links and programmatic scroll (SPA pages) */
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

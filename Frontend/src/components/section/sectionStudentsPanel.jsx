@@ -15,6 +15,10 @@ import {
 } from "react";
 
 import {
+  getClassFeeStructureStatus,
+} from "../../lib/api/feesapi.js";
+
+import {
   createStudent,
   getImageKitAuth,
   getStudentsBySection,
@@ -27,6 +31,7 @@ import {
 
 import {
   CardListSkeleton,
+  FormPanelSkeleton,
 } from "../skeleton/PageSkeletons.jsx";
 
 const emptyForm = {
@@ -141,9 +146,46 @@ export default function SectionStudentsPanel({
     setImportResult,
   ] = useState(null);
 
+  const [
+    feeStructureReady,
+    setFeeStructureReady,
+  ] = useState(false);
+
+  useEffect(() => {
+    if (!selectedClass?.id) {
+      setFeeStructureReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    getClassFeeStructureStatus(
+      selectedClass.id
+    )
+      .then((status) => {
+        if (!cancelled) {
+          setFeeStructureReady(
+            Boolean(
+              status?.hasFeeStructure
+            )
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFeeStructureReady(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClass?.id]);
+
   const canSubmit =
     useMemo(
       () =>
+        feeStructureReady &&
         !selectedClass.isArchived &&
         !section.isArchived &&
         requiredFields.every(
@@ -405,7 +447,9 @@ export default function SectionStudentsPanel({
             {
               !canManageStudents
                 ? "Archived sections are view only."
-                : "Add manually or import from Excel."
+                : !feeStructureReady
+                  ? "Define fee structure in Settings → Fees for this class before adding students."
+                  : "Add manually or import from Excel."
             }
           </p>
         </div>

@@ -106,6 +106,31 @@ export const updateStudentFeeSchema =
         .min(0),
   });
 
+export const upsertStudentFeeConcessionSchema =
+  z.object({
+    academicYear:
+      optionalString,
+    concessionType:
+      z.enum([
+        "scholarship",
+        "sibling",
+        "staff_child",
+        "merit",
+        "financial_aid",
+        "other",
+      ]),
+    basis:
+      z.enum([
+        "percentage",
+        "fixed",
+      ]),
+    basisValue:
+      z.number()
+        .positive(),
+    remark:
+      optionalString,
+  });
+
 export const recordStudentPaymentSchema =
   z.object({
     studentFeeId:
@@ -119,6 +144,10 @@ export const recordStudentPaymentSchema =
     paymentMode:
       optionalString,
     note:
+      optionalString,
+    remark:
+      optionalString,
+    transactionRef:
       optionalString,
   });
 

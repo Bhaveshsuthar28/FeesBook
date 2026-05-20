@@ -13,6 +13,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  ReceiptText,
   Search,
   ShieldCheck,
   RotateCcw,
@@ -43,11 +44,12 @@ import {
 } from "../lib/api/sectionapi.js";
 
 import {
-  createStudent,
+  getClassFeeStructureStatus,
+} from "../lib/api/feesapi.js";
+
+import {
   getStudentDirectory,
-  getImageKitAuth,
   getStudentsBySection,
-  importStudents,
   markStudentLeft,
 } from "../lib/api/studentapi.js";
 
@@ -58,8 +60,13 @@ import {
 
 import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 
+import AddStudentModal from "../components/students/AddStudentModal.jsx";
+
+import AllocateOptionalFeesModal from "../components/fees/AllocateOptionalFeesModal.jsx";
+
 import {
   PageLoadingSkeleton,
+  TableBodySkeleton,
 } from "../components/skeleton/PageSkeletons.jsx";
 
 const emptyForm = {
@@ -145,31 +152,6 @@ const directoryTabs = [
     icon: Upload,
   },
 ];
-
-const toBase64 =
-  (file) =>
-    new Promise(
-      (resolve, reject) => {
-        const reader =
-          new FileReader();
-
-        reader.onload =
-          () => {
-            const result =
-              String(reader.result);
-
-            resolve(
-              result.includes(",")
-                ? result.split(",")[1]
-                : result
-            );
-          };
-
-        reader.onerror =
-          reject;
-        reader.readAsDataURL(file);
-      }
-    );
 
 const formatCurrency =
   (amount) =>
@@ -382,793 +364,6 @@ function StudentAvatar({
   );
 }
 
-function AddStudentModal({
-  selectedClass,
-  selectedSection,
-  initialMode = "manual",
-  onClose,
-  onSaved,
-}) {
-  const [
-    mode,
-    setMode,
-  ] = useState(initialMode);
-
-  const [
-    form,
-    setForm,
-  ] = useState(emptyForm);
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-  const [
-    importing,
-    setImporting,
-  ] = useState(false);
-
-  const [
-    photoUploading,
-    setPhotoUploading,
-  ] = useState(false);
-
-  const [
-    importResult,
-    setImportResult,
-  ] = useState(null);
-  const canSubmit =
-    requiredFields.every(
-      (field) =>
-        form[field].trim()
-    ) &&
-    /^\d{2}\/\d{2}\/\d{4}$/.test(
-      form.dob
-    );
-
-  const updateForm =
-    (field, value) => {
-      setForm((current) => ({
-        ...current,
-        [field]: value,
-      }));
-    };
-
-  const uploadPhoto =
-    async (file) => {
-      if (!file) {
-        return;
-      }
-
-      try {
-        setPhotoUploading(true);
-        const auth =
-          await getImageKitAuth();
-
-        const body =
-          new FormData();
-
-        body.append("file", file);
-        body.append("fileName", file.name);
-        body.append("publicKey", auth.publicKey);
-        body.append("signature", auth.signature);
-        body.append("expire", auth.expire);
-        body.append("token", auth.token);
-        body.append("folder", "/feesbook/students");
-
-        const response =
-          await fetch(
-            "https://upload.imagekit.io/api/v1/files/upload",
-            {
-              method: "POST",
-              body,
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            "Photo upload failed"
-          );
-        }
-
-        const uploaded =
-          await response.json();
-
-        setForm((current) => ({
-          ...current,
-          photoUrl:
-            uploaded.url || "",
-          photoFileId:
-            uploaded.fileId || "",
-        }));
-      } catch (error) {
-        notify.error(error, "Photo could not be uploaded");
-      } finally {
-        setPhotoUploading(false);
-      }
-    };
-
-  const handleCreate =
-    async () => {
-      if (
-        !canSubmit ||
-        saving
-      ) {
-        return;
-      }
-
-      try {
-        setSaving(true);
-                await createStudent({
-          ...form,
-          classId:
-            selectedClass.id,
-          sectionId:
-            selectedSection.id,
-        });
-
-        try {
-          await onSaved();
-        } catch (refreshError) {
-          
-        }
-
-        notify.success(
-          "Student added successfully"
-        );
-        onClose();
-      } catch (error) {
-        notify.error(error, "Student could not be added");
-      } finally {
-        setSaving(false);
-      }
-    };
-
-  const handleImport =
-    async (file) => {
-      if (!file) {
-        return;
-      }
-
-      try {
-        setImporting(true);
-        setImportResult(null);
-                const fileBase64 =
-          await toBase64(file);
-
-        const result =
-          await importStudents({
-            classId:
-              selectedClass.id,
-            sectionId:
-              selectedSection.id,
-            fileName:
-              file.name,
-            fileBase64,
-          });
-
-        setImportResult(result);
-        await onSaved();
-      } catch (error) {
-        notify.error(error, "Students could not be imported");
-      } finally {
-        setImporting(false);
-      }
-    };
-
-  return (
-    <div
-      className="
-        fixed
-        inset-0
-        z-[90]
-        flex
-        items-end
-        justify-center
-        bg-slate-950/40
-        p-0
-        sm:items-center
-        sm:p-4
-      "
-    >
-      <div
-        className="
-          max-h-[92vh]
-          w-full
-          max-w-4xl
-          flex
-          flex-col
-          overflow-hidden
-          rounded-t-2xl
-          bg-white
-          shadow-2xl
-          sm:rounded-2xl
-        "
-      >
-        <div
-          className="
-            flex
-            flex-col
-            gap-4
-            border-b
-            border-slate-200
-            px-5
-            py-5
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-          "
-        >
-          <div>
-            <h2
-              className="
-                text-lg
-                font-bold
-                text-slate-950
-              "
-            >
-              Add Student
-            </h2>
-            <p
-              className="
-                mt-1
-                text-sm
-                text-slate-500
-              "
-            >
-              {selectedClass.name} - Section {selectedSection.name}
-            </p>
-          </div>
-
-          <div
-            className="
-              flex
-              rounded-xl
-              border
-              border-slate-200
-              bg-slate-50
-              p-1
-            "
-          >
-            <button
-              onClick={() =>
-                setMode("manual")
-              }
-              className={`
-                rounded-lg
-                px-4
-                py-2
-                text-sm
-                font-semibold
-                ${
-                  mode === "manual"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-500"
-                }
-              `}
-            >
-              Manual Entry
-            </button>
-            <button
-              onClick={() =>
-                setMode("excel")
-              }
-              className={`
-                rounded-lg
-                px-4
-                py-2
-                text-sm
-                font-semibold
-                ${
-                  mode === "excel"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-500"
-                }
-              `}
-            >
-              Excel Upload
-            </button>
-          </div>
-        </div>
-
-        {
-          mode === "manual" ? (
-            <div
-              className="
-                min-h-0
-                flex-1
-                overflow-y-auto
-                grid
-                gap-4
-                px-5
-                py-5
-                sm:grid-cols-2
-              "
-            >
-              {
-                [
-                  ["schoolRegisterNo", "Sr no", "School register number"],
-                  ["firstName", "First name", "Student first name"],
-                  ["lastName", "Last name", "Optional"],
-                  ["fatherName", "Father name", "Father full name"],
-                  ["phone", "Mobile number", "10 digit mobile number"],
-                  ["aadharNo", "Aadhar no", "Optional"],
-                ].map(([field, label, placeholder]) => (
-                  <label
-                    key={field}
-                    className="
-                      space-y-1.5
-                    "
-                  >
-                    <span
-                      className="
-                        text-xs
-                        font-bold
-                        text-slate-600
-                      "
-                    >
-                      {label}
-                    </span>
-                    <input
-                      value={form[field]}
-                      onChange={(event) =>
-                        updateForm(
-                          field,
-                          event.target.value
-                        )
-                      }
-                      placeholder={placeholder}
-                      className="
-                        h-12
-                        w-full
-                        rounded-xl
-                        border
-                        border-slate-200
-                        bg-white
-                        px-3.5
-                        text-sm
-                        font-medium
-                        text-slate-800
-                        outline-none
-                        transition
-                        placeholder:text-slate-400
-                        focus:border-blue-500
-                        focus:ring-4
-                        focus:ring-blue-50
-                      "
-                    />
-                  </label>
-                ))
-              }
-
-              <label
-                className="
-                  space-y-1.5
-                "
-              >
-                <span
-                  className="
-                    text-xs
-                    font-bold
-                    text-slate-600
-                  "
-                >
-                  Date of birth
-                </span>
-                <input
-                  type="date"
-                  value={formatDateForInput(
-                    form.dob
-                  )}
-                  onChange={(event) =>
-                    updateForm(
-                      "dob",
-                      formatDateForApi(
-                        event.target.value
-                      )
-                    )
-                  }
-                  className="
-                    h-12
-                    w-full
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-3.5
-                    text-sm
-                    font-medium
-                    text-slate-800
-                    outline-none
-                    transition
-                    focus:border-blue-500
-                    focus:ring-4
-                    focus:ring-blue-50
-                  "
-                />
-              </label>
-
-              <label
-                className="
-                  space-y-1.5
-                "
-              >
-                <span
-                  className="
-                    text-xs
-                    font-bold
-                    text-slate-600
-                  "
-                >
-                  Admission date
-                </span>
-                <input
-                  type="date"
-                  value={formatDateForInput(
-                    form.admissionDate
-                  )}
-                  onChange={(event) =>
-                    updateForm(
-                      "admissionDate",
-                      formatDateForApi(
-                        event.target.value
-                      )
-                    )
-                  }
-                  className="
-                    h-12
-                    w-full
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-3.5
-                    text-sm
-                    font-medium
-                    text-slate-800
-                    outline-none
-                    transition
-                    focus:border-blue-500
-                    focus:ring-4
-                    focus:ring-blue-50
-                  "
-                />
-              </label>
-
-              <label
-                className="
-                  space-y-1.5
-                "
-              >
-                <span
-                  className="
-                    text-xs
-                    font-bold
-                    text-slate-600
-                  "
-                >
-                  Gender
-                </span>
-                <select
-                  value={form.gender}
-                  onChange={(event) =>
-                    updateForm(
-                      "gender",
-                      event.target.value
-                    )
-                  }
-                  className="
-                    h-12
-                    w-full
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-3.5
-                    text-sm
-                    font-medium
-                    text-slate-800
-                    outline-none
-                    transition
-                    focus:border-blue-500
-                    focus:ring-4
-                    focus:ring-blue-50
-                  "
-                >
-                  <option value="">Select gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </label>
-
-              <label
-                className="
-                  space-y-1.5
-                "
-              >
-                <span
-                  className="
-                    text-xs
-                    font-bold
-                    text-slate-600
-                  "
-                >
-                  Aadhar verification
-                </span>
-                <select
-                  value={
-                    form.aadharVerificationStatus
-                  }
-                  onChange={(event) =>
-                    updateForm(
-                      "aadharVerificationStatus",
-                      event.target.value
-                    )
-                  }
-                  className="
-                    h-12
-                    w-full
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-3.5
-                    text-sm
-                    font-medium
-                    text-slate-800
-                    outline-none
-                    transition
-                    focus:border-blue-500
-                    focus:ring-4
-                    focus:ring-blue-50
-                  "
-                >
-                  <option value="">Optional status</option>
-                  <option value="Verified">Verified</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Not Verified">Not Verified</option>
-                </select>
-              </label>
-
-              <label
-                className="
-                  flex
-                  cursor-pointer
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-dashed
-                  border-slate-300
-                  px-3
-                  py-3
-                  text-sm
-                  font-medium
-                  text-slate-600
-                "
-              >
-                {
-                  photoUploading ? (
-                    <LoaderCircle
-                      size={16}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Image size={16} />
-                  )
-                }
-                {
-                  form.photoUrl
-                    ? "Photo uploaded"
-                    : "Photo optional"
-                }
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(event) =>
-                    uploadPhoto(
-                      event.target.files?.[0]
-                    )
-                  }
-                />
-              </label>
-            </div>
-          ) : (
-            <div
-              className="
-                min-h-0
-                flex-1
-                overflow-y-auto
-                px-5
-                py-5
-              "
-            >
-              <label
-                className="
-                  flex
-                  cursor-pointer
-                  flex-col
-                  items-center
-                  justify-center
-                  gap-3
-                  rounded-2xl
-                  border
-                  border-dashed
-                  border-slate-300
-                  bg-slate-50
-                  p-8
-                  text-center
-                "
-              >
-                {
-                  importing ? (
-                    <LoaderCircle
-                      size={28}
-                      className="animate-spin text-blue-600"
-                    />
-                  ) : (
-                    <Upload
-                      size={28}
-                      className="text-blue-600"
-                    />
-                  )
-                }
-                <span
-                  className="
-                    text-sm
-                    font-semibold
-                    text-slate-800
-                  "
-                >
-                  Upload Excel Sheet
-                </span>
-                <span
-                  className="
-                    max-w-xl
-                    text-xs
-                    text-slate-500
-                  "
-                >
-                  Required columns: Sr no, name of students, father name, DOB, mobile number, gender. Optional: aadhar no, verification status of aadhar, admission date.
-                </span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  hidden
-                  onChange={(event) =>
-                    handleImport(
-                      event.target.files?.[0]
-                    )
-                  }
-                />
-              </label>
-
-              {
-                importResult && (
-                  <div
-                    className="
-                      mt-4
-                      rounded-xl
-                      border
-                      border-slate-200
-                      p-4
-                      text-sm
-                      text-slate-700
-                    "
-                  >
-                    Imported {importResult.created} students. Skipped {importResult.skipped}.
-                    {
-                      importResult.errors
-                        ?.length > 0 && (
-                        <div
-                          className="
-                            mt-3
-                            max-h-28
-                            overflow-y-auto
-                            text-xs
-                            text-orange-700
-                          "
-                        >
-                          {
-                            importResult.errors.map(
-                              (item) => (
-                                <p
-                                  key={`${item.rowNumber}-${item.message}`}
-                                >
-                                  Row {item.rowNumber}: {item.message}
-                                </p>
-                              )
-                            )
-                          }
-                        </div>
-                      )
-                    }
-                  </div>
-                )
-              }
-            </div>
-          )
-        }
-        <div
-          className="
-            flex
-            shrink-0
-            items-center
-            justify-end
-            gap-3
-            border-t
-            border-slate-200
-            bg-white
-            px-5
-            py-5
-          "
-        >
-          <button
-            onClick={onClose}
-            className="
-              rounded-xl
-              border
-              border-slate-200
-              px-5
-              py-3
-              text-sm
-              font-medium
-              text-slate-700
-            "
-          >
-            Close
-          </button>
-
-          {
-            mode === "manual" && (
-              <button
-                disabled={
-                  !canSubmit ||
-                  saving
-                }
-                onClick={handleCreate}
-                className={`
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-xl
-                  px-5
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-white
-                  ${
-                    canSubmit &&
-                    !saving
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "cursor-not-allowed bg-slate-300"
-                  }
-                `}
-              >
-                {
-                  saving ? (
-                    <LoaderCircle
-                      size={18}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Plus size={18} />
-                  )
-                }
-                Add Student
-              </button>
-            )
-          }
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function StatCard({
   title,
@@ -1973,7 +1168,12 @@ function DirectoryStudentsView({
             </thead>
             <tbody className={directoryLoading ? "opacity-60" : ""}>
               {
-                students.length === 0 ? (
+                directoryLoading ? (
+                  <TableBodySkeleton
+                    rows={6}
+                    columns={7}
+                  />
+                ) : students.length === 0 ? (
                   <tr>
                     <td
                       colSpan={7}
@@ -2533,9 +1733,19 @@ export default function StudentsPage() {
   ] = useState(false);
 
   const [
+    feeStructureReady,
+    setFeeStructureReady,
+  ] = useState(false);
+
+  const [
     paymentStudentId,
     setPaymentStudentId,
   ] = useState(null);
+
+  const [
+    showOptionalFees,
+    setShowOptionalFees,
+  ] = useState(false);
 
   const [
     searchTerm,
@@ -2744,6 +1954,43 @@ export default function StudentsPage() {
     load();
   }, [refreshStudents]);
 
+  useEffect(() => {
+    if (!classId) {
+      setFeeStructureReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkFeeStructure =
+      async () => {
+        try {
+          const status =
+            await getClassFeeStructureStatus(
+              classId
+            );
+
+          if (!cancelled) {
+            setFeeStructureReady(
+              Boolean(
+                status?.hasFeeStructure
+              )
+            );
+          }
+        } catch {
+          if (!cancelled) {
+            setFeeStructureReady(false);
+          }
+        }
+      };
+
+    checkFeeStructure();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
+
   const refreshDirectory =
     useCallback(async () => {
       if (classId) {
@@ -2949,7 +2196,8 @@ export default function StudentsPage() {
     selectedClass &&
     selectedSection &&
     !selectedClass.isArchived &&
-    !selectedSection.isArchived;
+    !selectedSection.isArchived &&
+    feeStructureReady;
 
   const openAddModal =
     (mode) => {
@@ -3401,13 +2649,9 @@ export default function StudentsPage() {
               </div>
               {
                 directoryLoading && (
-                  <LoaderCircle
-                    size={20}
-                    className="
-                      animate-spin
-                      text-blue-600
-                    "
-                  />
+                  <span className="text-xs font-bold text-blue-600">
+                    Loading...
+                  </span>
                 )
               }
             </div>
@@ -3444,9 +2688,14 @@ export default function StudentsPage() {
                     <th className="px-5 py-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className={directoryLoading ? "opacity-60" : ""}>
                   {
-                    directoryStudents.length === 0 ? (
+                    directoryLoading ? (
+                      <TableBodySkeleton
+                        rows={6}
+                        columns={6}
+                      />
+                    ) : directoryStudents.length === 0 ? (
                       <tr>
                         <td
                           colSpan="6"
@@ -3840,6 +3089,19 @@ export default function StudentsPage() {
             >
               {selectedClass.name} - Section {selectedSection.name}
             </h1>
+            {!feeStructureReady && (
+              <p className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                Fee structure is not set for this class. Open{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className="font-extrabold text-amber-950 underline"
+                >
+                  Settings → Fees
+                </button>
+                , select this class, assign fees, then add students.
+              </p>
+            )}
             <span
               className="
                 rounded-md
@@ -3879,6 +3141,32 @@ export default function StudentsPage() {
             sm:justify-end
           "
         >
+          <button
+            type="button"
+            onClick={() =>
+              setShowOptionalFees(
+                true
+              )
+            }
+            className="
+              flex
+              h-11
+              items-center
+              gap-2
+              rounded-lg
+              border
+              border-indigo-200
+              bg-indigo-50
+              px-4
+              text-xs
+              font-bold
+              text-indigo-700
+              hover:bg-indigo-100
+            "
+          >
+            <ReceiptText size={16} />
+            Add Optional Fees to Section
+          </button>
 
           <div
             className="
@@ -4201,13 +3489,18 @@ export default function StudentsPage() {
               className={`
                 ${
                   tableLoading
-                    ? "opacity-50"
+                    ? "opacity-60"
                     : ""
                 }
               `}
             >
               {
-                students.length === 0 ? (
+                tableLoading ? (
+                  <TableBodySkeleton
+                    rows={6}
+                    columns={7}
+                  />
+                ) : students.length === 0 ? (
                   <tr>
                     <td
                       colSpan={7}
@@ -4780,6 +4073,27 @@ export default function StudentsPage() {
               setShowAddModal(false)
             }
             onSaved={
+              refreshStudents
+            }
+          />
+        )
+      }
+
+      {
+        showOptionalFees &&
+          classId &&
+          sectionId && (
+          <AllocateOptionalFeesModal
+            classId={classId}
+            sectionId={sectionId}
+            title="Add Optional Fees to Section"
+            description={`Assign optional fees to all students in ${selectedSection?.name || "this section"}`}
+            onClose={() =>
+              setShowOptionalFees(
+                false
+              )
+            }
+            onSuccess={
               refreshStudents
             }
           />

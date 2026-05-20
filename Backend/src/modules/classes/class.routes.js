@@ -7,7 +7,10 @@ import {
   getClassCatalogController,
 } from "./class.cotrollers.js";
 
-import { getClassesDashboardController } from "./class.dashboard.controllers.js";
+import {
+  getClassesDashboardController,
+  getClassesDashboardInsightsController,
+} from "./class.dashboard.controllers.js";
 
 export default async function (
   fastify
@@ -30,6 +33,11 @@ export default async function (
   fastify.get(
     "/dashboard",
     getClassesDashboardController
+  );
+
+  fastify.get(
+    "/dashboard/insights",
+    getClassesDashboardInsightsController
   );
 
   fastify.patch(

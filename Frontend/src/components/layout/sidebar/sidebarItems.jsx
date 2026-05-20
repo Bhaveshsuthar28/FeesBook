@@ -30,7 +30,8 @@ export default function SidebarItem({
           rounded-2xl
 
           transition-all
-          duration-200
+          duration-300
+          ease-out
 
           ${
             isActive
@@ -68,7 +69,8 @@ export default function SidebarItem({
           font-medium
 
           transition-all
-          duration-200
+          duration-300
+          ease-out
 
           ${
             expanded

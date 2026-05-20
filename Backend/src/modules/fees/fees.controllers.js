@@ -13,6 +13,7 @@ import {
 import {
 
   createFeeTypeService,
+  getClassFeeStructureStatusService,
   getFeeStructureService,
   getFeeTypesService,
   updateFeeTypeService,
@@ -45,6 +46,22 @@ export const getFeeStructureController =
       await getFeeStructureService({
         schoolId:
           request.user.schoolId,
+      });
+
+    return reply.send({
+      success: true,
+      data: result,
+    });
+  };
+
+export const getClassFeeStructureStatusController =
+  async (request, reply) => {
+    const result =
+      await getClassFeeStructureStatusService({
+        schoolId:
+          request.user.schoolId,
+        classId:
+          request.params.classId,
       });
 
     return reply.send({
@@ -128,10 +145,14 @@ export const archiveFeeTypeController =
         parsed.isArchived ?? true,
     });
 
+    const isArchived =
+      parsed.isArchived ?? true;
+
     return reply.send({
       success: true,
-      message:
-        "Fee type archived successfully",
+      message: isArchived
+        ? "Fee type archived successfully"
+        : "Fee type restored successfully",
     });
   };
 
@@ -210,10 +231,14 @@ export const archiveClassFeeController =
         parsed.isArchived ?? true,
     });
 
+    const isArchived =
+      parsed.isArchived ?? true;
+
     return reply.send({
       success: true,
-      message:
-        "Class fee archived successfully",
+      message: isArchived
+        ? "Class fee archived successfully"
+        : "Class fee restored successfully",
     });
   };
 
@@ -230,6 +255,11 @@ export const allocateClassFeesController =
           request.user.schoolId,
         data:
           parsed,
+        optionalOnly:
+          Boolean(
+            parsed.sectionId ||
+              parsed.studentIds?.length
+          ),
       });
 
     return reply.send({

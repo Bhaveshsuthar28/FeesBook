@@ -14,6 +14,8 @@ import {
   WalletCards,
 } from "lucide-react";
 
+import StudentReceiptsModal from "../components/fees/StudentReceiptsModal.jsx";
+
 import {
   useCallback,
   useEffect,
@@ -35,6 +37,12 @@ import {
 import {
   notify,
 } from "../lib/toast.js";
+
+import {
+  CardListSkeleton,
+  FeesPageSkeleton,
+  TableBodySkeleton,
+} from "../components/skeleton/PageSkeletons.jsx";
 
 const pageSize = 10;
 
@@ -187,6 +195,10 @@ export default function FeesPage() {
     setLoading,
   ] = useState(true);
   const [
+    hasLoaded,
+    setHasLoaded,
+  ] = useState(false);
+  const [
     search,
     setSearch,
   ] = useState("");
@@ -222,7 +234,10 @@ export default function FeesPage() {
     showMobileFilters,
     setShowMobileFilters,
   ] = useState(false);
-
+  const [
+    receiptsStudent,
+    setReceiptsStudent,
+  ] = useState(null);
   const resetFilters =
     () => {
       setSearch("");
@@ -265,6 +280,7 @@ export default function FeesPage() {
         );
       } finally {
         setLoading(false);
+        setHasLoaded(true);
       }
     }, [
       classId,
@@ -555,6 +571,17 @@ export default function FeesPage() {
         </button>
       </div>
     );
+
+  if (
+    loading &&
+    !hasLoaded
+  ) {
+    return (
+      <div className="mx-auto w-full max-w-[1440px]">
+        <FeesPageSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
@@ -947,17 +974,13 @@ export default function FeesPage() {
                 <th className="px-4 py-4">Actions</th>
               </tr>
             </thead>
-            <tbody className={loading ? "opacity-50" : ""}>
+            <tbody className={loading ? "opacity-60" : ""}>
               {
                 loading ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-12 text-center"
-                    >
-                      <LoaderCircle className="mx-auto animate-spin text-indigo-600" />
-                    </td>
-                  </tr>
+                  <TableBodySkeleton
+                    rows={6}
+                    columns={9}
+                  />
                 ) : ledger.students.length === 0 ? (
                   <tr>
                     <td
@@ -1010,18 +1033,21 @@ export default function FeesPage() {
                         <td className="px-4 py-4">
                           <button
                             type="button"
-                            disabled={!student.hasReceipt}
-                            onClick={() =>
-                              downloadReceipt({
-                                studentId:
-                                  student.id,
-                                paymentId:
-                                  student.lastPayment?.id,
-                              })
-                            }
-                            className="flex h-9 w-9 items-center justify-center rounded-xl text-red-500 disabled:text-slate-300"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setReceiptsStudent(
+                                student
+                              );
+                            }}
+                            className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-red-500 hover:bg-red-50"
+                            title="All receipts"
                           >
-                            <FileText size={18} />
+                            <FileText size={16} />
+                            {(student.paymentCount || 0) > 0 && (
+                              <span className="text-[10px] font-extrabold">
+                                {student.paymentCount}
+                              </span>
+                            )}
                           </button>
                         </td>
                         <td className="px-4 py-4">
@@ -1039,9 +1065,7 @@ export default function FeesPage() {
         <div className="space-y-3 bg-slate-50 p-3 md:hidden">
           {
             loading ? (
-              <div className="rounded-2xl bg-white p-8 text-center">
-                <LoaderCircle className="mx-auto animate-spin text-indigo-600" />
-              </div>
+              <CardListSkeleton rows={4} />
             ) : ledger.students.length === 0 ? (
               <div className="rounded-2xl bg-white p-5 text-sm font-semibold text-slate-500">
                 No fee ledger records found.
@@ -1090,16 +1114,12 @@ export default function FeesPage() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled={!student.hasReceipt}
-                          onClick={() =>
-                            downloadReceipt({
-                              studentId:
-                                student.id,
-                              paymentId:
-                                student.lastPayment?.id,
-                            })
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-red-500 disabled:text-slate-300"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setReceiptsStudent(student);
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-red-500 hover:bg-red-50"
+                          title="All receipts"
                         >
                           <FileText size={17} />
                         </button>
@@ -1207,6 +1227,14 @@ export default function FeesPage() {
         onSaved={refreshLedger}
         onReceiptReady={downloadReceipt}
         paymentModes={paymentModes}
+      />
+
+      <StudentReceiptsModal
+        open={Boolean(receiptsStudent)}
+        student={receiptsStudent}
+        onClose={() =>
+          setReceiptsStudent(null)
+        }
       />
     </div>
   );

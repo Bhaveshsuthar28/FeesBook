@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from "./axiosClient.js";
 
 const API =
   import.meta.env.VITE_BASE_URL;
@@ -8,6 +8,16 @@ export const getFeeStructure =
     const response =
       await axios.get(
         `${API}/fees/structure`
+      );
+
+    return response.data.data;
+  };
+
+export const getClassFeeStructureStatus =
+  async (classId) => {
+    const response =
+      await axios.get(
+        `${API}/fees/classes/${classId}/structure-status`
       );
 
     return response.data.data;

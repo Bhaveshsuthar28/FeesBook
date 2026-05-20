@@ -1,5 +1,6 @@
 import {
 
+  getClassFeeStructureStatusController,
   getFeeStructureController,
   getFeeTypesController,
   archiveFeeTypeController,
@@ -20,6 +21,11 @@ export default async function (
   fastify.get(
     "/structure",
     getFeeStructureController
+  );
+
+  fastify.get(
+    "/classes/:classId/structure-status",
+    getClassFeeStructureStatusController
   );
 
   fastify.get(

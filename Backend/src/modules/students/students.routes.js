@@ -3,6 +3,8 @@ import {
   bulkPromoteStudentsController,
   getFeesLedgerController,
   getImageKitAuthController,
+  getStudentFeeConcessionController,
+  getStudentFeeConcessionReceiptPdfController,
   getStudentPaymentReceiptPdfController,
   getStudentDirectoryController,
   getStudentDetailController,
@@ -12,8 +14,10 @@ import {
   markStudentLeftController,
   promoteStudentController,
   recordStudentPaymentController,
+  removeStudentFeeConcessionController,
   updateStudentController,
   updateStudentFeeController,
+  upsertStudentFeeConcessionController,
 } from "./students.controllers.js";
 
 export default async function (
@@ -92,5 +96,25 @@ export default async function (
   fastify.get(
     "/:studentId/payments/:paymentId/receipt.pdf",
     getStudentPaymentReceiptPdfController
+  );
+
+  fastify.get(
+    "/:studentId/concessions",
+    getStudentFeeConcessionController
+  );
+
+  fastify.put(
+    "/:studentId/concessions",
+    upsertStudentFeeConcessionController
+  );
+
+  fastify.delete(
+    "/:studentId/concessions/:concessionId",
+    removeStudentFeeConcessionController
+  );
+
+  fastify.get(
+    "/:studentId/concessions/:concessionId/receipt.pdf",
+    getStudentFeeConcessionReceiptPdfController
   );
 }

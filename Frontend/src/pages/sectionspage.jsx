@@ -41,6 +41,7 @@ import SectionTable
 
 import {
   PageLoadingSkeleton,
+  SectionGridSkeleton,
 } from "../components/skeleton/PageSkeletons.jsx";
 
 const tabs = [

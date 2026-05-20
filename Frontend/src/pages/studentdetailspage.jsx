@@ -10,6 +10,9 @@ import {
   LoaderCircle,
   MessageCircle,
   Phone,
+  FileText,
+  Percent,
+  Plus,
   ReceiptText,
   Save,
   User,
@@ -29,7 +32,13 @@ import {
 
 import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 
+import AllocateOptionalFeesModal from "../components/fees/AllocateOptionalFeesModal.jsx";
+import FeeConcessionModal from "../components/fees/FeeConcessionModal.jsx";
+
 import {
+  downloadReceiptBlob,
+  downloadStudentFeeConcessionReceipt,
+  downloadStudentPaymentReceipt,
   getImageKitAuth,
   getStudentDetail,
   updateStudent,
@@ -39,6 +48,10 @@ import {
 import {
   notify,
 } from "../lib/toast.js";
+
+import {
+  DetailPageSkeleton,
+} from "../components/skeleton/PageSkeletons.jsx";
 
 const emptyStudentForm = {
   schoolRegisterNo: "",
@@ -550,7 +563,16 @@ function FeeEditRow({
 
   return (
     <tr className="border-b border-slate-100 last:border-0">
-      <td className="px-4 py-3 text-sm font-bold text-slate-800">{fee.feeTypeName}</td>
+      <td className="px-4 py-3 text-sm font-bold text-slate-800">
+        <span>{fee.feeTypeName}</span>
+        {
+          fee.isOptional && (
+            <span className="ml-2 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-700">
+              Optional
+            </span>
+          )
+        }
+      </td>
       <td className="px-4 py-3 text-sm font-bold text-slate-700">
         {
           editing ? (
@@ -630,6 +652,22 @@ export default function StudentDetailsPage() {
     setShowPayment,
   ] = useState(false);
   const [
+    showOptionalFees,
+    setShowOptionalFees,
+  ] = useState(false);
+  const [
+    showConcession,
+    setShowConcession,
+  ] = useState(false);
+  const [
+    showConcessionConfirm,
+    setShowConcessionConfirm,
+  ] = useState(false);
+  const [
+    downloadingPaymentId,
+    setDownloadingPaymentId,
+  ] = useState("");
+  const [
     reminderMessage,
     setReminderMessage,
   ] = useState("");
@@ -677,11 +715,7 @@ export default function StudentDetailsPage() {
   ]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <LoaderCircle className="animate-spin text-blue-600" size={32} />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!detail) {
@@ -758,6 +792,16 @@ export default function StudentDetailsPage() {
             <button type="button" onClick={() => setShowEdit(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">
               <Edit3 size={17} />
               Edit Student
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setShowConcessionConfirm(true)
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 hover:bg-amber-100"
+            >
+              <Percent size={17} />
+              Fee Concession
             </button>
             <button
               type="button"
@@ -877,6 +921,33 @@ export default function StudentDetailsPage() {
         {
           activeTab === "fees" && (
             <div className="p-5">
+              {detail.concession && (
+                <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-extrabold text-amber-900">
+                  Concession {formatCurrency(detail.concession.concessionAmount)} ({detail.concession.academicYear})
+                </p>
+              )}
+              <div className="mb-4 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConcessionConfirm(true)
+                  }
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-extrabold text-amber-800"
+                >
+                  <Percent size={16} />
+                  {detail.concession ? "Edit concession" : "Apply concession"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowOptionalFees(true)
+                  }
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-extrabold text-white hover:bg-indigo-700"
+                >
+                  <Plus size={16} />
+                  Add Optional Fee
+                </button>
+              </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full min-w-[760px] text-left">
                   <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -924,12 +995,46 @@ export default function StudentDetailsPage() {
                         </p>
                       ) : (
                         payments.map((payment) => (
-                          <div key={payment.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3">
+                          <div
+                            key={payment.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3"
+                          >
                             <div>
                               <p className="text-sm font-extrabold text-slate-900">{payment.feeTypeName}</p>
-                              <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(payment.paidAt)}</p>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {formatDate(payment.paidAt)}
+                                {payment.receiptNo && ` · ${payment.receiptNo}`}
+                              </p>
                             </div>
-                            <p className="text-sm font-extrabold text-emerald-600">{formatCurrency(payment.amount)}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-extrabold text-emerald-600">{formatCurrency(payment.amount)}</p>
+                              <button
+                                type="button"
+                                title="Download receipt PDF"
+                                disabled={Boolean(downloadingPaymentId)}
+                                onClick={async () => {
+                                  setDownloadingPaymentId(payment.id);
+                                  try {
+                                    const file = await downloadStudentPaymentReceipt({
+                                      studentId: student.id,
+                                      paymentId: payment.id,
+                                    });
+                                    downloadReceiptBlob(file);
+                                  } catch (error) {
+                                    notify.error(error);
+                                  } finally {
+                                    setDownloadingPaymentId("");
+                                  }
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+                              >
+                                {downloadingPaymentId === payment.id ? (
+                                  <LoaderCircle size={16} className="animate-spin" />
+                                ) : (
+                                  <FileText size={16} />
+                                )}
+                              </button>
+                            </div>
                           </div>
                         ))
                       )
@@ -1018,8 +1123,89 @@ export default function StudentDetailsPage() {
         }
         onSaved={setDetail}
         showPaidAt
-        showNote
       />
+
+      {
+        showConcessionConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+              <h2 className="text-lg font-extrabold text-slate-950">
+                Fee concession
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                {student.fullName}
+              </p>
+              <p className="mt-4 text-sm font-semibold text-slate-600">
+                {detail.concession
+                  ? "Edit this student's fee concession? Net fees for the active academic year will be recalculated."
+                  : "Apply a fee concession for this student? Net fees for the active academic year will be updated and a PDF receipt can be generated."}
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConcessionConfirm(false)
+                  }
+                  className="h-11 rounded-xl border border-slate-200 px-4 text-sm font-extrabold text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConcessionConfirm(false);
+                    setShowConcession(true);
+                  }}
+                  className="h-11 rounded-xl bg-indigo-600 px-4 text-sm font-extrabold text-white"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      <FeeConcessionModal
+        open={showConcession}
+        detail={detail}
+        onClose={() =>
+          setShowConcession(false)
+        }
+        onSaved={setDetail}
+      />
+
+      {
+        showOptionalFees && (
+          <AllocateOptionalFeesModal
+            classId={
+              student.classId ||
+              detail.class?.id
+            }
+            studentIds={[
+              student.id,
+            ]}
+            assignedFeeTypeIds={fees.map(
+              (fee) =>
+                fee.feeTypeId
+            )}
+            title="Add Optional Fee"
+            description={`Assign optional fees to ${student.fullName}`}
+            onClose={() =>
+              setShowOptionalFees(
+                false
+              )
+            }
+            onSuccess={async () => {
+              const result =
+                await getStudentDetail(
+                  studentId
+                );
+              setDetail(result);
+            }}
+          />
+        )
+      }
     </div>
   );
 }

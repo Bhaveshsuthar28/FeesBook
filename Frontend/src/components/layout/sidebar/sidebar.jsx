@@ -13,6 +13,12 @@ import {
 } from "@clerk/clerk-react";
 
 import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+} from "framer-motion";
+
+import {
   useState,
 } from "react";
 
@@ -46,15 +52,46 @@ export default function Sidebar({
     setShowLogoutPopup,
   ] = useState(false);
 
+  const prefersReducedMotion =
+    useReducedMotion();
+
   const expanded =
     !isCollapsed;
+
+  const sidebarTransition =
+    prefersReducedMotion
+      ? {
+          duration: 0,
+        }
+      : {
+          type: "tween",
+          ease: [
+            0.25,
+            0.1,
+            0.25,
+            1,
+          ],
+          duration: 0.38,
+        };
 
   return (
     <>
 
-      <aside
-        className={`
+      <motion.aside
+        layout={false}
+        initial={false}
+        animate={{
+          width:
+            expanded
+              ? 240
+              : 85,
+        }}
+        transition={
+          sidebarTransition
+        }
+        className="
           hidden
+          overflow-hidden
           md:flex
 
           fixed
@@ -64,6 +101,8 @@ export default function Sidebar({
 
           h-screen
 
+          shrink-0
+
           flex-col
           justify-between
 
@@ -71,16 +110,7 @@ export default function Sidebar({
 
           px-4
           py-5
-
-          transition-all
-          duration-300
-
-          ${
-            expanded
-              ? "w-[240px]"
-              : "w-[85px]"
-          }
-        `}
+        "
       >
 
         <div
@@ -248,7 +278,8 @@ export default function Sidebar({
               
 
               transition-all
-              duration-200
+              duration-300
+              ease-out
 
               hover:bg-slate-800
             `}
@@ -273,7 +304,8 @@ export default function Sidebar({
                 overflow-hidden
 
                 transition-all
-                duration-200
+                duration-300
+                ease-out
 
                 ${
                   expanded
@@ -338,7 +370,8 @@ export default function Sidebar({
               text-white
 
               transition-all
-              duration-200
+              duration-300
+              ease-out
 
               hover:bg-slate-800
             `}
@@ -351,7 +384,8 @@ export default function Sidebar({
             <span
               className={`
                 transition-all
-                duration-200
+                duration-300
+                ease-out
 
                 ${
                   expanded
@@ -367,38 +401,106 @@ export default function Sidebar({
 
         </div>
 
-      </aside>
+      </motion.aside>
 
-      {
-        showLogoutPopup && (
+      <AnimatePresence>
 
-          <div
-            className="
-              fixed
-              inset-0
-              z-[100]
+        {
+          showLogoutPopup && (
 
-              flex
-              items-center
-              justify-center
-
-              bg-black/40
-            "
-          >
-
-            <div
+            <motion.div
+              key="logout-overlay"
+              role="presentation"
+              initial={{
+                opacity: 0,
+              }}
+              animate={{
+                opacity: 1,
+              }}
+              exit={{
+                opacity: 0,
+              }}
+              transition={{
+                duration:
+                  prefersReducedMotion
+                    ? 0
+                    : 0.22,
+              }}
               className="
-                w-[340px]
+                fixed
+                inset-0
+                z-[100]
 
-                rounded-3xl
+                flex
+                items-center
+                justify-center
 
-                bg-white
-
-                p-6
+                bg-black/40
               "
+              onClick={() =>
+                setShowLogoutPopup(
+                  false
+                )
+              }
             >
 
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="sidebar-logout-title"
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : {
+                        opacity: 0,
+                        scale: 0.96,
+                        y: 8,
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={
+                  prefersReducedMotion
+                    ? {
+                        opacity: 0,
+                      }
+                    : {
+                        opacity: 0,
+                        scale: 0.96,
+                        y: 8,
+                      }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? {
+                        duration: 0,
+                      }
+                    : {
+                        type: "spring",
+                        stiffness: 420,
+                        damping: 32,
+                        mass: 0.85,
+                      }
+                }
+                onClick={(event) =>
+                  event.stopPropagation()
+                }
+                className="
+                  w-[340px]
+
+                  rounded-3xl
+
+                  bg-white
+
+                  p-6
+                "
+              >
+
               <h2
+                id="sidebar-logout-title"
                 className="
                   mb-2
 
@@ -470,11 +572,13 @@ export default function Sidebar({
 
               </div>
 
-            </div>
+              </motion.div>
 
-          </div>
-        )
-      }
+            </motion.div>
+          )
+        }
+
+      </AnimatePresence>
 
     </>
   );

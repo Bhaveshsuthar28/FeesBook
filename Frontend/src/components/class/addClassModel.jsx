@@ -16,6 +16,10 @@ import {
   unarchiveClass,
 } from "../../lib/api/classapi.js";
 
+import {
+  notify,
+} from "../../lib/toast.js";
+
 export default function AddClassModal({
   setShowAddModal,
   classCatalog,
@@ -59,7 +63,10 @@ export default function AddClassModal({
           false
         );
       } catch (error) {
-        console.log(error);
+        notify.error(
+          error,
+          "Class could not be created"
+        );
       } finally {
         setActionKey("");
       }
@@ -89,7 +96,10 @@ export default function AddClassModal({
           false
         );
       } catch (error) {
-        console.log(error);
+        notify.error(
+          error,
+          "Class could not be restored"
+        );
       } finally {
         setActionKey("");
       }
@@ -97,6 +107,17 @@ export default function AddClassModal({
 
   return (
     <div
+      role="presentation"
+      onClick={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          setShowAddModal(
+            false
+          );
+        }
+      }}
       className="
         fixed
         inset-0
@@ -111,6 +132,12 @@ export default function AddClassModal({
       "
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-class-title"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
         className="
           w-full
           max-w-2xl
@@ -136,6 +163,7 @@ export default function AddClassModal({
         >
           <div>
             <h2
+              id="add-class-title"
               className="
                 text-lg
                 font-bold
