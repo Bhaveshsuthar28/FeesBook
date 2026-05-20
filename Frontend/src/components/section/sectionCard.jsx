@@ -18,20 +18,24 @@ import {
 
 const sectionColors = [
   {
-    bg: "bg-blue-100",
-    text: "text-blue-700",
+    bg: "bg-blue-200",
+    text: "text-blue-800",
+    bg2:"bg-blue-100"
   },
   {
-    bg: "bg-green-100",
-    text: "text-green-700",
+    bg: "bg-green-200",
+    text: "text-green-800",
+    bg2:"bg-green-100"
   },
   {
-    bg: "bg-yellow-100",
-    text: "text-yellow-700",
+    bg: "bg-yellow-200",
+    text: "text-yellow-800",
+    bg2:"bg-yellow-100"
   },
   {
-    bg: "bg-purple-100",
-    text: "text-purple-700",
+    bg: "bg-purple-200",
+    text: "text-purple-800",
+    bg2:"bg-purple-100"
   },
 ];
 
@@ -125,7 +129,7 @@ export default function SectionCard({
   return (
     <>
       <div
-        className="
+        className={`
           relative
           rounded-2xl
           border
@@ -133,21 +137,24 @@ export default function SectionCard({
           bg-white
           px-4
           py-4
-        "
+          ${color.bg2}
+        `}
       >
         <div
-          className="
+          className={`
             flex
             items-center
             justify-between
-          "
+            
+          `}
         >
           <div
-            className="
+            className={`
               flex
               items-center
               gap-3
-            "
+              
+            `}
           >
             <div
               className={`
