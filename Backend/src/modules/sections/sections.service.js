@@ -541,6 +541,10 @@ export const getSectionStatsService =
               classId
             ),
             eq(
+              studentsTable.status,
+              "active"
+            ),
+            eq(
               sectionsTable.schoolId,
               schoolId
             ),
@@ -601,6 +605,10 @@ export const getSectionStatsService =
             eq(
               studentsTable.classId,
               classId
+            ),
+            eq(
+              studentsTable.status,
+              "active"
             ),
             eq(
               sectionsTable.schoolId,

@@ -103,11 +103,13 @@ export const studentsTable =
       movementNote:
         text("movement_note"),
 
+      currentEnrollmentId:
+        text("current_enrollment_id"),
+
       createdAt:
         integer("created_at")
           .notNull(),
-    }
-    ,
+    },
     (table) => ({
       uniqueRegisterNo:
         uniqueIndex(

@@ -369,84 +369,131 @@ function StatCard({
   title,
   value,
   note,
-  icon,
-  iconClass,
-  iconBg,
+  icon: Icon,
+  iconClass = "",
+  iconBg = "",
 }) {
-  const StatIcon =
-    icon;
+  const getTheme = () => {
+    if (iconBg.includes("blue")) {
+      return {
+        bg: "bg-[#eef5fc]",
+        border: "border-[#d2e5fc]/60",
+        iconBg: "bg-[#d2e5fc]",
+        iconColor: "text-blue-600",
+        noteColor: "text-slate-500",
+      };
+    } else if (iconBg.includes("emerald") || iconBg.includes("green")) {
+      return {
+        bg: "bg-[#ebfaf0]",
+        border: "border-[#d3f4dd]/60",
+        iconBg: "bg-[#d3f4dd]",
+        iconColor: "text-green-600",
+        noteColor: "text-emerald-600",
+      };
+    } else if (iconBg.includes("orange") || iconBg.includes("amber")) {
+      return {
+        bg: "bg-[#fff8ed]",
+        border: "border-[#fee5cd]/60",
+        iconBg: "bg-[#fee5cd]",
+        iconColor: "text-orange-600",
+        noteColor: "text-slate-500",
+      };
+    } else if (iconBg.includes("violet") || iconBg.includes("purple")) {
+      return {
+        bg: "bg-[#fbf7fe]",
+        border: "border-[#ebdcfc]/60",
+        iconBg: "bg-[#ebdcfc]",
+        iconColor: "text-purple-600",
+        noteColor: "text-slate-500",
+      };
+    }
+    return {
+      bg: "bg-white",
+      border: "border-slate-200",
+      iconBg: iconBg,
+      iconColor: iconClass,
+      noteColor: "text-slate-500",
+    };
+  };
+
+  const theme = getTheme();
 
   return (
     <div
-      className="
-        rounded-2xl
+      className={`
+        rounded-[24px]
         border
-        border-slate-200
-        bg-white
-        p-5
-      "
+        ${theme.bg}
+        ${theme.border}
+        p-4
+        md:p-5
+        shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]
+        transition-all
+        duration-300
+        hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)]
+        flex
+        items-center
+        gap-3
+        md:gap-4
+      `}
     >
       <div
-        className="
+        className={`
           flex
-          items-start
-          gap-4
-        "
+          h-12
+          w-12
+          md:h-14
+          md:w-14
+          shrink-0
+          items-center
+          justify-center
+          rounded-2xl
+          ${theme.iconBg}
+        `}
       >
-        <div
-          className={`
-            flex
-            h-12
-            w-12
-            shrink-0
-            items-center
-            justify-center
-            rounded-2xl
-            ${iconBg}
-          `}
-        >
-          <StatIcon
-            size={24}
-            className={iconClass}
-          />
-        </div>
-        <div
+        <Icon
+          size={22}
+          className={theme.iconColor}
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p
           className="
-            min-w-0
-            flex-1
+            text-[11px]
+            md:text-xs
+            font-semibold
+            text-slate-500
+            tracking-wide
           "
         >
-          <p
-            className="
-              text-xs
-              font-medium
-              text-slate-500
-            "
-          >
-            {title}
-          </p>
-          <p
-            className="
-              mt-2
-              text-lg
-              font-bold
-              leading-none
-              text-slate-900
-              sm:text-2xl
-            "
-          >
-            {value}
-          </p>
-          <p
-            className="
-              mt-3
-              text-xs
-              text-slate-500
-            "
-          >
-            {note}
-          </p>
-        </div>
+          {title}
+        </p>
+
+        <h2
+          className="
+            mt-0.5
+            text-lg
+            md:text-2xl
+            font-bold
+            tracking-tight
+            text-slate-900
+          "
+        >
+          {value}
+        </h2>
+
+        <p
+          className={`
+            mt-0.5
+            text-[10px]
+            md:text-xs
+            font-bold
+            ${theme.noteColor}
+          `}
+        >
+          {note}
+        </p>
       </div>
     </div>
   );
@@ -899,57 +946,16 @@ function DirectoryStudentsView({
 
       <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
         {
-          statCards.map((card) => {
-            const Icon =
-              card.icon;
-
-            return (
-              <div
-                key={card.title}
-                className={`
-                  rounded-lg
-                  border
-                  bg-white
-                  p-3
-                  shadow-sm
-                  md:p-5
-                  ${card.accent}
-                `}
-              >
-                <div className="flex items-start justify-between gap-2 md:gap-4">
-                  <div>
-                    <p className="text-[11px] font-extrabold md:text-sm">
-                      {card.title}
-                    </p>
-                    <p className="mt-3 text-2xl font-extrabold tracking-normal md:mt-4 md:text-3xl">
-                      {formatCount(
-                        card.value
-                      )}
-                    </p>
-                    <p className="mt-2 text-[11px] font-semibold text-slate-500 md:mt-4 md:text-sm">
-                      ↑ {card.note}
-                    </p>
-                  </div>
-                  <div
-                    className={`
-                      flex
-                      h-9
-                      w-9
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      md:h-12
-                      md:w-12
-                      ${card.iconBg}
-                    `}
-                  >
-                    <Icon size={19} />
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          statCards.map((card) => (
+            <StatCard
+              key={card.title}
+              title={card.title}
+              value={formatCount(card.value)}
+              note={`↑ ${card.note}`}
+              icon={card.icon}
+              iconBg={card.iconBg}
+            />
+          ))
         }
       </div>
 

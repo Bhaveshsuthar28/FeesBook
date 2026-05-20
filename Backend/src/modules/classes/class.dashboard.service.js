@@ -132,9 +132,15 @@ export const getClassesDashboardService =
                 )
 
                 .where(
-                  eq(
-                    studentsTable.classId,
-                    singleClass.id
+                  and(
+                    eq(
+                      studentsTable.classId,
+                      singleClass.id
+                    ),
+                    eq(
+                      studentsTable.status,
+                      "active"
+                    )
                   )
                 );
 
@@ -176,9 +182,15 @@ export const getClassesDashboardService =
                 )
 
                 .where(
-                  eq(
-                    studentsTable.classId,
-                    singleClass.id
+                  and(
+                    eq(
+                      studentsTable.classId,
+                      singleClass.id
+                    ),
+                    eq(
+                      studentsTable.status,
+                      "active"
+                    )
                   )
                 );
 

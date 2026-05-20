@@ -222,15 +222,26 @@ export const getDashboardInsightsService =
               )
             `,
         })
-
         .from(
           studentFeesTable
         )
-
-        .where(
+        .innerJoin(
+          studentsTable,
           eq(
-            studentFeesTable.schoolId,
-            schoolId
+            studentsTable.id,
+            studentFeesTable.studentId
+          )
+        )
+        .where(
+          and(
+            eq(
+              studentFeesTable.schoolId,
+              schoolId
+            ),
+            eq(
+              studentsTable.status,
+              "active"
+            )
           )
         );
 

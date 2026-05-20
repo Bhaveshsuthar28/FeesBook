@@ -14,6 +14,9 @@ import {
   Users,
   Wallet,
   X,
+  School,
+  IndianRupee,
+  WalletCards,
 } from "lucide-react";
 
 import {
@@ -28,11 +31,10 @@ import {
 } from "react-router-dom";
 
 import {
-  CartesianGrid,
+  Area,
+  AreaChart,
   Cell,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -1013,6 +1015,33 @@ export default function DashboardPage() {
   const lineData =
     insights?.dailyTrend || [];
 
+  // Calculate cumulative collected
+  let collectedCumulativeSum = 0;
+  const chartData = lineData.map((item) => {
+    collectedCumulativeSum += Number(item.collected || 0);
+    return {
+      ...item,
+      collectedCumulative: collectedCumulativeSum,
+    };
+  });
+
+  const xAxisTicks = lineData
+    .filter((item) => {
+      if (!item.date) return false;
+      const day = new Date(item.date).getDate();
+      return [1, 7, 14, 21, 28].includes(day);
+    })
+    .map((item) => item.date);
+
+  const formatXAxisDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const day = date.getDate();
+    const month = date.toLocaleString("en-US", { month: "short" });
+    return `${day} ${month}`;
+  };
+
   const collectedThisMonth =
     insights?.collectedThisMonth ?? 0;
 
@@ -1059,49 +1088,43 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: "Total Students",
-      value:
-        totalStudents.toLocaleString(
-          "en-IN"
-        ),
-      note: "Active students",
-      icon: Users,
-      iconBg: "bg-blue-100",
+      title: "Total Classes",
+      value: String(totalClasses),
+      note: "Active classes",
+      icon: School,
+      iconBg: "bg-[#d2e5fc]",
       iconClass: "text-blue-600",
+      bg: "bg-[#eef5fc] border-[#d2e5fc]/60"
+    },
+    {
+      title: "Total Students",
+      value: totalStudents.toLocaleString("en-IN"),
+      note: "Across all classes",
+      icon: Users,
+      iconBg: "bg-[#d3f4dd]",
+      iconClass: "text-green-600",
+      bg: "bg-[#ebfaf0] border-[#d3f4dd]/60"
     },
     {
       title: "Total Pending Fees",
-      value:
-        formatCurrency(
-          totalPendingFees
-        ),
-      note: `${pendingStudentCount} Students`,
-      icon: FileText,
-      iconBg: "bg-orange-100",
+      value: formatCurrency(totalPendingFees),
+      note: "Across all classes",
+      icon: IndianRupee,
+      iconBg: "bg-[#fee5cd]",
       iconClass: "text-orange-600",
+      bg: "bg-[#fff8ed] border-[#fee5cd]/60"
     },
     {
       title: "Collected (This Month)",
-      value:
-        formatCurrency(
-          collectedThisMonth
-        ),
+      value: formatCurrency(collectedThisMonth),
       note:
         monthPercentChange === null
           ? "No comparison yet"
           : `${monthPercentChange >= 0 ? "+" : ""}${monthPercentChange}% from last month`,
-      icon: Wallet,
-      iconBg: "bg-emerald-100",
-      iconClass: "text-emerald-600",
-    },
-    {
-      title: "Total Classes",
-      value:
-        String(totalClasses),
-      note: "Active Classes",
-      icon: Building2,
-      iconBg: "bg-purple-100",
+      icon: WalletCards,
+      iconBg: "bg-[#ebdcfc]",
       iconClass: "text-purple-600",
+      bg: "bg-[#fbf7fe] border-[#ebdcfc]/60"
     },
   ];
 
@@ -1168,102 +1191,90 @@ export default function DashboardPage() {
           stats.map(
             (card) => {
 
-              const Icon =
-                card.icon;
+              const Icon = card.icon;
+              const isCollected = card.title === "Collected (This Month)" || card.note.startsWith("+");
 
               return (
                 <div
                   key={card.title}
-                  className="
-                    rounded-2xl
+                  className={`
+                    rounded-[24px]
                     border
-                    border-slate-100
-                    bg-white
+                    ${card.bg}
                     p-4
-                    shadow-sm
-                    lg:p-5
-                  "
+                    md:p-5
+                    shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]
+                    transition-all
+                    duration-300
+                    hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)]
+                    flex
+                    items-center
+                    gap-3
+                    md:gap-4
+                  `}
                 >
-
                   <div
-                    className="
+                    className={`
                       flex
-                      items-start
-                      justify-between
-                      gap-2
-                    "
+                      h-12
+                      w-12
+                      md:h-14
+                      md:w-14
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-2xl
+                      ${card.iconBg}
+                    `}
                   >
-
-                    <div>
-
-                      <p
-                        className="
-                          text-xs
-                          font-medium
-                          text-slate-500
-                          lg:text-sm
-                        "
-                      >
-                        {card.title}
-                      </p>
-
-                      <p
-                        className="
-                          mt-2
-                          text-lg
-                          font-bold
-                          text-slate-900
-                          lg:text-xl
-                        "
-                      >
-                        {card.value}
-                      </p>
-
-                      <p
-                        className={`
-                          mt-1
-                          text-xs
-                          font-medium
-                          ${
-                            card.title ===
-                            "Collected (This Month)"
-                              ? "text-emerald-600"
-                              : "text-slate-500"
-                          }
-                        `}
-                      >
-                        {card.note}
-                      </p>
-
-                    </div>
-
-                    <div
-                      className={`
-                        flex
-                        h-11
-                        w-11
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-full
-                        ${card.iconBg}
-                      `}
-                    >
-
-                      <Icon
-                        className={
-                          card.iconClass
-                        }
-                        size={22}
-                        strokeWidth={
-                          2
-                        }
-                      />
-
-                    </div>
-
+                    <Icon
+                      className={card.iconClass}
+                      size={22}
+                    />
                   </div>
 
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="
+                        text-[11px]
+                        md:text-xs
+                        font-semibold
+                        text-slate-500
+                        tracking-wide
+                      "
+                    >
+                      {card.title}
+                    </p>
+
+                    <h2
+                      className="
+                        mt-0.5
+                        text-lg
+                        md:text-2xl
+                        font-bold
+                        tracking-tight
+                        text-slate-900
+                      "
+                    >
+                      {card.value}
+                    </h2>
+
+                    <p
+                      className={`
+                        mt-0.5
+                        text-[10px]
+                        md:text-xs
+                        font-bold
+                        ${
+                          isCollected
+                            ? "text-emerald-600"
+                            : "text-slate-500"
+                        }
+                      `}
+                    >
+                      {card.note}
+                    </p>
+                  </div>
                 </div>
               );
             }
@@ -1353,76 +1364,103 @@ export default function DashboardPage() {
               height="100%"
             >
 
-              <LineChart
-                data={lineData}
+              <AreaChart
+                data={chartData}
                 margin={{
-                  top: 8,
+                  top: 16,
                   right: 8,
                   left: 0,
                   bottom: 0,
                 }}
               >
-
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e2e8f0"
-                />
+                <defs>
+                  <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.01}/>
+                  </linearGradient>
+                  <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0.01}/>
+                  </linearGradient>
+                </defs>
 
                 <XAxis
-                  dataKey="label"
+                  dataKey="date"
+                  ticks={xAxisTicks}
+                  tickFormatter={formatXAxisDate}
                   tick={{
-                    fontSize: 11,
+                    fontSize: 10,
+                    fill: "#64748b",
                   }}
-                  stroke="#94a3b8"
+                  stroke="#e2e8f0"
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
                 />
 
                 <YAxis
-                  tickFormatter={
-                    formatShortCurrency
-                  }
+                  tickFormatter={formatCurrency}
                   tick={{
-                    fontSize: 11,
+                    fontSize: 10,
+                    fill: "#64748b",
                   }}
-                  stroke="#94a3b8"
-                  width={56}
+                  stroke="#e2e8f0"
+                  width={85}
+                  tickLine={false}
+                  axisLine={false}
+                  dx={-10}
                 />
 
                 <Tooltip
-                  formatter={(
-                    value,
-                    name
-                  ) => [
-                    formatCurrency(
-                      value
-                    ),
-                    name ===
-                    "collected"
-                      ? "Collected"
-                      : "Pending (current)",
+                  contentStyle={{
+                    backgroundColor: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)",
+                  }}
+                  formatter={(value, name) => [
+                    formatCurrency(value),
+                    name === "collectedCumulative" ? "Collected" : "Pending",
                   ]}
                 />
 
-                <Legend />
+                <Legend
+                  verticalAlign="top"
+                  align="center"
+                  iconType="line"
+                  iconSize={14}
+                  wrapperStyle={{
+                    paddingBottom: "24px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                  }}
+                />
 
-                <Line
+                <Area
                   type="monotone"
-                  dataKey="collected"
+                  dataKey="collectedCumulative"
                   name="Collected"
                   stroke="#22c55e"
                   strokeWidth={2}
-                  dot={false}
+                  fillOpacity={1}
+                  fill="url(#colorCollected)"
+                  dot={{ r: 3.5, strokeWidth: 1.5, fill: "#fff" }}
+                  activeDot={{ r: 6, strokeWidth: 0, fill: "#22c55e" }}
                 />
 
-                <Line
+                <Area
                   type="monotone"
                   dataKey="pendingSnapshot"
                   name="Pending"
                   stroke="#f97316"
                   strokeWidth={2}
-                  dot={false}
+                  fillOpacity={1}
+                  fill="url(#colorPending)"
+                  dot={{ r: 3.5, strokeWidth: 1.5, fill: "#fff" }}
+                  activeDot={{ r: 6, strokeWidth: 0, fill: "#f97316" }}
                 />
 
-              </LineChart>
+              </AreaChart>
 
             </ResponsiveContainer>
 

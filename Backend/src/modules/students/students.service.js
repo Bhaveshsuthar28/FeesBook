@@ -11,6 +11,10 @@ import {
 } from "../../cors/schema/students.schema.js";
 
 import {
+  enrollmentsTable,
+} from "../../cors/schema/enrollments.schema.js";
+
+import {
   studentFeesTable,
 } from "../../cors/schema/studentFees.schema.js";
 
@@ -290,6 +294,13 @@ const makeFeeStatus =
         ? "partial"
         : "pending";
   };
+
+const getNextAcademicYear = (academicYear) => {
+  const [startYear] = String(academicYear || "").split("-");
+  const next = Number(startYear) + 1;
+  if (!next || isNaN(next)) return getCurrentAcademicYear();
+  return `${next}-${next + 1}`;
+};
 
 const isTenthClass =
   (singleClass) =>
@@ -1500,6 +1511,10 @@ export const getStudentsBySectionService =
           eq(
             studentsTable.sectionId,
             sectionId
+          ),
+          eq(
+            studentsTable.status,
+            "active"
           )
         )
       )
@@ -3385,6 +3400,24 @@ export const markStudentLeftService =
         )
       );
 
+    const [activeEnrollment] = await db
+      .select()
+      .from(enrollmentsTable)
+      .where(
+        and(
+          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.schoolId, schoolId),
+          eq(enrollmentsTable.status, "active")
+        )
+      );
+
+    if (activeEnrollment) {
+      await db
+        .update(enrollmentsTable)
+        .set({ status: "left" })
+        .where(eq(enrollmentsTable.id, activeEnrollment.id));
+    }
+
     return await getStudentDetailService({
       schoolId,
       studentId,
@@ -3447,6 +3480,24 @@ export const markStudentAlumniService =
         )
       );
 
+    const [activeEnrollment] = await db
+      .select()
+      .from(enrollmentsTable)
+      .where(
+        and(
+          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.schoolId, schoolId),
+          eq(enrollmentsTable.status, "active")
+        )
+      );
+
+    if (activeEnrollment) {
+      await db
+        .update(enrollmentsTable)
+        .set({ status: "alumni" })
+        .where(eq(enrollmentsTable.id, activeEnrollment.id));
+    }
+
     return await getStudentDetailService({
       schoolId,
       studentId,
@@ -3458,6 +3509,7 @@ export const promoteStudentService =
     schoolId,
     studentId,
     data = {},
+    skipTenthGuard = false,
   }) => {
     const parsed =
       studentLifecycleSchema.parse(
@@ -3478,6 +3530,14 @@ export const promoteStudentService =
         sectionId:
           student.sectionId,
       });
+
+    if (!skipTenthGuard && isTenthClass(singleClass)) {
+      throw createStudentError({
+        statusCode: 400,
+        code: "TENTH_CLASS_GUARD",
+        message: "10th class students must be promoted via stream selection",
+      });
+    }
 
     if (isFinalClass(singleClass)) {
       return await markStudentAlumniService({
@@ -3515,37 +3575,65 @@ export const promoteStudentService =
         parsed.targetClassId,
     });
 
+    // STEP 1: find existing active enrollment for this student
+    const [currentEnrollment] = await db
+      .select()
+      .from(enrollmentsTable)
+      .where(
+        and(
+          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.schoolId, schoolId),
+          eq(enrollmentsTable.status, "active")
+        )
+      );
+
+    // STEP 2: create new enrollment
+    const newEnrollmentId = crypto.randomUUID();
+    const newEnrollment = {
+      id: newEnrollmentId,
+      schoolId,
+      studentId,
+      academicYear: getNextAcademicYear(
+        currentEnrollment?.academicYear || singleClass.academicYear
+      ),
+      classId: parsed.targetClassId,
+      sectionId: parsed.targetSectionId,
+      rollNumber: student.rollNumber || null,
+      admissionType: "promoted",
+      status: "active",
+      promotedFrom: currentEnrollment?.id || null,
+      note: normalizeOptional(parsed.note),
+      createdAt: Date.now(),
+    };
+    await db.insert(enrollmentsTable).values(newEnrollment);
+
+    // STEP 3: mark old enrollment as promoted (if exists)
+    if (currentEnrollment) {
+      await db
+        .update(enrollmentsTable)
+        .set({ status: "promoted" })
+        .where(eq(enrollmentsTable.id, currentEnrollment.id));
+    }
+
+    // STEP 4: update student row as cache (keep existing logic working)
     await db
       .update(studentsTable)
       .set({
-        classId:
-          parsed.targetClassId,
-        sectionId:
-          parsed.targetSectionId,
+        classId: parsed.targetClassId,
+        sectionId: parsed.targetSectionId,
         status: "active",
-        lastAcademicYear:
-          singleClass.academicYear,
-        previousClassId:
-          student.classId,
-        previousSectionId:
-          student.sectionId,
+        lastAcademicYear: singleClass.academicYear,
+        previousClassId: student.classId,
+        previousSectionId: student.sectionId,
         leftAt: null,
         alumniAt: null,
-        movementNote:
-          normalizeOptional(
-            parsed.note
-          ),
+        movementNote: normalizeOptional(parsed.note),
+        currentEnrollmentId: newEnrollmentId,
       })
       .where(
         and(
-          eq(
-            studentsTable.id,
-            studentId
-          ),
-          eq(
-            studentsTable.schoolId,
-            schoolId
-          )
+          eq(studentsTable.id, studentId),
+          eq(studentsTable.schoolId, schoolId)
         )
       );
 
@@ -4426,3 +4514,134 @@ export const getImageKitAuthService =
         env.IMAGEKIT_PUBLIC_KEY,
     };
   };
+
+/**
+ * Promotes a list of 10th-class students into their chosen 11th stream.
+ *
+ * Each entry in `data.students` must supply:
+ *   - studentId        – student to promote
+ *   - targetClassId    – an 11th-* class that belongs to this school
+ *   - targetSectionId  – a section in that class
+ *   - note?            – optional movement note
+ *
+ * The service validates that every supplied student:
+ *   1. Belongs to this school
+ *   2. Is currently active
+ *   3. Is in a class whose name is exactly "10th"
+ * Then delegates actual promotion (enrollment record + cache update) to
+ * promoteStudentService with skipTenthGuard = true.
+ */
+export const promoteStreamService = async ({ schoolId, data = {} }) => {
+  const { students, fromAcademicYear, targetAcademicYear } = data;
+
+  if (!Array.isArray(students) || students.length === 0) {
+    throw createStudentError({
+      statusCode: 400,
+      code: "NO_STUDENTS",
+      message: "At least one student entry is required",
+    });
+  }
+
+  // If year-pair is provided, ensure the target academic year structure exists
+  if (fromAcademicYear && targetAcademicYear) {
+    await ensureAcademicYearStructure({
+      schoolId,
+      fromAcademicYear,
+      targetAcademicYear,
+    });
+  }
+
+  const result = {
+    promoted: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  for (const entry of students) {
+    const { studentId, targetClassId, targetSectionId, note } = entry;
+
+    try {
+      // 1. Fetch student and verify school ownership
+      const student = await getStudentForSchool({ schoolId, studentId });
+
+      // 2. Must be active
+      if (student.status !== "active") {
+        result.skipped += 1;
+        result.errors.push({
+          studentId,
+          message: `Student is not active (status: ${student.status})`,
+        });
+        continue;
+      }
+
+      // 3. Fetch current class
+      const { singleClass } = await assertSectionForSchool({
+        schoolId,
+        classId: student.classId,
+        sectionId: student.sectionId,
+      });
+
+      // 4. Must be in 10th
+      if (!isTenthClass(singleClass)) {
+        result.skipped += 1;
+        result.errors.push({
+          studentId,
+          message: `Student is in class "${singleClass.name}", not in 10th`,
+        });
+        continue;
+      }
+
+      // 5. Verify target class starts with "11th-"
+      const [targetClass] = await db
+        .select()
+        .from(classesTable)
+        .where(
+          and(
+            eq(classesTable.id, targetClassId),
+            eq(classesTable.schoolId, schoolId)
+          )
+        );
+
+      if (!targetClass) {
+        result.skipped += 1;
+        result.errors.push({
+          studentId,
+          message: "Target class not found",
+        });
+        continue;
+      }
+
+      const targetName = String(targetClass.name || "").toLowerCase();
+      if (!targetName.startsWith("11th-")) {
+        result.skipped += 1;
+        result.errors.push({
+          studentId,
+          message: `Target class "${targetClass.name}" is not a valid 11th stream class`,
+        });
+        continue;
+      }
+
+      // 6. Promote — skipTenthGuard lets us bypass the guard inside promoteStudentService
+      await promoteStudentService({
+        schoolId,
+        studentId,
+        data: {
+          targetClassId,
+          targetSectionId,
+          note: note || "Stream promotion from 10th",
+        },
+        skipTenthGuard: true,
+      });
+
+      result.promoted += 1;
+    } catch (err) {
+      result.skipped += 1;
+      result.errors.push({
+        studentId,
+        message: err.message || "Unexpected error during stream promotion",
+      });
+    }
+  }
+
+  return result;
+};

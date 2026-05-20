@@ -18,6 +18,7 @@ import {
   updateStudentController,
   updateStudentFeeController,
   upsertStudentFeeConcessionController,
+  promoteStreamController,
 } from "./students.controllers.js";
 
 export default async function (
@@ -41,6 +42,11 @@ export default async function (
   fastify.post(
     "/promote/bulk",
     bulkPromoteStudentsController
+  );
+
+  fastify.post(
+    "/promote/stream",
+    promoteStreamController
   );
 
   fastify.get(

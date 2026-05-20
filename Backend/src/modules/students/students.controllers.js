@@ -3,6 +3,7 @@ import {
   bulkPromoteStudentsSchema,
   importStudentsSchema,
   studentLifecycleSchema,
+  promoteStreamSchema,
 } from "./students.validation.js";
 
 import {
@@ -21,6 +22,7 @@ import {
   recordStudentPaymentService,
   updateStudentFeeService,
   updateStudentService,
+  promoteStreamService,
 } from "./students.service.js";
 
 import {
@@ -414,3 +416,12 @@ export const getStudentFeeConcessionReceiptPdfController =
       )
       .send(result.buffer);
   };
+
+export const promoteStreamController = async (request, reply) => {
+  const parsed = promoteStreamSchema.parse(request.body);
+  const result = await promoteStreamService({
+    schoolId: request.user.schoolId,
+    data: parsed,
+  });
+  return reply.send({ success: true, data: result });
+};

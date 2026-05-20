@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   Edit3,
+  History,
   Image,
   LoaderCircle,
   MessageCircle,
@@ -41,6 +42,7 @@ import {
   downloadStudentPaymentReceipt,
   getImageKitAuth,
   getStudentDetail,
+  getStudentEnrollmentHistory,
   updateStudent,
   updateStudentFee,
 } from "../lib/api/studentapi.js";
@@ -83,6 +85,11 @@ const tabItems = [
     id: "payments",
     label: "Payments",
     icon: CreditCard,
+  },
+  {
+    id: "history",
+    label: "Academic History",
+    icon: History,
   },
   {
     id: "reminders",
@@ -219,38 +226,123 @@ function StatCard({
   icon: Icon,
   className = "",
 }) {
+  const getTheme = () => {
+    switch (title) {
+      case "Total Fee":
+        return {
+          bg: "bg-[#eef5fc]",
+          border: "border-[#d2e5fc]/60",
+          iconBg: "bg-[#d2e5fc]",
+          iconColor: "text-blue-600",
+          noteColor: "text-slate-500",
+        };
+      case "Paid Till Date":
+        return {
+          bg: "bg-[#ebfaf0]",
+          border: "border-[#d3f4dd]/60",
+          iconBg: "bg-[#d3f4dd]",
+          iconColor: "text-green-600",
+          noteColor: "text-emerald-600",
+        };
+      case "Pending Balance":
+        return {
+          bg: "bg-[#fff8ed]",
+          border: "border-[#fee5cd]/60",
+          iconBg: "bg-[#fee5cd]",
+          iconColor: "text-orange-600",
+          noteColor: "text-slate-500",
+        };
+      case "Last Payment":
+      default:
+        return {
+          bg: "bg-[#fbf7fe]",
+          border: "border-[#ebdcfc]/60",
+          iconBg: "bg-[#ebdcfc]",
+          iconColor: "text-purple-600",
+          noteColor: "text-slate-500",
+        };
+    }
+  };
+
+  const theme = getTheme();
+
   return (
     <div
       className={`
-        rounded-xl
+        rounded-[24px]
         border
-        border-slate-200
-        bg-white
+        ${theme.bg}
+        ${theme.border}
         p-4
+        md:p-5
+        shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]
+        transition-all
+        duration-300
+        hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)]
+        flex
+        items-center
+        gap-3
+        md:gap-4
         ${className}
       `}
     >
-      <div className="flex items-start gap-3">
-        <div
+      <div
+        className={`
+          flex
+          h-12
+          w-12
+          md:h-14
+          md:w-14
+          shrink-0
+          items-center
+          justify-center
+          rounded-2xl
+          ${theme.iconBg}
+        `}
+      >
+        <Icon
+          size={22}
+          className={theme.iconColor}
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p
           className="
-            flex
-            h-10
-            w-10
-            shrink-0
-            items-center
-            justify-center
-            rounded-xl
-            bg-blue-50
-            text-blue-600
+            text-[11px]
+            md:text-xs
+            font-semibold
+            text-slate-500
+            tracking-wide
           "
         >
-          <Icon size={20} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-slate-500">{title}</p>
-          <p className="mt-1 text-lg font-extrabold text-slate-950">{value}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{note}</p>
-        </div>
+          {title}
+        </p>
+
+        <h2
+          className="
+            mt-0.5
+            text-lg
+            md:text-2xl
+            font-bold
+            tracking-tight
+            text-slate-900
+          "
+        >
+          {value}
+        </h2>
+
+        <p
+          className={`
+            mt-0.5
+            text-[10px]
+            md:text-xs
+            font-bold
+            ${theme.noteColor}
+          `}
+        >
+          {note}
+        </p>
       </div>
     </div>
   );
@@ -672,6 +764,16 @@ export default function StudentDetailsPage() {
     setReminderMessage,
   ] = useState("");
 
+  const [
+    enrollmentHistory,
+    setEnrollmentHistory,
+  ] = useState(null);
+
+  const [
+    historyLoading,
+    setHistoryLoading,
+  ] = useState(false);
+
   useEffect(() => {
     const load =
       async () => {
@@ -689,6 +791,23 @@ export default function StudentDetailsPage() {
 
     load();
   }, [studentId]);
+
+  // Lazily load enrollment history only when that tab is first opened
+  useEffect(() => {
+    if (activeTab !== "history" || enrollmentHistory !== null) return;
+    const load = async () => {
+      try {
+        setHistoryLoading(true);
+        const rows = await getStudentEnrollmentHistory(studentId);
+        setEnrollmentHistory(rows);
+      } catch {
+        setEnrollmentHistory([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    load();
+  }, [activeTab, enrollmentHistory, studentId]);
 
   const reminderDefault =
     useMemo(
@@ -1067,6 +1186,135 @@ export default function StudentDetailsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )
+        }
+
+        {
+          activeTab === "history" && (
+            <div className="p-5 md:p-7">
+              <h2 className="text-base font-extrabold text-slate-950">
+                Academic Enrollment History
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                A chronological record of every class this student has been enrolled in.
+              </p>
+
+              {historyLoading && (
+                <div className="mt-10 flex items-center justify-center gap-3 text-slate-400">
+                  <LoaderCircle size={22} className="animate-spin" />
+                  <span className="text-sm font-semibold">Loading history…</span>
+                </div>
+              )}
+
+              {!historyLoading && enrollmentHistory && enrollmentHistory.length === 0 && (
+                <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+                  <History size={32} className="mx-auto text-slate-300" />
+                  <p className="mt-3 text-sm font-bold text-slate-500">No enrollment records yet</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Enrollment records are created when a student is promoted for the first time.
+                  </p>
+                </div>
+              )}
+
+              {!historyLoading && enrollmentHistory && enrollmentHistory.length > 0 && (
+                <div className="mt-6 relative">
+                  {/* vertical line */}
+                  <div className="absolute left-[22px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-200 via-slate-200 to-transparent" />
+
+                  <div className="space-y-6">
+                    {enrollmentHistory.map((row, idx) => {
+                      const isActive = row.status === "active";
+                      const isPromoted = row.status === "promoted";
+                      const isAlumni = row.status === "alumni";
+                      const isLeft = row.status === "left";
+
+                      const statusBg = isActive
+                        ? "bg-emerald-100 text-emerald-700"
+                        : isPromoted
+                        ? "bg-blue-100 text-blue-700"
+                        : isAlumni
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-slate-100 text-slate-600";
+
+                      const dotBg = isActive
+                        ? "bg-emerald-500 ring-emerald-200"
+                        : isPromoted
+                        ? "bg-blue-500 ring-blue-200"
+                        : isAlumni
+                        ? "bg-purple-500 ring-purple-200"
+                        : "bg-slate-400 ring-slate-200";
+
+                      const admTypeBadge = {
+                        new: "bg-amber-100 text-amber-700",
+                        promoted: "bg-sky-100 text-sky-700",
+                        retained: "bg-orange-100 text-orange-700",
+                      }[row.admissionType] || "bg-slate-100 text-slate-600";
+
+                      const createdDate = row.createdAt
+                        ? new Date(row.createdAt).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—";
+
+                      return (
+                        <div key={row.id} className="relative flex gap-5 pl-12">
+                          {/* Timeline dot */}
+                          <span
+                            className={`absolute left-[14px] top-1.5 h-4 w-4 rounded-full ring-4 ${dotBg} flex-shrink-0`}
+                          />
+
+                          {/* Card */}
+                          <div
+                            className={`flex-1 rounded-2xl border p-4 transition-shadow hover:shadow-sm ${
+                              isActive
+                                ? "border-emerald-200 bg-emerald-50/40"
+                                : "border-slate-200 bg-white"
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-extrabold text-slate-900">
+                                  {row.className || row.classId}
+                                  {row.sectionName
+                                    ? ` — Section ${row.sectionName}`
+                                    : ""}
+                                </p>
+                                <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                  Academic Year: {row.academicYear}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ${statusBg}`}
+                                >
+                                  {row.status}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ${admTypeBadge}`}
+                                >
+                                  {row.admissionType}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs font-semibold text-slate-500">
+                              <span>Enrolled: {createdDate}</span>
+                              {row.rollNumber && <span>Roll No: {row.rollNumber}</span>}
+                              {row.note && (
+                                <span className="italic text-slate-400">Note: {row.note}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )
         }

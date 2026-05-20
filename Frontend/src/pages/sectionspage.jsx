@@ -226,9 +226,11 @@ export default function SectionsPage() {
             icon:
               School,
             iconBg:
-              "bg-blue-100",
+              "bg-[#d2e5fc]",
             iconColor:
               "text-blue-600",
+            bg:
+              "bg-[#eef5fc] border-[#d2e5fc]/60"
           },
           {
             title: "Total Students",
@@ -239,9 +241,11 @@ export default function SectionsPage() {
             icon:
               Users,
             iconBg:
-              "bg-green-100",
+              "bg-[#d3f4dd]",
             iconColor:
               "text-green-600",
+            bg:
+              "bg-[#ebfaf0] border-[#d3f4dd]/60"
           },
           {
             title: "Pending Amount",
@@ -252,9 +256,11 @@ export default function SectionsPage() {
             icon:
               IndianRupee,
             iconBg:
-              "bg-orange-100",
+              "bg-[#fee5cd]",
             iconColor:
               "text-orange-600",
+            bg:
+              "bg-[#fff8ed] border-[#fee5cd]/60"
           },
           {
             title: "Collected Amount",
@@ -265,9 +271,11 @@ export default function SectionsPage() {
             icon:
               WalletCards,
             iconBg:
-              "bg-purple-100",
+              "bg-[#ebdcfc]",
             iconColor:
               "text-purple-600",
+            bg:
+              "bg-[#fbf7fe] border-[#ebdcfc]/60"
           },
         ];
       },
@@ -481,89 +489,92 @@ export default function SectionsPage() {
         className="
           grid
           grid-cols-2
-          gap-4
+          gap-3
           lg:grid-cols-4
+          lg:gap-4
         "
       >
         {
           stats.map(
             (item) => {
-              const Icon =
-                item.icon;
+              const Icon = item.icon;
 
               return (
                 <div
                   key={item.title}
-                  className="
-                    rounded-2xl
+                  className={`
+                    rounded-[24px]
                     border
-                    border-slate-200
-                    bg-white
-                    p-5
-                  "
+                    ${item.bg}
+                    p-4
+                    md:p-5
+                    shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]
+                    transition-all
+                    duration-300
+                    hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)]
+                    flex
+                    items-center
+                    gap-3
+                    md:gap-4
+                  `}
                 >
                   <div
-                    className="
+                    className={`
                       flex
-                      items-start
-                      gap-4
-                    "
+                      h-12
+                      w-12
+                      md:h-14
+                      md:w-14
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-2xl
+                      ${item.iconBg}
+                    `}
                   >
-                    <div
-                      className={`
-                        flex
-                        h-12
-                        w-12
-                        items-center
-                        justify-center
-                        rounded-2xl
-                        ${item.iconBg}
-                      `}
-                    >
-                      <Icon
-                        size={24}
-                        className={
-                          item.iconColor
-                        }
-                      />
-                    </div>
+                    <Icon
+                      size={22}
+                      className={item.iconColor}
+                    />
+                  </div>
 
-                    <div
+                  <div className="min-w-0 flex-1">
+                    <p
                       className="
-                        flex-1
+                        text-[11px]
+                        md:text-xs
+                        font-semibold
+                        text-slate-500
+                        tracking-wide
                       "
                     >
-                      <p
-                        className="
-                          text-xs
-                          font-medium
-                          text-slate-500
-                        "
-                      >
-                        {item.title}
-                      </p>
+                      {item.title}
+                    </p>
 
-                      <h2
-                        className="
-                          mt-1
-                          text-2xl
-                          font-bold
-                          text-slate-900
-                        "
-                      >
-                        {item.value}
-                      </h2>
+                    <h2
+                      className="
+                        mt-0.5
+                        text-lg
+                        md:text-2xl
+                        font-bold
+                        tracking-tight
+                        text-slate-900
+                      "
+                    >
+                      {item.value}
+                    </h2>
 
-                      <p
-                        className="
-                          mt-1
-                          text-xs
-                          text-slate-500
-                        "
-                      >
-                        {item.subtitle}
-                      </p>
-                    </div>
+                    <p
+                      className="
+                        mt-0.5
+                        text-[10px]
+                        md:text-xs
+                        font-bold
+                        text-slate-500
+                      "
+                    >
+                      {item.subtitle}
+                    </p>
                   </div>
                 </div>
               );

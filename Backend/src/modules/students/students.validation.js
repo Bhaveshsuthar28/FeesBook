@@ -162,3 +162,16 @@ export const importStudentsSchema =
     fileBase64:
       requiredString,
   });
+
+export const promoteStreamSchema = z.object({
+  students: z.array(
+    z.object({
+      studentId:       z.string().min(1),
+      targetClassId:   z.string().min(1),
+      targetSectionId: z.string().min(1),
+      note:            z.string().optional(),
+    })
+  ).min(1),
+  fromAcademicYear:    z.string().optional(),
+  targetAcademicYear:  z.string().optional(),
+});

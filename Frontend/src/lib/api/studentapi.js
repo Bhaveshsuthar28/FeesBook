@@ -402,3 +402,24 @@ export const getImageKitAuth =
 
     return response.data.data;
   };
+
+export const promoteStream =
+  async (data = {}) => {
+    const response =
+      await axios.post(
+        `${API}/students/promote/stream`,
+        data
+      );
+
+    return response.data.data;
+  };
+
+export const getStudentEnrollmentHistory =
+  async (studentId) => {
+    const response =
+      await axios.get(
+        `${API}/enrollments/student/${studentId}`
+      );
+
+    return response.data.data;
+  };

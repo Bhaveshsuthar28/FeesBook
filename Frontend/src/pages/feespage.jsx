@@ -140,29 +140,85 @@ function StatCard({
   title,
   value,
   note,
-  icon,
+  icon: Icon,
   accent,
 }) {
-  const StatIcon =
-    icon;
-
   return (
-    <div className={`rounded-2xl border bg-white p-5 shadow-sm ${accent.border}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className={`text-xs font-extrabold ${accent.text}`}>
-            {title}
-          </p>
-          <p className="mt-3 text-2xl font-extrabold tracking-normal text-slate-950">
-            {value}
-          </p>
-          <p className="mt-3 text-xs font-semibold text-slate-500">
-            {note}
-          </p>
-        </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-full ${accent.icon}`}>
-          <StatIcon size={20} />
-        </div>
+    <div
+      className={`
+        rounded-[24px]
+        border
+        ${accent.bg}
+        ${accent.border}
+        p-4
+        md:p-5
+        shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]
+        transition-all
+        duration-300
+        hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)]
+        flex
+        items-center
+        gap-3
+        md:gap-4
+      `}
+    >
+      <div
+        className={`
+          flex
+          h-12
+          w-12
+          md:h-14
+          md:w-14
+          shrink-0
+          items-center
+          justify-center
+          rounded-2xl
+          ${accent.iconBg}
+        `}
+      >
+        <Icon
+          size={22}
+          className={accent.iconColor}
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p
+          className="
+            text-[11px]
+            md:text-xs
+            font-semibold
+            text-slate-500
+            tracking-wide
+          "
+        >
+          {title}
+        </p>
+
+        <h2
+          className="
+            mt-0.5
+            text-lg
+            md:text-2xl
+            font-bold
+            tracking-tight
+            text-slate-900
+          "
+        >
+          {value}
+        </h2>
+
+        <p
+          className={`
+            mt-0.5
+            text-[10px]
+            md:text-xs
+            font-bold
+            ${accent.noteColor || "text-slate-500"}
+          `}
+        >
+          {note}
+        </p>
       </div>
     </div>
   );
@@ -319,12 +375,11 @@ export default function FeesPage() {
           note: "Live fee collection",
           icon: Wallet,
           accent: {
-            border:
-              "border-emerald-100",
-            text:
-              "text-emerald-700",
-            icon:
-              "bg-emerald-100 text-emerald-600",
+            bg: "bg-[#ebfaf0]",
+            border: "border-[#d3f4dd]/60",
+            iconBg: "bg-[#d3f4dd]",
+            iconColor: "text-green-600",
+            noteColor: "text-emerald-600",
           },
         },
         {
@@ -336,12 +391,11 @@ export default function FeesPage() {
           note: "Remaining balance",
           icon: ReceiptText,
           accent: {
-            border:
-              "border-orange-100",
-            text:
-              "text-orange-700",
-            icon:
-              "bg-orange-100 text-orange-600",
+            bg: "bg-[#fff8ed]",
+            border: "border-[#fee5cd]/60",
+            iconBg: "bg-[#fee5cd]",
+            iconColor: "text-orange-600",
+            noteColor: "text-slate-500",
           },
         },
         {
@@ -353,12 +407,11 @@ export default function FeesPage() {
           note: "Collected from partial rows",
           icon: WalletCards,
           accent: {
-            border:
-              "border-blue-100",
-            text:
-              "text-blue-700",
-            icon:
-              "bg-blue-100 text-blue-600",
+            bg: "bg-[#eef5fc]",
+            border: "border-[#d2e5fc]/60",
+            iconBg: "bg-[#d2e5fc]",
+            iconColor: "text-blue-600",
+            noteColor: "text-slate-500",
           },
         },
         {
@@ -371,12 +424,11 @@ export default function FeesPage() {
           note: "No payment this month",
           icon: AlertTriangle,
           accent: {
-            border:
-              "border-red-100",
-            text:
-              "text-red-700",
-            icon:
-              "bg-red-100 text-red-600",
+            bg: "bg-[#fdf2f2]",
+            border: "border-[#fde8e8]/60",
+            iconBg: "bg-[#fde8e8]",
+            iconColor: "text-red-600",
+            noteColor: "text-red-600",
           },
         },
       ],
