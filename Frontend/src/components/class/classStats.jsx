@@ -24,10 +24,13 @@ export default function ClassStats({
         School,
 
       iconBg:
-        "bg-blue-100",
+        "bg-blue-200",
 
       iconColor:
-        "text-blue-600",
+        "text-blue-800",
+
+      bg : 
+        "bg-blue-100"
     },
 
     {
@@ -42,10 +45,13 @@ export default function ClassStats({
         Users,
 
       iconBg:
-        "bg-green-100",
+        "bg-green-200",
 
       iconColor:
-        "text-green-600",
+        "text-green-800",
+
+      bg : 
+        "bg-green-100"
     },
 
     {
@@ -60,10 +66,13 @@ export default function ClassStats({
         IndianRupee,
 
       iconBg:
-        "bg-orange-100",
+        "bg-orange-200",
 
       iconColor:
-        "text-orange-600",
+        "text-orange-800",
+
+      bg : 
+        "bg-orange-100"
     },
 
     {
@@ -78,10 +87,13 @@ export default function ClassStats({
         WalletCards,
 
       iconBg:
-        "bg-purple-100",
+        "bg-purple-200",
 
       iconColor:
-        "text-purple-600",
+        "text-purple-800",
+
+      bg : 
+        "bg-purple-100"
     },
   ];
 
@@ -109,16 +121,16 @@ export default function ClassStats({
               <div
                 key={item.title}
 
-                className="
+                className={`
                   rounded-2xl
 
                   border
                   border-slate-200
 
-                  bg-white
-
+                  
+                  ${item.bg}
                   p-5
-                "
+                `}
               >
 
                 <div
