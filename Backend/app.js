@@ -16,6 +16,7 @@ import settingsRoutes from "./src/modules/settings/settings.routes.js";
 import sectionRoutes from "./src/modules/sections/section.routes.js";
 import studentRoutes from "./src/modules/students/students.routes.js";
 import enrollmentRoutes from "./src/modules/enrollments/enrollments.routes.js";
+import promotionRoutes from "./src/modules/promotion/promotion.routes.js";
 import {
   requireAuthenticatedUser,
 } from "./src/modules/auth/auth.middleware.js";
@@ -160,6 +161,10 @@ await app.register(studentRoutes, {
 
 await app.register(enrollmentRoutes, {
   prefix: "/api/v1/enrollments",
+});
+
+await app.register(promotionRoutes, {
+  prefix: "/api/v1/promotion",
 });
 
 await app.register(healthRoutes, {

@@ -1,3 +1,4 @@
+import React from "react";
 import toast from "react-hot-toast";
 
 const sensitivePattern =
@@ -125,17 +126,45 @@ export const notify = {
       return;
     }
 
-    toast.success(message);
+    toast.success((t) =>
+      React.createElement(
+        "div",
+        { className: "flex items-center justify-between gap-3 w-full" },
+        React.createElement("span", null, message),
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => toast.dismiss(t.id),
+            className: "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-emerald-800 hover:bg-emerald-200/50 focus:outline-none focus:ring-1 focus:ring-emerald-300",
+            style: { border: "none", background: "transparent", cursor: "pointer", fontSize: "12px" },
+          },
+          "✕"
+        )
+      )
+    );
   },
 
   error: (
     error,
     fallback
   ) => {
-    toast.error(
-      getSafeErrorMessage(
-        error,
-        fallback
+    const message = getSafeErrorMessage(error, fallback);
+    toast.error((t) =>
+      React.createElement(
+        "div",
+        { className: "flex items-center justify-between gap-3 w-full" },
+        React.createElement("span", null, message),
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => toast.dismiss(t.id),
+            className: "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-red-800 hover:bg-red-200/50 focus:outline-none focus:ring-1 focus:ring-red-300",
+            style: { border: "none", background: "transparent", cursor: "pointer", fontSize: "12px" },
+          },
+          "✕"
+        )
       )
     );
   },
@@ -145,8 +174,26 @@ export const notify = {
       return;
     }
 
-    toast(message, {
-      icon: "⚠️",
-    });
+    toast(
+      (t) =>
+        React.createElement(
+          "div",
+          { className: "flex items-center justify-between gap-3 w-full" },
+          React.createElement("span", null, message),
+          React.createElement(
+            "button",
+            {
+              type: "button",
+              onClick: () => toast.dismiss(t.id),
+              className: "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-800 hover:bg-slate-200/50 focus:outline-none focus:ring-1 focus:ring-slate-300",
+              style: { border: "none", background: "transparent", cursor: "pointer", fontSize: "12px" },
+            },
+            "✕"
+          )
+        ),
+      {
+        icon: "⚠️",
+      }
+    );
   },
 };

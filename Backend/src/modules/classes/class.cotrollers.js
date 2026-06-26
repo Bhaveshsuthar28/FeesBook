@@ -43,10 +43,15 @@ export const getClassesController =
       request.query?.status ||
       "active";
 
+    const academicYear =
+      request.query?.academicYear ||
+      "";
+
     const result =
       await getClassesService({
         schoolId,
         status,
+        academicYear,
       });
 
     return reply.send({

@@ -66,14 +66,18 @@ export const classNames = [
   "8th",
   "9th",
   "10th",
-  "11th-Arts",
-  "11th-SM",
-  "11th-SB",
-  "11th-Commerce",
-  "12th-Arts",
-  "12th-SM",
-  "12th-SB",
-  "12th-Commerce",
+  "11th-PCM",
+  "11th-PCB",
+  "11th-PCMB",
+  "11th-COM",
+  "11th-ARTS",
+  "11th-AGRI",
+  "12th-PCM",
+  "12th-PCB",
+  "12th-PCMB",
+  "12th-COM",
+  "12th-ARTS",
+  "12th-AGRI",
 ];
 
 export const getClassCatalog =
@@ -97,3 +101,23 @@ export const getCatalogClassByName =
         item.name.toLowerCase() ===
         String(name).trim().toLowerCase()
     );
+
+export const getClassLevel = (name) => {
+  const normalized = String(name).trim().toLowerCase();
+  if (normalized === "lkg") return 1;
+  if (normalized === "ukg") return 2;
+  if (normalized === "1st") return 3;
+  if (normalized === "2nd") return 4;
+  if (normalized === "3rd") return 5;
+  if (normalized === "4th") return 6;
+  if (normalized === "5th") return 7;
+  if (normalized === "6th") return 8;
+  if (normalized === "7th") return 9;
+  if (normalized === "8th") return 10;
+  if (normalized === "9th") return 11;
+  if (normalized === "10th") return 12;
+  if (normalized.startsWith("11th-")) return 13;
+  if (normalized.startsWith("12th-")) return 14;
+  return 0;
+};
+

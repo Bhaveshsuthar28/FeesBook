@@ -19,6 +19,9 @@ import {
   updateStudentFeeController,
   upsertStudentFeeConcessionController,
   promoteStreamController,
+  moveStudentStreamController,
+  archiveStudentController,
+  unarchiveStudentController,
 } from "./students.controllers.js";
 
 export default async function (
@@ -122,5 +125,20 @@ export default async function (
   fastify.get(
     "/:studentId/concessions/:concessionId/receipt.pdf",
     getStudentFeeConcessionReceiptPdfController
+  );
+
+  fastify.post(
+    "/:studentId/move-stream",
+    moveStudentStreamController
+  );
+
+  fastify.patch(
+    "/:studentId/archive",
+    archiveStudentController
+  );
+
+  fastify.patch(
+    "/:studentId/unarchive",
+    unarchiveStudentController
   );
 }

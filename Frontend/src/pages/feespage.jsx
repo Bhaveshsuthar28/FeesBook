@@ -12,6 +12,7 @@ import {
   Search,
   Wallet,
   WalletCards,
+  RotateCcw,
 } from "lucide-react";
 
 import StudentReceiptsModal from "../components/fees/StudentReceiptsModal.jsx";
@@ -22,6 +23,8 @@ import {
   useMemo,
   useState,
 } from "react";
+
+import Tooltip from "../components/common/Tooltip.jsx";
 
 import {
   useNavigate,
@@ -279,6 +282,10 @@ export default function FeesPage() {
     setPaymentMode,
   ] = useState("");
   const [
+    studentStatus,
+    setStudentStatus,
+  ] = useState("active");
+  const [
     page,
     setPage,
   ] = useState(1);
@@ -302,6 +309,7 @@ export default function FeesPage() {
       setSectionId("");
       setMonthYear(currentMonth());
       setPaymentMode("");
+      setStudentStatus("active");
       setPage(1);
     };
 
@@ -327,6 +335,7 @@ export default function FeesPage() {
             sectionId,
             monthYear,
             paymentMode,
+            studentStatus,
           });
         setLedger(result);
       } catch (apiError) {
@@ -346,6 +355,7 @@ export default function FeesPage() {
       search,
       sectionId,
       status,
+      studentStatus,
     ]);
 
   useEffect(() => {
@@ -361,6 +371,7 @@ export default function FeesPage() {
     search,
     sectionId,
     status,
+    studentStatus,
   ]);
 
   const stats =
@@ -601,26 +612,28 @@ export default function FeesPage() {
   const renderActions =
     (student) => (
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          title="View student"
-          onClick={() =>
-            handleViewStudent(student)
-          }
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
-        >
-          <Eye size={17} />
-        </button>
-        <button
-          type="button"
-          title="Save payment"
-          onClick={() =>
-            handleSavePayment(student)
-          }
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
-        >
-          <WalletCards size={17} />
-        </button>
+        <Tooltip content="View student">
+          <button
+            type="button"
+            onClick={() =>
+              handleViewStudent(student)
+            }
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            <Eye size={17} />
+          </button>
+        </Tooltip>
+        <Tooltip content="Save payment">
+          <button
+            type="button"
+            onClick={() =>
+              handleSavePayment(student)
+            }
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            <WalletCards size={17} />
+          </button>
+        </Tooltip>
       </div>
     );
 
@@ -637,22 +650,43 @@ export default function FeesPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5">
-      <div className="md:hidden">
-        <h1 className="text-2xl font-extrabold tracking-normal text-slate-950">
-          Fees
-        </h1>
-        <p className="mt-1 text-xs font-semibold text-slate-500">
-          Track and manage all student fee payments
-        </p>
+      <div className="flex items-center justify-between md:hidden">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-normal text-slate-950">
+            Fees
+          </h1>
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            Track and manage all student fee payments
+          </p>
+        </div>
+        <button
+          onClick={refreshLedger}
+          disabled={loading}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
+          title="Refresh ledger"
+        >
+          <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
 
-      <div className="hidden md:block">
-        <h1 className="text-3xl font-extrabold tracking-normal text-slate-950">
-          Fees
-        </h1>
-        <p className="mt-2 text-sm font-semibold text-slate-500">
-          Track and manage all student fee payments
-        </p>
+      <div className="hidden items-center justify-between md:flex">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-normal text-slate-950">
+            Fees
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Track and manage all student fee payments
+          </p>
+        </div>
+        <button
+          onClick={refreshLedger}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
+          title="Refresh ledger"
+        >
+          <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -668,8 +702,26 @@ export default function FeesPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-4">
-          <div className="hidden gap-3 md:grid md:grid-cols-4">
-            <label className="space-y-1">
+          <div className="hidden gap-4 md:grid md:grid-cols-5">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">
+                Student Status
+              </span>
+              <select
+                value={studentStatus}
+                onChange={(event) =>
+                  setStudentStatus(
+                    event.target.value
+                  )
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+              >
+                <option value="active">Active</option>
+                <option value="alumni">Alumni</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-slate-500">
                 Class
               </span>
@@ -681,7 +733,7 @@ export default function FeesPage() {
                   );
                   setSectionId("");
                 }}
-                className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
               >
                 <option value="">
                   All Classes
@@ -700,7 +752,7 @@ export default function FeesPage() {
                 }
               </select>
             </label>
-            <label className="space-y-1">
+            <label className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-slate-500">
                 Section
               </span>
@@ -711,7 +763,7 @@ export default function FeesPage() {
                     event.target.value
                   )
                 }
-                className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
               >
                 <option value="">
                   All Sections
@@ -723,15 +775,15 @@ export default function FeesPage() {
                         key={item.id}
                         value={item.id}
                       >
-                        {item.name}
+                        {classId ? item.name : `${ledger.filterOptions.classes.find(c => c.id === item.classId)?.name || ''} - ${item.name}`}
                       </option>
                     )
                   )
                 }
               </select>
             </label>
-            <label className="flex items-center gap-3">
-              <span className="whitespace-nowrap text-xs font-semibold text-slate-500">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">
                 Month / Year
               </span>
               <input
@@ -742,10 +794,10 @@ export default function FeesPage() {
                     event.target.value
                   )
                 }
-                className="h-11 w-full flex-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
               />
             </label>
-            <label className="space-y-1">
+            <label className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-slate-500">
                 Payment Mode
               </span>
@@ -756,7 +808,7 @@ export default function FeesPage() {
                     event.target.value
                   )
                 }
-                className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none"
               >
                 <option value="">
                   All Modes
@@ -841,6 +893,24 @@ export default function FeesPage() {
               <div className="mt-3 grid gap-3 md:hidden">
                 <label className="space-y-1">
                   <span className="text-xs font-semibold text-slate-500">
+                    Student Status
+                  </span>
+                  <select
+                    value={studentStatus}
+                    onChange={(event) =>
+                      setStudentStatus(
+                        event.target.value
+                      )
+                    }
+                    className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none w-full"
+                  >
+                    <option value="active">Active</option>
+                    <option value="alumni">Alumni</option>
+                    <option value="all">All</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">
                     Class
                   </span>
                   <select
@@ -893,7 +963,7 @@ export default function FeesPage() {
                             key={item.id}
                             value={item.id}
                           >
-                            {item.name}
+                            {classId ? item.name : `${ledger.filterOptions.classes.find(c => c.id === item.classId)?.name || ''} - ${item.name}`}
                           </option>
                         )
                       )
@@ -1073,6 +1143,11 @@ export default function FeesPage() {
                         </td>
                         <td className="px-4 py-4 text-sm font-extrabold text-red-600">
                           {formatCurrency(student.dueAmount)}
+                          {Number(student.overdueFees || 0) > 0 && (
+                            <span className="text-[10px] text-amber-600 block font-bold">
+                              Overdue {formatCurrency(student.overdueFees)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-sm font-bold text-slate-600">
                           {formatDate(student.lastPayment?.paidAt)}
@@ -1083,24 +1158,25 @@ export default function FeesPage() {
                           </span>
                         </td>
                         <td className="px-4 py-4">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setReceiptsStudent(
-                                student
-                              );
-                            }}
-                            className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-red-500 hover:bg-red-50"
-                            title="All receipts"
-                          >
-                            <FileText size={16} />
-                            {(student.paymentCount || 0) > 0 && (
-                              <span className="text-[10px] font-extrabold">
-                                {student.paymentCount}
-                              </span>
-                            )}
-                          </button>
+                          <Tooltip content="All receipts">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setReceiptsStudent(
+                                  student
+                                );
+                              }}
+                              className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-xl border border-slate-200 px-2 text-red-500 hover:bg-red-50"
+                            >
+                              <FileText size={16} />
+                              {(student.paymentCount || 0) > 0 && (
+                                <span className="text-[10px] font-extrabold">
+                                  {student.paymentCount}
+                                </span>
+                              )}
+                            </button>
+                          </Tooltip>
                         </td>
                         <td className="px-4 py-4">
                           {renderActions(student)}
@@ -1154,9 +1230,16 @@ export default function FeesPage() {
                           Total {formatCurrency(student.totalFees)}
                         </span>
                       </p>
-                      <p className="text-red-600">
-                        Due {formatCurrency(student.dueAmount)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-red-600 font-extrabold">
+                          Due {formatCurrency(student.dueAmount)}
+                        </p>
+                        {Number(student.overdueFees || 0) > 0 && (
+                          <span className="text-[10px] text-amber-600 block font-bold mt-0.5">
+                            Overdue {formatCurrency(student.overdueFees)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
@@ -1164,37 +1247,40 @@ export default function FeesPage() {
                         Last: {formatDate(student.lastPayment?.paidAt)}
                       </p>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setReceiptsStudent(student);
-                          }}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-red-500 hover:bg-red-50"
-                          title="All receipts"
-                        >
-                          <FileText size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          title="View student"
-                          onClick={() =>
-                            handleViewStudent(student)
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        >
-                          <Eye size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Save payment"
-                          onClick={() =>
-                            handleSavePayment(student)
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
-                        >
-                          <WalletCards size={17} />
-                        </button>
+                        <Tooltip content="All receipts">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setReceiptsStudent(student);
+                            }}
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-red-500 hover:bg-red-50"
+                          >
+                            <FileText size={17} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="View student">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleViewStudent(student)
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            <Eye size={17} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="Save payment">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSavePayment(student)
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
+                          >
+                            <WalletCards size={17} />
+                          </button>
+                        </Tooltip>
                       </div>
                     </div>
                   </article>

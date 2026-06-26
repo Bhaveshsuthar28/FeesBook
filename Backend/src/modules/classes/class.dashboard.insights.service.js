@@ -29,6 +29,10 @@ import {
   sql,
 } from "drizzle-orm";
 
+import {
+  getActiveAcademicYearService,
+} from "../settings/settings.service.js";
+
 const startOfMonth =
   (d) =>
     new Date(
@@ -56,7 +60,13 @@ const startOfPreviousMonth =
 export const getDashboardInsightsService =
   async ({
     schoolId,
+    academicYear,
   }) => {
+    const targetYear =
+      academicYear ||
+      await getActiveAcademicYearService({
+        schoolId,
+      });
 
     const now =
       new Date();
@@ -115,9 +125,15 @@ export const getDashboardInsightsService =
         )
 
         .where(
-          eq(
-            studentPaymentsTable.schoolId,
-            schoolId
+          and(
+            eq(
+              studentPaymentsTable.schoolId,
+              schoolId
+            ),
+            eq(
+              classesTable.academicYear,
+              targetYear
+            )
           )
         )
 
@@ -149,11 +165,24 @@ export const getDashboardInsightsService =
           studentPaymentsTable
         )
 
+        .innerJoin(
+          studentFeesTable,
+          eq(
+            studentFeesTable.id,
+            studentPaymentsTable.studentFeeId
+          )
+        )
+
         .where(
           and(
             eq(
               studentPaymentsTable.schoolId,
               schoolId
+            ),
+
+            eq(
+              studentFeesTable.academicYear,
+              targetYear
             ),
 
             gte(
@@ -188,11 +217,24 @@ export const getDashboardInsightsService =
           studentPaymentsTable
         )
 
+        .innerJoin(
+          studentFeesTable,
+          eq(
+            studentFeesTable.id,
+            studentPaymentsTable.studentFeeId
+          )
+        )
+
         .where(
           and(
             eq(
               studentPaymentsTable.schoolId,
               schoolId
+            ),
+
+            eq(
+              studentFeesTable.academicYear,
+              targetYear
             ),
 
             gte(
@@ -241,6 +283,10 @@ export const getDashboardInsightsService =
             eq(
               studentsTable.status,
               "active"
+            ),
+            eq(
+              studentFeesTable.academicYear,
+              targetYear
             )
           )
         );
@@ -259,11 +305,24 @@ export const getDashboardInsightsService =
           studentPaymentsTable
         )
 
+        .innerJoin(
+          studentFeesTable,
+          eq(
+            studentFeesTable.id,
+            studentPaymentsTable.studentFeeId
+          )
+        )
+
         .where(
           and(
             eq(
               studentPaymentsTable.schoolId,
               schoolId
+            ),
+
+            eq(
+              studentFeesTable.academicYear,
+              targetYear
             ),
 
             gte(

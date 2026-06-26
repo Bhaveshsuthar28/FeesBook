@@ -43,6 +43,12 @@ export const studentFeesTable =
         text("status")
           .default("pending"),
 
+      classId:
+        text("class_id"),
+
+      academicYear:
+        text("academic_year"),
+
       createdAt:
         integer("created_at")
           .notNull(),

@@ -27,6 +27,10 @@ import {
 } from "../../cors/schema/studentFees.schema.js";
 
 import {
+  sectionsTable,
+} from "../../cors/schema/sections.schema.js";
+
+import {
   eq,
   and,
   inArray,
@@ -35,6 +39,10 @@ import {
 import {
   getActiveAcademicYearService,
 } from "../settings/settings.service.js";
+
+import {
+  cleanupUnusedClassesService,
+} from "../classes/class.service.js";
 
 export const ensureFeeColumns =
   async () => {
@@ -146,21 +154,67 @@ export const getClassFeeStructureStatusService =
           )
         );
 
+    let hasStudentFees = false;
+    if (activeFees.length === 0) {
+      const studentFees = await db
+        .select({
+          id: studentFeesTable.id,
+        })
+        .from(studentFeesTable)
+        .innerJoin(
+          studentsTable,
+          eq(studentsTable.id, studentFeesTable.studentId)
+        )
+        .where(
+          and(
+            eq(studentsTable.classId, classId),
+            eq(studentsTable.status, "active")
+          )
+        )
+        .limit(1);
+      hasStudentFees = studentFees.length > 0;
+    }
+
     return {
       classId,
       hasFeeStructure:
-        activeFees.length > 0,
+        activeFees.length > 0 || hasStudentFees,
       feeCount:
         activeFees.length,
     };
   };
 
 export const getFeeStructureService =
-  async ({ schoolId }) => {
-    const activeAcademicYear =
-      await getActiveAcademicYearService({
-        schoolId,
-      });
+  async ({ schoolId, classId, academicYear }) => {
+    let targetAcademicYear = academicYear;
+
+    if (!targetAcademicYear && classId) {
+      const [cls] = await db
+        .select({ academicYear: classesTable.academicYear })
+        .from(classesTable)
+        .where(
+          and(
+            eq(classesTable.schoolId, schoolId),
+            eq(classesTable.id, classId)
+          )
+        );
+      if (cls) {
+        targetAcademicYear = cls.academicYear;
+      }
+    }
+
+    if (!targetAcademicYear) {
+      targetAcademicYear =
+        await getActiveAcademicYearService({
+          schoolId,
+        });
+    }
+
+    await cleanupUnusedClassesService({
+      schoolId,
+      academicYear: targetAcademicYear,
+    });
+
     const [
       feeTypes,
       classes,
@@ -181,7 +235,7 @@ export const getFeeStructureService =
               ),
               eq(
                 classesTable.academicYear,
-                activeAcademicYear
+                targetAcademicYear
               ),
               eq(
                 classesTable.isArchived,
@@ -338,20 +392,13 @@ export const createFeeTypeService =
       return feeType;
 
     } catch (error) {
-
-      const message =
-        error.message.toLowerCase();
-
-      if (
-        message.includes(
-          "unique"
-        )
-      ) {
-        throw new Error(
-          "Fee already exists"
-        );
+      const message = (error.message || "").toLowerCase() + " " + (error.cause?.message || "").toLowerCase();
+      if (message.includes("unique")) {
+        const err = new Error("Fee type already exists");
+        err.statusCode = 400;
+        err.code = "FEE_TYPE_ALREADY_EXISTS";
+        throw err;
       }
-
       throw error;
     }
   };
@@ -364,27 +411,34 @@ export const updateFeeTypeService =
     feeTypeId,
     data,
   }) => {
-
-    await db
-      .update(feeTypesTable)
-
-      .set(data)
-
-      .where(
-        and(
-          eq(
-            feeTypesTable.id,
-            feeTypeId
-          ),
-
-          eq(
-            feeTypesTable.schoolId,
-            schoolId
+    try {
+      await db
+        .update(feeTypesTable)
+        .set(data)
+        .where(
+          and(
+            eq(
+              feeTypesTable.id,
+              feeTypeId
+            ),
+            eq(
+              feeTypesTable.schoolId,
+              schoolId
+            )
           )
-        )
-      );
+        );
 
-    return true;
+      return true;
+    } catch (error) {
+      const message = (error.message || "").toLowerCase() + " " + (error.cause?.message || "").toLowerCase();
+      if (message.includes("unique")) {
+        const err = new Error("Fee type already exists");
+        err.statusCode = 400;
+        err.code = "FEE_TYPE_ALREADY_EXISTS";
+        throw err;
+      }
+      throw error;
+    }
   };
 
 
@@ -608,6 +662,22 @@ export const allocateClassFeesService =
       }
     }
 
+    const [targetClass] = await db
+      .select()
+      .from(classesTable)
+      .where(
+        and(
+          eq(classesTable.schoolId, schoolId),
+          eq(classesTable.id, data.classId)
+        )
+      );
+
+    if (!targetClass) {
+      const error = new Error("Class not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
     const selectedClassFees =
       await db
         .select()
@@ -706,6 +776,10 @@ export const allocateClassFeesService =
               studentFeesTable.schoolId,
               schoolId
             ),
+            eq(
+              studentFeesTable.classId,
+              data.classId
+            ),
             inArray(
               studentFeesTable.studentId,
               students.map(
@@ -762,6 +836,10 @@ export const allocateClassFeesService =
                 fee.amount,
               status:
                 "pending",
+              classId:
+                data.classId,
+              academicYear:
+                targetClass.academicYear,
               createdAt:
                 Date.now(),
             });

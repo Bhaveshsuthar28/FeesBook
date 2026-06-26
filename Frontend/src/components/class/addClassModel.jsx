@@ -20,6 +20,25 @@ import {
   notify,
 } from "../../lib/toast.js";
 
+const getClassLevel = (name) => {
+  const normalized = String(name).trim().toLowerCase();
+  if (normalized === "lkg") return 1;
+  if (normalized === "ukg") return 2;
+  if (normalized === "1st") return 3;
+  if (normalized === "2nd") return 4;
+  if (normalized === "3rd") return 5;
+  if (normalized === "4th") return 6;
+  if (normalized === "5th") return 7;
+  if (normalized === "6th") return 8;
+  if (normalized === "7th") return 9;
+  if (normalized === "8th") return 10;
+  if (normalized === "9th") return 11;
+  if (normalized === "10th") return 12;
+  if (normalized.startsWith("11th-")) return 13;
+  if (normalized.startsWith("12th-")) return 14;
+  return 0;
+};
+
 export default function AddClassModal({
   setShowAddModal,
   classCatalog,
@@ -29,6 +48,26 @@ export default function AddClassModal({
     selectedClass,
     setSelectedClass,
   ] = useState("");
+
+  const hasActiveClasses = classCatalog.some((item) => item.status === "active");
+
+  const isClassSelectable = (name) => {
+    const level = getClassLevel(name);
+    if (!hasActiveClasses) {
+      return level === 1;
+    }
+    if (level <= 1) return true;
+    if (name.startsWith("12th-")) {
+      const stream = name.substring(5);
+      const predecessorName = `11th-${stream}`;
+      return classCatalog.some(
+        (item) => item.status === "active" && item.name === predecessorName
+      );
+    }
+    return classCatalog.some(
+      (item) => item.status === "active" && getClassLevel(item.name) === level - 1
+    );
+  };
 
   const [
     actionKey,
@@ -236,13 +275,15 @@ export default function AddClassModal({
                     item.status ===
                     "archived";
 
-                  const isAvailable =
+                   const isAvailable =
                     item.status ===
                     "available";
 
                   const restoreLoading =
                     actionKey ===
                     `restore:${item.name}`;
+
+                  const isSelectable = isClassSelectable(item.name);
 
                   return (
                     <div
@@ -263,20 +304,26 @@ export default function AddClassModal({
                             ? "bg-slate-50 text-slate-400"
                             : ""
                         }
+                        ${
+                          isAvailable && !isSelectable
+                            ? "opacity-50 bg-slate-50"
+                            : ""
+                        }
                       `}
                     >
                       <button
                         type="button"
                         disabled={
                           loading ||
-                          !isAvailable
+                          !isAvailable ||
+                          !isSelectable
                         }
                         onClick={() =>
                           setSelectedClass(
                             item.name
                           )
                         }
-                        className="
+                        className={`
                           flex
                           min-h-[72px]
                           w-full
@@ -284,7 +331,12 @@ export default function AddClassModal({
                           items-start
                           justify-between
                           text-left
-                        "
+                          ${
+                            isAvailable && !isSelectable
+                              ? "cursor-not-allowed"
+                              : ""
+                          }
+                        `}
                       >
                         <span
                           className="
@@ -304,20 +356,24 @@ export default function AddClassModal({
                             text-[11px]
                             font-semibold
                             ${
-                              isAvailable
+                              isAvailable && isSelectable
                                 ? "bg-green-50 text-green-700"
-                                : isArchived
-                                  ? "bg-orange-50 text-orange-700"
-                                  : "bg-slate-200 text-slate-500"
+                                : isAvailable && !isSelectable
+                                  ? "bg-slate-100 text-slate-400"
+                                  : isArchived
+                                    ? "bg-orange-50 text-orange-700"
+                                    : "bg-slate-200 text-slate-500"
                             }
                           `}
                         >
                           {
-                            isAvailable
+                            isAvailable && isSelectable
                               ? "Available"
-                              : isArchived
-                                ? "Archived"
-                                : "Added"
+                              : isAvailable && !isSelectable
+                                ? "Locked"
+                                : isArchived
+                                  ? "Archived"
+                                  : "Added"
                           }
                         </span>
                       </button>
@@ -351,14 +407,15 @@ export default function AddClassModal({
                           <button
                             type="button"
                             disabled={
-                              loading
+                              loading ||
+                              !isSelectable
                             }
                             onClick={() =>
                               handleRestore(
                                 item
                               )
                             }
-                            className="
+                            className={`
                               mt-3
                               flex
                               w-full
@@ -367,14 +424,16 @@ export default function AddClassModal({
                               gap-2
                               rounded-xl
                               border
-                              border-orange-200
                               px-3
                               py-2
                               text-xs
                               font-semibold
-                              text-orange-700
-                              hover:bg-orange-50
-                            "
+                              ${
+                                isSelectable
+                                  ? "border-orange-200 text-orange-700 hover:bg-orange-50"
+                                  : "border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed"
+                              }
+                            `}
                           >
                             {
                               restoreLoading ? (

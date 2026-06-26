@@ -382,9 +382,17 @@ export default function SettingsPage() {
     setFeeTypeForm,
   ] = useState(emptyFeeType);
   const [
+    selectedExistingFeeName,
+    setSelectedExistingFeeName,
+  ] = useState("new");
+  const [
     classFeeForm,
     setClassFeeForm,
   ] = useState(emptyClassFee);
+  const [
+    loadingActionFeeId,
+    setLoadingActionFeeId,
+  ] = useState("");
   const [
     academicYears,
     setAcademicYears,
@@ -513,36 +521,6 @@ export default function SettingsPage() {
       [selectedClass]
     );
 
-  const feeTypeIdsOnOtherClasses =
-    useMemo(() => {
-      const ids =
-        new Set();
-
-      structure.classes.forEach(
-        (singleClass) => {
-          if (
-            singleClass.id ===
-            selectedClass?.id
-          ) {
-            return;
-          }
-
-          singleClass.fees.forEach(
-            (fee) => {
-              ids.add(
-                fee.feeTypeId
-              );
-            }
-          );
-        }
-      );
-
-      return ids;
-    }, [
-      structure.classes,
-      selectedClass?.id,
-    ]);
-
   const assignableFeeTypes =
     useMemo(
       () =>
@@ -550,17 +528,38 @@ export default function SettingsPage() {
           (feeType) =>
             !assignedFeeTypeIds.has(
               feeType.id
-            ) &&
-            !feeTypeIdsOnOtherClasses.has(
-              feeType.id
             )
         ),
       [
         structure.feeTypes,
         assignedFeeTypeIds,
-        feeTypeIdsOnOtherClasses,
       ]
     );
+
+  const existingFeeNames = useMemo(() => {
+    return [...new Set((structure.feeTypes || []).map((f) => f.name))].sort();
+  }, [structure.feeTypes]);
+
+  const isEditing = useMemo(
+    () =>
+      Boolean(
+        classFeeForm.feeTypeId &&
+          selectedClass?.fees.some(
+            (fee) =>
+              fee.feeTypeId ===
+              classFeeForm.feeTypeId
+          )
+      ),
+    [classFeeForm.feeTypeId, selectedClass]
+  );
+
+  const editingFeeType = useMemo(() => {
+    if (!isEditing) return null;
+    return structure.feeTypes.find(
+      (ft) =>
+        ft.id === classFeeForm.feeTypeId
+    );
+  }, [isEditing, structure.feeTypes, classFeeForm.feeTypeId]);
 
   const refreshData =
     useCallback(async () => {
@@ -725,23 +724,28 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setClassFeeForm((current) => {
-      if (
-        !current.feeTypeId ||
-        assignableFeeTypes.some(
-          (feeType) =>
-            feeType.id ===
-            current.feeTypeId
-        )
-      ) {
+      if (!current.feeTypeId) {
+        return current;
+      }
+
+      const isAssignable = assignableFeeTypes.some(
+        (feeType) => feeType.id === current.feeTypeId
+      );
+      const isAssigned = selectedClass?.fees.some(
+        (fee) => fee.feeTypeId === current.feeTypeId
+      );
+
+      if (isAssignable || isAssigned) {
         return current;
       }
 
       return emptyClassFee;
     });
-  }, [
-    selectedClassId,
-    assignableFeeTypes,
-  ]);
+  }, [assignableFeeTypes, selectedClass]);
+
+  useEffect(() => {
+    setClassFeeForm(emptyClassFee);
+  }, [selectedClassId]);
 
   const updateProfileField =
     (field, value) => {
@@ -1003,8 +1007,9 @@ export default function SettingsPage() {
 
   const addFeeType =
     async () => {
+      const nameTrimmed = feeTypeForm.name.trim();
       if (
-        !feeTypeForm.name.trim() ||
+        !nameTrimmed ||
         Number(feeTypeForm.defaultAmount) <= 0
       ) {
         notify.error(null, "Enter fee name and amount");
@@ -1013,22 +1018,36 @@ export default function SettingsPage() {
 
       try {
         setSavingFee(true);
-        const createdFeeType =
-          await createFeeType({
-            name:
-              feeTypeForm.name.trim(),
-            defaultAmount:
-              Number(
-                feeTypeForm.defaultAmount
-              ),
-            frequency:
-              feeTypeForm.frequency ||
-              "Yearly",
-            isOptional:
-              Boolean(
-                feeTypeForm.isOptional
-              ),
-          });
+
+        const existingFeeType = (structure.feeTypes || []).find(
+          (f) => f.name.toLowerCase() === nameTrimmed.toLowerCase()
+        );
+
+        let createdFeeType;
+        if (existingFeeType) {
+          if (assignedFeeTypeIds.has(existingFeeType.id)) {
+            notify.error(null, `Fee "${nameTrimmed}" is already assigned to this class`);
+            setSavingFee(false);
+            return;
+          }
+          createdFeeType = existingFeeType;
+        } else {
+          createdFeeType =
+            await createFeeType({
+              name: nameTrimmed,
+              defaultAmount:
+                Number(
+                  feeTypeForm.defaultAmount
+                ),
+              frequency:
+                feeTypeForm.frequency ||
+                "Yearly",
+              isOptional:
+                Boolean(
+                  feeTypeForm.isOptional
+                ),
+            });
+        }
 
         if (selectedClass) {
           await assignFeeToClass({
@@ -1048,14 +1067,15 @@ export default function SettingsPage() {
         setFeeTypeForm(
           emptyFeeType
         );
+        setSelectedExistingFeeName("new");
         await refreshData();
         notify.success(
-          selectedClass
-            ? "Fee item created and assigned to this class"
-            : "Fee type created"
+          existingFeeType
+            ? `Fee "${nameTrimmed}" assigned to class`
+            : "Fee type created and assigned to class"
         );
       } catch (apiError) {
-        notify.error(apiError, "Fee type could not be created");
+        notify.error(apiError, "Fee could not be added");
       } finally {
         setSavingFee(false);
       }
@@ -1300,6 +1320,7 @@ export default function SettingsPage() {
       }
 
       try {
+        setLoadingActionFeeId(fee.classFeeId);
         await archiveClassFee({
           classFeeId:
             fee.classFeeId,
@@ -1309,6 +1330,8 @@ export default function SettingsPage() {
         notify.success("Class fee archived");
       } catch (apiError) {
         notify.error(apiError, "Class fee could not be archived");
+      } finally {
+        setLoadingActionFeeId("");
       }
     };
 
@@ -1319,6 +1342,7 @@ export default function SettingsPage() {
       }
 
       try {
+        setLoadingActionFeeId(fee.classFeeId);
         await archiveClassFee({
           classFeeId:
             fee.classFeeId,
@@ -1328,6 +1352,8 @@ export default function SettingsPage() {
         notify.success("Class fee restored");
       } catch (apiError) {
         notify.error(apiError, "Class fee could not be restored");
+      } finally {
+        setLoadingActionFeeId("");
       }
     };
 
@@ -1432,28 +1458,38 @@ export default function SettingsPage() {
                         {archived ? (
                           <button
                             type="button"
+                            disabled={loadingActionFeeId === fee.classFeeId}
                             onClick={() =>
                               restoreFeeAssignment(
                                 fee
                               )
                             }
-                            className="flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-extrabold text-emerald-700"
+                            className="flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-extrabold text-emerald-700 disabled:opacity-60"
                           >
-                            <RefreshCw size={14} />
+                            {loadingActionFeeId === fee.classFeeId ? (
+                              <LoaderCircle size={14} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={14} />
+                            )}
                             Restore
                           </button>
                         ) : (
                           <button
                             type="button"
+                            disabled={loadingActionFeeId === fee.classFeeId}
                             onClick={() =>
                               archiveFeeAssignment(
                                 fee
                               )
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-500"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-500 disabled:opacity-60"
                             title="Archive"
                           >
-                            <Archive size={14} />
+                            {loadingActionFeeId === fee.classFeeId ? (
+                              <LoaderCircle size={14} className="animate-spin" />
+                            ) : (
+                              <Archive size={14} />
+                            )}
                           </button>
                         )}
                       </div>
@@ -1498,35 +1534,68 @@ export default function SettingsPage() {
                       fee.feeTypeId
                     )
                   }
-                  className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-orange-50 text-xs font-extrabold text-orange-700"
+                  className={`mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-extrabold transition-colors ${
+                    selectedFeeTypeIds.includes(fee.feeTypeId)
+                      ? "bg-indigo-600 text-white"
+                      : "bg-orange-50 text-orange-700"
+                  }`}
                 >
                   <Check size={14} />
-                  Optional allocation
+                  {selectedFeeTypeIds.includes(fee.feeTypeId)
+                    ? "Selected for Allocation"
+                    : "Optional allocation"}
                 </button>
               )}
               <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    editClassFee(fee)
-                  }
-                  className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600"
-                >
-                  <Pencil size={14} />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    archiveFeeAssignment(
-                      fee
-                    )
-                  }
-                  className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-red-100 text-xs font-extrabold text-red-500"
-                >
-                  <Archive size={14} />
-                  Archive
-                </button>
+                {!archived && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      editClassFee(fee)
+                    }
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600"
+                  >
+                    <Pencil size={14} />
+                    Edit
+                  </button>
+                )}
+                {archived ? (
+                  <button
+                    type="button"
+                    disabled={loadingActionFeeId === fee.classFeeId}
+                    onClick={() =>
+                      restoreFeeAssignment(
+                        fee
+                      )
+                    }
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 text-xs font-extrabold text-emerald-700 disabled:opacity-60"
+                  >
+                    {loadingActionFeeId === fee.classFeeId ? (
+                      <LoaderCircle size={14} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={14} />
+                    )}
+                    Restore
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={loadingActionFeeId === fee.classFeeId}
+                    onClick={() =>
+                      archiveFeeAssignment(
+                        fee
+                      )
+                    }
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-red-100 text-xs font-extrabold text-red-500 disabled:opacity-60"
+                  >
+                    {loadingActionFeeId === fee.classFeeId ? (
+                      <LoaderCircle size={14} className="animate-spin" />
+                    ) : (
+                      <Archive size={14} />
+                    )}
+                    Archive
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -2010,17 +2079,46 @@ export default function SettingsPage() {
                     Create Fee Item
                   </p>
                   <div className="mt-4 grid gap-3">
-                    <input
-                      value={feeTypeForm.name}
-                      onChange={(event) =>
+                    <select
+                      value={selectedExistingFeeName}
+                      onChange={(event) => {
+                        const val = event.target.value;
+                        setSelectedExistingFeeName(val);
                         setFeeTypeForm(
                           (current) => ({
                             ...current,
-                            name:
-                              event.target.value,
+                            name: val === "new" ? "" : val,
                           })
-                        )
-                      }
+                        );
+                      }}
+                      className={inputClassName}
+                    >
+                      <option value="new">-- Or Select Existing Name --</option>
+                      {existingFeeNames.map((name) => (
+                        <option
+                          key={name}
+                          value={name}
+                        >
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={feeTypeForm.name}
+                      onChange={(event) => {
+                        const val = event.target.value;
+                        setFeeTypeForm(
+                          (current) => ({
+                            ...current,
+                            name: val,
+                          })
+                        );
+                        if (existingFeeNames.includes(val)) {
+                          setSelectedExistingFeeName(val);
+                        } else {
+                          setSelectedExistingFeeName("new");
+                        }
+                      }}
                       placeholder="Fee name"
                       className={inputClassName}
                     />
@@ -2124,16 +2222,29 @@ export default function SettingsPage() {
                       className={inputClassName}
                       disabled={
                         !selectedClass ||
-                        assignableFeeTypes.length ===
-                          0
+                        isEditing ||
+                        (!isEditing &&
+                          assignableFeeTypes.length ===
+                            0)
                       }
                     >
                       <option value="">
-                        {assignableFeeTypes.length ===
-                        0
+                        {!isEditing &&
+                        assignableFeeTypes.length ===
+                          0
                           ? "No fees available — create one above"
                           : "Select fee type"}
                       </option>
+                      {isEditing &&
+                        editingFeeType && (
+                          <option
+                            value={
+                              editingFeeType.id
+                            }
+                          >
+                            {editingFeeType.name}
+                          </option>
+                        )}
                       {assignableFeeTypes.map(
                         (feeType) => (
                           <option

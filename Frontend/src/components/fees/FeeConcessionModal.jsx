@@ -162,6 +162,38 @@ export default function FeeConcessionModal({
       return;
     }
 
+    const val = Number(basisValue);
+    if (isNaN(val) || val <= 0) {
+      notify.error(null, "Please enter a valid concession value");
+      return;
+    }
+
+    if (basis === "percentage") {
+      if (val > 100) {
+        notify.warning("Concession percentage cannot exceed 100%");
+        return;
+      }
+    }
+
+    const fees = resolvedDetail?.fees || [];
+    const grossTotal = fees.reduce((sum, f) => sum + Number(f.grossAmount ?? f.amount ?? 0), 0);
+    const paidTotal = fees.reduce((sum, f) => sum + Number(f.paidAmount || 0), 0);
+    const maxConcession = grossTotal - paidTotal;
+
+    let calculatedConcession = 0;
+    if (basis === "percentage") {
+      calculatedConcession = Math.round((grossTotal * val) / 100);
+    } else {
+      calculatedConcession = val;
+    }
+
+    if (calculatedConcession > maxConcession) {
+      notify.warning(
+        `Concession amount (Rs ${calculatedConcession}) cannot exceed the remaining fee balance (Rs ${maxConcession})`
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -172,7 +204,7 @@ export default function FeeConcessionModal({
             academicYear,
             concessionType,
             basis,
-            basisValue: Number(basisValue),
+            basisValue: val,
             remark,
           },
         });
@@ -202,8 +234,8 @@ export default function FeeConcessionModal({
   };
 
   return (
-    <motionlessModal>
-      <motionlessModalInner
+    <MotionlessModal>
+      <MotionlessModalInner
         onClose={onClose}
         title="Fee Concession"
         subtitle={
@@ -297,18 +329,18 @@ export default function FeeConcessionModal({
             PDF receipt includes remark: Fee Concession. Net fees update for this academic year.
           </p>
 
-          <motionlessModalActions
+          <MotionlessModalActions
             onClose={onClose}
             saving={saving}
             existing={existing}
           />
         </form>
-      </motionlessModalInner>
-    </motionlessModal>
+      </MotionlessModalInner>
+    </MotionlessModal>
   );
 }
 
-function motionlessModal({ children }) {
+function MotionlessModal({ children }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4">
       {children}
@@ -316,14 +348,14 @@ function motionlessModal({ children }) {
   );
 }
 
-function motionlessModalInner({
+function MotionlessModalInner({
   onClose,
   title,
   subtitle,
   children,
 }) {
   return (
-    <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+    <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold text-slate-950">
@@ -348,7 +380,7 @@ function motionlessModalInner({
   );
 }
 
-function motionlessModalActions({
+function MotionlessModalActions({
   onClose,
   saving,
   existing,

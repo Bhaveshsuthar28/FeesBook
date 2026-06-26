@@ -291,9 +291,9 @@ export default function AddStudentModal({
         try {
           setLoadingSections(true);
           const rows =
-            await getSectionsByClass(
-              pickedClass.id
-            );
+            await getSectionsByClass({
+              classId: pickedClass.id,
+            });
 
           if (!active) {
             return;

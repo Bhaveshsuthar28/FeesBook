@@ -13,11 +13,13 @@ export const getClassesDashboardInsightsController =
     request,
     reply
   ) => {
+    const { academicYear } = request.query || {};
 
     const result =
       await getDashboardInsightsService({
         schoolId:
           request.user.schoolId,
+        academicYear,
       });
 
     return reply.send({
@@ -31,11 +33,13 @@ export const getClassesDashboardController =
     request,
     reply
   ) => {
+    const { academicYear } = request.query || {};
 
     const result =
       await getClassesDashboardService({
         schoolId:
           request.user.schoolId,
+        academicYear,
       });
 
     return reply.send({

@@ -4,10 +4,11 @@ const API =
   import.meta.env.VITE_BASE_URL;
 
 export const getFeeStructure =
-  async () => {
+  async (params = {}) => {
     const response =
       await axios.get(
-        `${API}/fees/structure`
+        `${API}/fees/structure`,
+        { params }
       );
 
     return response.data.data;

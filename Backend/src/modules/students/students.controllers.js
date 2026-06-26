@@ -4,6 +4,7 @@ import {
   importStudentsSchema,
   studentLifecycleSchema,
   promoteStreamSchema,
+  moveStudentStreamSchema,
 } from "./students.validation.js";
 
 import {
@@ -23,6 +24,9 @@ import {
   updateStudentFeeService,
   updateStudentService,
   promoteStreamService,
+  moveStudentStreamService,
+  archiveStudentService,
+  unarchiveStudentService,
 } from "./students.service.js";
 
 import {
@@ -422,6 +426,32 @@ export const promoteStreamController = async (request, reply) => {
   const result = await promoteStreamService({
     schoolId: request.user.schoolId,
     data: parsed,
+  });
+  return reply.send({ success: true, data: result });
+};
+
+export const moveStudentStreamController = async (request, reply) => {
+  const parsed = moveStudentStreamSchema.parse(request.body || {});
+  const result = await moveStudentStreamService({
+    schoolId: request.user.schoolId,
+    studentId: request.params.studentId,
+    data: parsed,
+  });
+  return reply.send({ success: true, data: result });
+};
+
+export const archiveStudentController = async (request, reply) => {
+  const result = await archiveStudentService({
+    schoolId: request.user.schoolId,
+    studentId: request.params.studentId,
+  });
+  return reply.send({ success: true, data: result });
+};
+
+export const unarchiveStudentController = async (request, reply) => {
+  const result = await unarchiveStudentService({
+    schoolId: request.user.schoolId,
+    studentId: request.params.studentId,
   });
   return reply.send({ success: true, data: result });
 };

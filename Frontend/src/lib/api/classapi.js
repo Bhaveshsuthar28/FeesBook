@@ -39,7 +39,7 @@ export const getClassCatalog =
   };
 
 export const getClassesByStatus =
-  async (status = "active") => {
+  async (status = "active", academicYear = "") => {
 
     const response =
       await axios.get(
@@ -47,6 +47,7 @@ export const getClassesByStatus =
         {
           params: {
             status,
+            academicYear,
           },
         }
       );

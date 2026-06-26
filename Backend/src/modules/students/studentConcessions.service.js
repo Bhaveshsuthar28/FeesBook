@@ -673,6 +673,20 @@ export const upsertStudentFeeConcessionService =
       });
     }
 
+    if (parsed.basis === "percentage" && Number(parsed.basisValue) > 100) {
+      throw createStudentError({
+        statusCode: 400,
+        code: "INVALID_CONCESSION_PERCENTAGE",
+        message: "Concession percentage cannot exceed 100%",
+      });
+    }
+
+    const paidTotal = fees.reduce(
+      (sum, fee) => sum + Number(fee.paidAmount || 0),
+      0
+    );
+    const maxConcession = grossTotal - paidTotal;
+
     let concessionTotal = 0;
 
     if (parsed.basis === "percentage") {
@@ -689,6 +703,14 @@ export const upsertStudentFeeConcessionService =
         Number(
           parsed.basisValue
         );
+    }
+
+    if (concessionTotal > maxConcession) {
+      throw createStudentError({
+        statusCode: 400,
+        code: "CONCESSION_EXCEEDS_REMAINING",
+        message: `Concession amount (Rs ${concessionTotal}) cannot exceed the remaining fee balance (Rs ${maxConcession})`,
+      });
     }
 
     const existing =

@@ -16,6 +16,7 @@ const statusSchema =
     "active",
     "alumni",
     "previous",
+    "archived",
   ]);
 
 export const studentLifecycleSchema =
@@ -174,4 +175,10 @@ export const promoteStreamSchema = z.object({
   ).min(1),
   fromAcademicYear:    z.string().optional(),
   targetAcademicYear:  z.string().optional(),
+});
+
+export const moveStudentStreamSchema = z.object({
+  targetClassId:   requiredString,
+  targetSectionId: requiredString,
+  note:            optionalString,
 });

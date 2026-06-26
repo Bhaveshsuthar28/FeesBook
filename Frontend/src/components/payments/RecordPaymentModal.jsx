@@ -57,6 +57,8 @@ const mapDetailFeesToDueFees =
           fee.feeTypeName ||
           fee.name ||
           "Fee",
+        academicYear:
+          fee.academicYear,
       }));
 
 export default function RecordPaymentModal({
@@ -149,6 +151,15 @@ export default function RecordPaymentModal({
       detail,
       fetchedDetail,
     ]);
+
+  const activeAcademicYear =
+    useMemo(() => {
+      return (
+        detail?.activeAcademicYear ||
+        fetchedDetail?.activeAcademicYear ||
+        ""
+      );
+    }, [detail, fetchedDetail]);
 
   const displayName =
     student?.fullName ||
@@ -479,25 +490,6 @@ export default function RecordPaymentModal({
             }
           );
 
-        if (
-          result.receipt
-            ?.paymentId
-        ) {
-          try {
-            await downloadReceipt(
-              {
-                paymentId:
-                  result.receipt
-                    .paymentId,
-              }
-            );
-          } catch (downloadError) {
-            notify.warning(
-              "Payment saved. Receipt could not be downloaded."
-            );
-          }
-        }
-
         notify.success(
           "Payment recorded successfully"
         );
@@ -530,7 +522,7 @@ export default function RecordPaymentModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="record-payment-title"
-        className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl"
+        className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl"
         onClick={(event) =>
           event.stopPropagation()
         }
@@ -604,8 +596,8 @@ export default function RecordPaymentModal({
               This student has no pending fee balance.
             </p>
           ) : (
-            <div className="mt-5 grid gap-4">
-              <label className="space-y-2">
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="space-y-2 sm:col-span-2">
                 <span className="text-xs font-extrabold text-slate-600">
                   Fee Record
                 </span>
@@ -636,7 +628,12 @@ export default function RecordPaymentModal({
                           value={fee.id}
                         >
                           {fee.feeTypeName
-                            ? `${fee.feeTypeName} — `
+                            ? `${fee.feeTypeName}${
+                                fee.academicYear &&
+                                fee.academicYear !== activeAcademicYear
+                                  ? ` (${fee.academicYear} Due)`
+                                  : ""
+                              } — `
                             : ""}
                           Due{" "}
                           {formatCurrency(
@@ -683,8 +680,8 @@ export default function RecordPaymentModal({
                     Number(
                       selectedFee.dueAmount || 0
                     ) && (
-                    <p className="text-xs font-semibold text-orange-600">
-                      Partial payment — a partial fee receipt PDF will be generated with the remaining balance.
+                    <p className="text-xs font-semibold text-orange-600 sm:col-span-2">
+                      Partial payment — a partial fee receipt PDF will be generated.
                     </p>
                   )}
               </label>
@@ -737,7 +734,7 @@ export default function RecordPaymentModal({
                 )
               }
 
-              <label className="space-y-2">
+              <label className={`space-y-2 ${showPaidAt ? "" : "sm:col-span-2"}`}>
                 <span className="text-xs font-extrabold text-slate-600">
                   Transaction reference
                 </span>
@@ -761,7 +758,7 @@ export default function RecordPaymentModal({
                 />
               </label>
 
-              <label className="space-y-2">
+              <label className="space-y-2 sm:col-span-2">
                 <span className="text-xs font-extrabold text-slate-600">
                   Remark (on PDF)
                 </span>

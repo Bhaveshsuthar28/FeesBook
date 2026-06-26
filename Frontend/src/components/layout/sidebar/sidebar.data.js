@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   GraduationCap,
   Users,
+  ArrowUpCircle,
   Wallet,
   Settings,
 } from "lucide-react";
@@ -36,4 +37,4 @@ export const sidebarItems = [
     path: "/settings",
     icon: Settings,
   },
-];
+];

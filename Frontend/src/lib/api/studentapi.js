@@ -229,6 +229,37 @@ export const promoteStudent =
     return response.data.data;
   };
 
+export const moveStudentStream =
+  async (studentId, data = {}) => {
+    const response =
+      await axios.post(
+        `${API}/students/${studentId}/move-stream`,
+        data
+      );
+
+    return response.data.data;
+  };
+
+export const archiveStudent =
+  async (studentId) => {
+    const response =
+      await axios.patch(
+        `${API}/students/${studentId}/archive`
+      );
+
+    return response.data.data;
+  };
+
+export const unarchiveStudent =
+  async (studentId) => {
+    const response =
+      await axios.patch(
+        `${API}/students/${studentId}/unarchive`
+      );
+
+    return response.data.data;
+  };
+
 export const bulkPromoteStudents =
   async (data = {}) => {
     const response =

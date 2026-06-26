@@ -1,5 +1,5 @@
 import {
-  Archive,
+  ArrowUpCircle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   RotateCcw,
   Upload,
+  UserMinus,
   Users,
   WalletCards,
 } from "lucide-react";
@@ -28,6 +29,8 @@ import {
   useMemo,
   useState,
 } from "react";
+
+import Tooltip from "../components/common/Tooltip.jsx";
 
 import {
   useLocation,
@@ -52,6 +55,11 @@ import {
   getStudentsBySection,
   markStudentLeft,
 } from "../lib/api/studentapi.js";
+
+import {
+  bulkPromoteStudents,
+  streamAllocate,
+} from "../lib/api/promotionapi.js";
 
 import {
   notify,
@@ -149,7 +157,7 @@ const directoryTabs = [
   {
     value: "left",
     label: "Left",
-    icon: Upload,
+    icon: UserMinus,
   },
 ];
 
@@ -570,7 +578,7 @@ function StudentLifecycleModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-extrabold text-slate-950">
-              Archive Student
+              Mark Student as Left
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               {student.fullName}
@@ -590,7 +598,7 @@ function StudentLifecycleModal({
           onChange={(event) =>
             setNote(event.target.value)
           }
-          placeholder="Archive note optional"
+          placeholder="Note (optional)"
           className="mt-4 min-h-24 w-full rounded-lg border border-slate-200 p-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500"
         />
         <div className="mt-5 flex justify-end gap-3">
@@ -760,7 +768,7 @@ function DirectoryStudentsView({
       value:
         summary.leftStudents,
       note: "6 this month",
-      icon: Upload,
+      icon: UserMinus,
       accent:
         "border-orange-100 text-orange-700 bg-orange-50",
       iconBg:
@@ -1260,35 +1268,37 @@ function DirectoryStudentsView({
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              title="View student"
-                              onClick={() =>
-                                navigate(
-                                  `/students/${student.id}`
-                                )
-                              }
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-700"
-                            >
-                              <Eye size={16} />
-                            </button>
+                            <Tooltip content="View student">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/students/${student.id}`
+                                  )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-700"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </Tooltip>
                             {
                               publicStatus ===
                                 "active" && (
-                                <button
-                                  type="button"
-                                  title="Archive student"
-                                  onClick={() =>
-                                    setLifecycleAction({
-                                      action:
-                                        "left",
-                                      student,
-                                    })
-                                  }
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-600 hover:border-red-200 hover:bg-red-50"
-                                >
-                                  <Archive size={16} />
-                                </button>
+                                <Tooltip content="Mark as left">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setLifecycleAction({
+                                        action:
+                                          "left",
+                                        student,
+                                      })
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-600 hover:border-red-200 hover:bg-red-50"
+                                  >
+                                    <UserMinus size={16} />
+                                  </button>
+                                </Tooltip>
                               )
                             }
                           </div>
@@ -1369,35 +1379,37 @@ function DirectoryStudentsView({
                       </span>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
-                      <button
-                        type="button"
-                        title="View student"
-                        onClick={() =>
-                          navigate(
-                            `/students/${student.id}`
-                          )
-                        }
-                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
-                      >
-                        <Eye size={16} />
-                      </button>
+                      <Tooltip content="View student">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              `/students/${student.id}`
+                            )
+                          }
+                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </Tooltip>
                       {
                         publicStatus ===
                           "active" && (
-                          <button
-                            type="button"
-                            title="Archive student"
-                            onClick={() => {
-                              setLifecycleAction({
-                                action:
-                                  "left",
-                                student,
-                              });
-                            }}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 text-red-600"
-                          >
-                            <Archive size={16} />
-                          </button>
+                          <Tooltip content="Mark as left">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLifecycleAction({
+                                  action:
+                                    "left",
+                                  student,
+                                });
+                              }}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 text-red-600"
+                            >
+                              <UserMinus size={16} />
+                            </button>
+                          </Tooltip>
                         )
                       }
                     </div>
@@ -1753,6 +1765,15 @@ export default function StudentsPage() {
     setShowOptionalFees,
   ] = useState(false);
 
+  const [isPromotionMode, setIsPromotionMode] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [targetPromotionClassId, setTargetPromotionClassId] = useState("");
+  const [targetPromotionSectionId, setTargetPromotionSectionId] = useState("");
+  const [promotionClasses, setPromotionClasses] = useState([]);
+  const [promotionSections, setPromotionSections] = useState([]);
+  const [promoting, setPromoting] = useState(false);
+  const [showRemainingPrompt, setShowRemainingPrompt] = useState(false);
+
   const [
     searchTerm,
     setSearchTerm,
@@ -1997,6 +2018,36 @@ export default function StudentsPage() {
     };
   }, [classId]);
 
+  useEffect(() => {
+    if (!targetPromotionClassId) {
+      setPromotionSections([]);
+      setTargetPromotionSectionId("");
+      return;
+    }
+    let cancelled = false;
+    const loadSections = async () => {
+      try {
+        const sections = await getSectionsByClass({ classId: targetPromotionClassId });
+        if (!cancelled) {
+          setPromotionSections(sections || []);
+          if (sections && sections.length > 0) {
+            setTargetPromotionSectionId(sections[0].id);
+          } else {
+            setTargetPromotionSectionId("");
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          notify.error(error, "Failed to load sections for class");
+        }
+      }
+    };
+    loadSections();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetPromotionClassId]);
+
   const refreshDirectory =
     useCallback(async () => {
       if (classId) {
@@ -2204,6 +2255,104 @@ export default function StudentsPage() {
     !selectedClass.isArchived &&
     !selectedSection.isArchived &&
     feeStructureReady;
+
+  const isTenthClassSelected =
+    String(selectedClass?.name || "")
+      .trim()
+      .toLowerCase() === "10th";
+
+  const getNextYear = (yearStr) => {
+    const parts = String(yearStr || "").split("-");
+    if (parts.length < 2) return "";
+    const start = Number(parts[0]);
+    if (isNaN(start)) return "";
+    return `${start + 1}-${start + 2}`;
+  };
+
+  const enterPromotionMode = async () => {
+    setIsPromotionMode(true);
+    setSelectedStudentIds([]);
+    const targetYear = getNextYear(selectedClass?.academicYear);
+    if (targetYear) {
+      try {
+        const classes = await getClassesByStatus("active", targetYear);
+        const eleventhClasses = classes.filter((cls) =>
+          String(cls.name || "").trim().toLowerCase().startsWith("11th")
+        );
+        setPromotionClasses(eleventhClasses);
+        if (eleventhClasses.length > 0) {
+          setTargetPromotionClassId(eleventhClasses[0].id);
+        }
+      } catch (error) {
+        notify.error(error, "Failed to load classes for promotion");
+      }
+    }
+  };
+
+  const handlePromoteSelected = async () => {
+    if (selectedStudentIds.length === 0) {
+      notify.warning("Please select at least one student to promote.");
+      return;
+    }
+    if (!targetPromotionClassId || !targetPromotionSectionId) {
+      notify.warning("Please select a target stream class and section.");
+      return;
+    }
+
+    try {
+      setPromoting(true);
+      const targetYear = getNextYear(selectedClass?.academicYear);
+
+      const payload = {
+        students: selectedStudentIds.map((studentId) => ({
+          studentId,
+          targetClassId: targetPromotionClassId,
+          targetSectionId: targetPromotionSectionId,
+          note: "Manual stream promotion from 10th class",
+        })),
+        fromAcademicYear: selectedClass?.academicYear,
+        targetAcademicYear: targetYear,
+      };
+
+      const result = await streamAllocate(payload);
+      notify.success(`Successfully promoted ${result.promoted} student(s).`);
+      setSelectedStudentIds([]);
+      setIsPromotionMode(false);
+      await refreshStudents();
+
+      const remainingCount = students.filter((s) => s.status === "active" && !selectedStudentIds.includes(s.id)).length;
+      if (remainingCount === 0) {
+        setShowRemainingPrompt(true);
+      }
+    } catch (error) {
+      notify.error(error, "Failed to promote students");
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  const handlePromoteRemaining = async () => {
+    try {
+      setPromoting(true);
+      const targetYear = getNextYear(selectedClass?.academicYear);
+      const payload = {
+        fromAcademicYear: selectedClass?.academicYear,
+        targetAcademicYear: targetYear,
+        note: "Automatic promotion of remaining classes after 10th",
+      };
+
+      const result = await bulkPromoteStudents(payload);
+      notify.success(
+        `Successfully promoted remaining classes: promoted ${result.promoted} students, moved ${result.alumni} to alumni.`
+      );
+      setShowRemainingPrompt(false);
+      await refreshStudents();
+    } catch (error) {
+      notify.error(error, "Failed to promote remaining classes");
+    } finally {
+      setPromoting(false);
+    }
+  };
 
   const openAddModal =
     (mode) => {
@@ -2749,6 +2898,11 @@ export default function StudentsPage() {
                             <td className="px-5 py-4">
                               <p className="text-sm font-extrabold text-slate-900">{formatCurrency(student.totalFees)}</p>
                               <p className="mt-1 text-xs font-bold text-red-500">Due {formatCurrency(student.pendingFees)}</p>
+                              {Number(student.overdueFees || 0) > 0 && (
+                                <p className="mt-1 text-xs font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                                  Overdue {formatCurrency(student.overdueFees)}
+                                </p>
+                              )}
                             </td>
                             <td className="px-5 py-4">
                               <span className={`${statusClass[student.paymentStatus] || statusClass.Pending} rounded-md px-3 py-1.5 text-xs font-bold`}>
@@ -2849,6 +3003,14 @@ export default function StudentsPage() {
                             <span className="font-semibold text-slate-400">Pending</span>
                             <br />
                             <span className="font-extrabold text-red-500">{formatCurrency(student.pendingFees)}</span>
+                            {Number(student.overdueFees || 0) > 0 && (
+                              <>
+                                <br />
+                                <span className="text-[10px] font-extrabold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 mt-1 inline-block">
+                                  Overdue {formatCurrency(student.overdueFees)}
+                                </span>
+                              </>
+                            )}
                           </p>
                         </div>
                       </button>
@@ -3174,6 +3336,31 @@ export default function StudentsPage() {
             Add Optional Fees to Section
           </button>
 
+          {isTenthClassSelected && !isPromotionMode && (
+            <button
+              type="button"
+              onClick={enterPromotionMode}
+              className="
+                flex
+                h-11
+                items-center
+                gap-2
+                rounded-lg
+                border
+                border-amber-200
+                bg-amber-50
+                px-4
+                text-xs
+                font-bold
+                text-amber-700
+                hover:bg-amber-100
+              "
+            >
+              <ArrowUpCircle size={16} />
+              Promote Students
+            </button>
+          )}
+
           <div
             className="
               relative
@@ -3316,6 +3503,82 @@ export default function StudentsPage() {
           shadow-sm
         "
       >
+        {isPromotionMode && (
+          <div className="flex flex-col gap-4 border-b border-slate-100 bg-amber-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            {promotionClasses.length === 0 ? (
+              <p className="text-sm font-semibold text-amber-900">
+                No active 11th-grade stream classes (e.g. 11th-Arts, 11th-SM) found for target academic year {getNextYear(selectedClass?.academicYear)}. Please create them under Settings → Academic Year/Classes first.
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-bold text-slate-800">
+                  Promote {selectedStudentIds.length} Student(s)
+                </span>
+                <div className="h-4 w-px bg-slate-300 hidden sm:block"></div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-600">Target Class:</label>
+                  <select
+                    value={targetPromotionClassId}
+                    onChange={(e) => setTargetPromotionClassId(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium outline-none focus:border-blue-500"
+                  >
+                    {promotionClasses.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-600">Target Section:</label>
+                  {promotionSections.length === 0 ? (
+                    <span className="text-xs font-semibold text-red-600">
+                      No active sections — configure sections in Classes first.
+                    </span>
+                  ) : (
+                    <select
+                      value={targetPromotionSectionId}
+                      onChange={(e) => setTargetPromotionSectionId(e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium outline-none focus:border-blue-500"
+                    >
+                      {promotionSections.map((sec) => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPromotionMode(false);
+                  setSelectedStudentIds([]);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  promoting ||
+                  selectedStudentIds.length === 0 ||
+                  promotionClasses.length === 0 ||
+                  promotionSections.length === 0
+                }
+                onClick={handlePromoteSelected}
+                className="flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                {promoting ? "Promoting..." : "Promote Selected"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div
           className="
             flex
@@ -3464,6 +3727,22 @@ export default function StudentsPage() {
                   border-slate-100
                 "
               >
+                {isPromotionMode && (
+                  <th className="px-5 py-4 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.length === students.length && students.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStudentIds(students.map((s) => s.id));
+                        } else {
+                          setSelectedStudentIds([]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                )}
                 {
                   [
                     "#",
@@ -3473,21 +3752,24 @@ export default function StudentsPage() {
                     "Payment Status",
                     "Due Amount",
                     "Action",
-                  ].map((head) => (
-                    <th
-                      key={head}
-                      className="
-                        px-5
-                        py-4
-                        text-left
-                        text-[11px]
-                        font-extrabold
-                        text-slate-500
-                      "
-                    >
-                      {head}
-                    </th>
-                  ))
+                  ].map((head) => {
+                    if (isPromotionMode && head === "#") return null;
+                    return (
+                      <th
+                        key={head}
+                        className="
+                          px-5
+                          py-4
+                          text-left
+                          text-[11px]
+                          font-extrabold
+                          text-slate-500
+                        "
+                      >
+                        {head}
+                      </th>
+                    );
+                  })
                 }
               </tr>
             </thead>
@@ -3534,17 +3816,37 @@ export default function StudentsPage() {
                           hover:bg-slate-50
                         "
                       >
-                        <td
-                          className="
-                            px-5
-                            py-4
-                            text-sm
-                            font-bold
-                            text-slate-500
-                          "
-                        >
-                          {(pagination.page - 1) * pageSize + index + 1}
-                        </td>
+                        {isPromotionMode && (
+                          <td className="px-5 py-4 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentIds.includes(student.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedStudentIds((prev) => [...prev, student.id]);
+                                } else {
+                                  setSelectedStudentIds((prev) =>
+                                    prev.filter((id) => id !== student.id)
+                                  );
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                        )}
+                        {!isPromotionMode && (
+                          <td
+                            className="
+                              px-5
+                              py-4
+                              text-sm
+                              font-bold
+                              text-slate-500
+                            "
+                          >
+                            {(pagination.page - 1) * pageSize + index + 1}
+                          </td>
+                        )}
                         <td
                           className="
                             px-5
@@ -3641,6 +3943,11 @@ export default function StudentsPage() {
                           `}
                         >
                           {formatCurrency(student.pendingFees)}
+                          {Number(student.overdueFees || 0) > 0 && (
+                            <div className="mt-1 text-[10px] font-extrabold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 inline-block">
+                              Overdue {formatCurrency(student.overdueFees)}
+                            </div>
+                          )}
                         </td>
                         <td
                           className="
@@ -3656,30 +3963,32 @@ export default function StudentsPage() {
                               text-blue-700
                             "
                           >
-                            <button
-                              type="button"
-                              title="View student"
-                              onClick={() =>
-                                navigate(
-                                  `/classes/${classId}/sections/${sectionId}/students/${student.id}`
-                                )
-                              }
-                            >
-                              <Eye size={17} />
-                            </button>
-                            <button
-                              type="button"
-                              title="Record payment"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setPaymentStudentId(
-                                  student.id
-                                );
-                              }}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
-                            >
-                              <WalletCards size={17} />
-                            </button>
+                            <Tooltip content="View student">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/classes/${classId}/sections/${sectionId}/students/${student.id}`
+                                  )
+                                }
+                              >
+                                <Eye size={17} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Record payment">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setPaymentStudentId(
+                                    student.id
+                                  );
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
+                              >
+                                <WalletCards size={17} />
+                              </button>
+                            </Tooltip>
                           </div>
                         </td>
                       </tr>
@@ -3720,16 +4029,23 @@ export default function StudentsPage() {
                     key={student.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() =>
-                      navigate(
-                        `/classes/${classId}/sections/${sectionId}/students/${student.id}`
-                      )
-                    }
+                    onClick={() => {
+                      if (isPromotionMode) {
+                        if (selectedStudentIds.includes(student.id)) {
+                          setSelectedStudentIds((prev) =>
+                            prev.filter((id) => id !== student.id)
+                          );
+                        } else {
+                          setSelectedStudentIds((prev) => [...prev, student.id]);
+                        }
+                      } else {
+                        navigate(
+                          `/classes/${classId}/sections/${sectionId}/students/${student.id}`
+                        );
+                      }
+                    }}
                     onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter" ||
-                        event.key === " "
-                      ) {
+                      if (!isPromotionMode && (event.key === "Enter" || event.key === " ")) {
                         navigate(
                           `/classes/${classId}/sections/${sectionId}/students/${student.id}`
                         );
@@ -3754,6 +4070,24 @@ export default function StudentsPage() {
                         gap-3
                       "
                     >
+                      {isPromotionMode && (
+                        <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudentIds.includes(student.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStudentIds((prev) => [...prev, student.id]);
+                              } else {
+                                setSelectedStudentIds((prev) =>
+                                  prev.filter((id) => id !== student.id)
+                                );
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+                      )}
                       <div
                         className="
                           flex
@@ -3842,6 +4176,14 @@ export default function StudentsPage() {
                           `}
                         >
                           {formatCurrency(student.pendingFees)}
+                          {Number(student.overdueFees || 0) > 0 && (
+                            <>
+                              <br />
+                              <span className="text-[10px] font-extrabold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 mt-1 inline-block">
+                                Overdue {formatCurrency(student.overdueFees)}
+                              </span>
+                            </>
+                          )}
                         </span>
                       </p>
                       <p>
@@ -4105,6 +4447,43 @@ export default function StudentsPage() {
           />
         )
       }
+
+      {showRemainingPrompt && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-bold text-slate-900">
+              All 10th Class Students Promoted!
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Now that the 10th class students have been manually promoted to their respective streams, would you like to automatically promote all other remaining classes (e.g. 1st to 9th, and 11th) to the new academic year?
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRemainingPrompt(false)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Skip / Later
+              </button>
+              <button
+                type="button"
+                disabled={promoting}
+                onClick={handlePromoteRemaining}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                {promoting ? "Promoting..." : "Promote Automatically"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,22 +21,44 @@ import {
 } from "../../cors/schema/studentFees.schema.js";
 
 import {
+  enrollmentsTable,
+} from "../../cors/schema/enrollments.schema.js";
+
+import {
   eq,
   sql,
   and,
   asc,
+  inArray,
 } from "drizzle-orm";
 
 import {
   getCurrentAcademicYear,
 } from "./class.catalog.js";
 
+import {
+  cleanupUnusedClassesService,
+} from "./class.service.js";
+
+import {
+  getActiveAcademicYearService,
+} from "../settings/settings.service.js";
+
 export const getClassesDashboardService =
   async ({
     schoolId,
+    academicYear,
   }) => {
-    const academicYear =
-      getCurrentAcademicYear();
+    const targetYear =
+      academicYear ||
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+
+    await cleanupUnusedClassesService({
+      schoolId,
+      academicYear: targetYear,
+    });
 
     const classes =
       await db
@@ -60,7 +82,7 @@ export const getClassesDashboardService =
 
             eq(
               classesTable.academicYear,
-              academicYear
+              targetYear
             ),
 
             eq(
@@ -128,18 +150,22 @@ export const getClassesDashboardService =
                 })
 
                 .from(
-                  studentsTable
+                  enrollmentsTable
                 )
 
                 .where(
                   and(
                     eq(
-                      studentsTable.classId,
+                      enrollmentsTable.classId,
                       singleClass.id
                     ),
+                    inArray(
+                      enrollmentsTable.status,
+                      ["active", "promoted"]
+                    ),
                     eq(
-                      studentsTable.status,
-                      "active"
+                      enrollmentsTable.academicYear,
+                      targetYear
                     )
                   )
                 );
@@ -173,10 +199,10 @@ export const getClassesDashboardService =
                 )
 
                 .innerJoin(
-                  studentsTable,
+                  enrollmentsTable,
 
                   eq(
-                    studentsTable.id,
+                    enrollmentsTable.studentId,
                     studentFeesTable.studentId
                   )
                 )
@@ -184,12 +210,20 @@ export const getClassesDashboardService =
                 .where(
                   and(
                     eq(
-                      studentsTable.classId,
+                      enrollmentsTable.classId,
                       singleClass.id
                     ),
+                    inArray(
+                      enrollmentsTable.status,
+                      ["active", "promoted"]
+                    ),
                     eq(
-                      studentsTable.status,
-                      "active"
+                      studentFeesTable.academicYear,
+                      targetYear
+                    ),
+                    eq(
+                      enrollmentsTable.academicYear,
+                      targetYear
                     )
                   )
                 );

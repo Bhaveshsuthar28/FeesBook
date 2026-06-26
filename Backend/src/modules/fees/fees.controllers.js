@@ -42,10 +42,13 @@ export const getFeeTypesController =
 
 export const getFeeStructureController =
   async (request, reply) => {
+    const { classId, academicYear } = request.query || {};
     const result =
       await getFeeStructureService({
         schoolId:
           request.user.schoolId,
+        classId,
+        academicYear,
       });
 
     return reply.send({

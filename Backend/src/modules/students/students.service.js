@@ -50,6 +50,9 @@ import {
   desc,
   eq,
   sql,
+  or,
+  isNull,
+  inArray,
 } from "drizzle-orm";
 
 import {
@@ -59,6 +62,7 @@ import {
 import {
   getActiveAcademicYearService,
   getSchoolProfileService,
+  setActiveAcademicYearService,
 } from "../settings/settings.service.js";
 
 import {
@@ -255,6 +259,104 @@ const makeRollNumber =
       : 0;
   };
 
+const getRollNumberBase = (className) => {
+  const name = String(className).trim().toUpperCase();
+  if (name === "LKG") return 100;
+  if (name === "UKG") return 200;
+
+  const streamMatch = name.match(/^(\d+)(ST|ND|RD|TH)-([A-Z]+)$/);
+  if (streamMatch) {
+    const grade = parseInt(streamMatch[1], 10);
+    const stream = streamMatch[3];
+    const streamCodes = {
+      PCM: 1,
+      PCB: 2,
+      PCMB: 3,
+      COM: 4,
+      ARTS: 5,
+      AGRI: 6,
+    };
+    const code = streamCodes[stream] || 9;
+    return (grade * 10 + code) * 1000;
+  }
+
+  const stdMatch = name.match(/^(\d+)(ST|ND|RD|TH)$/);
+  if (stdMatch) {
+    const grade = parseInt(stdMatch[1], 10);
+    return grade * 1000;
+  }
+
+  return 1000;
+};
+
+export const reshuffleRollNumbers = async ({ schoolId, classId, sectionId }) => {
+  if (!classId || !sectionId) return;
+
+  const [classDetails] = await db
+    .select({ name: classesTable.name })
+    .from(classesTable)
+    .where(
+      and(
+        eq(classesTable.id, classId),
+        eq(classesTable.schoolId, schoolId)
+      )
+    );
+
+  if (!classDetails) return;
+
+  const base = getRollNumberBase(classDetails.name);
+
+  const students = await db
+    .select()
+    .from(studentsTable)
+    .where(
+      and(
+        eq(studentsTable.schoolId, schoolId),
+        eq(studentsTable.classId, classId),
+        eq(studentsTable.sectionId, sectionId),
+        eq(studentsTable.status, "active")
+      )
+    );
+
+  students.sort((a, b) => {
+    const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+    const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+
+    const timeA = a.createdAt || 0;
+    const timeB = b.createdAt || 0;
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i];
+    const newRollNumber = base + (i + 1);
+
+    if (student.rollNumber !== newRollNumber) {
+      await db
+        .update(studentsTable)
+        .set({ rollNumber: newRollNumber })
+        .where(eq(studentsTable.id, student.id));
+
+      await db
+        .update(enrollmentsTable)
+        .set({ rollNumber: newRollNumber })
+        .where(
+          and(
+            eq(enrollmentsTable.studentId, student.id),
+            eq(enrollmentsTable.schoolId, schoolId),
+            eq(enrollmentsTable.status, "active")
+          )
+        );
+    }
+  }
+};
+
 const makePaymentStatus =
   ({
     pendingFees,
@@ -273,6 +375,8 @@ const makeFeeStatus =
   ({
     amount,
     paidAmount,
+    academicYear,
+    activeAcademicYear,
   }) => {
     const safeAmount =
       Math.max(
@@ -288,11 +392,15 @@ const makeFeeStatus =
         )
       );
 
-    return safeAmount === safePaid
-      ? "paid"
-      : safePaid > 0
-        ? "partial"
-        : "pending";
+    if (safeAmount === safePaid) {
+      return "paid";
+    }
+
+    if (academicYear && activeAcademicYear && academicYear !== activeAcademicYear) {
+      return "overdue";
+    }
+
+    return safePaid > 0 ? "partial" : "pending";
   };
 
 const getNextAcademicYear = (academicYear) => {
@@ -314,6 +422,47 @@ const isFinalClass =
       .trim()
       .toLowerCase()
       .startsWith("12th");
+
+const isFinalClassForSchool = async (schoolId, academicYear, singleClass) => {
+  if (!singleClass) return false;
+  if (isFinalClass(singleClass)) return true;
+
+  const activeClasses = await db
+    .select({ sequence: classesTable.sequence })
+    .from(classesTable)
+    .where(
+      and(
+        eq(classesTable.schoolId, schoolId),
+        eq(classesTable.academicYear, academicYear),
+        eq(classesTable.isArchived, false)
+      )
+    );
+
+  if (activeClasses.length === 0) {
+    return false;
+  }
+
+  const maxSequence = Math.max(...activeClasses.map(c => Number(c.sequence || 0)));
+  return Number(singleClass.sequence || 0) >= maxSequence;
+};
+
+const hasUpperClasses = async (schoolId, academicYear) => {
+  const classes = await db
+    .select({ name: classesTable.name })
+    .from(classesTable)
+    .where(
+      and(
+        eq(classesTable.schoolId, schoolId),
+        eq(classesTable.academicYear, academicYear),
+        eq(classesTable.isArchived, false)
+      )
+    );
+
+  return classes.some((cls) => {
+    const name = String(cls.name || "").trim().toLowerCase();
+    return name.startsWith("11th") || name.startsWith("12th");
+  });
+};
 
 const getManualPromotionGuardMessage =
   (singleClass) =>
@@ -502,38 +651,6 @@ const ensureAcademicYearStructure =
         )
       );
 
-    for (const catalogClass of getClassCatalog(
-      targetAcademicYear
-    )) {
-      if (
-        !classByName.has(
-          catalogClass.name
-        )
-      ) {
-        const newClass = {
-          id:
-            crypto.randomUUID(),
-          schoolId,
-          name:
-            catalogClass.name,
-          sequence:
-            catalogClass.sequence,
-          academicYear:
-            catalogClass.academicYear,
-          createdAt:
-            new Date(),
-        };
-
-        await db
-          .insert(classesTable)
-          .values(newClass);
-        classByName.set(
-          newClass.name,
-          newClass
-        );
-      }
-    }
-
     const sourceClasses =
       await db
         .select()
@@ -554,6 +671,38 @@ const ensureAcademicYearStructure =
             )
           )
         );
+
+    if (sourceClasses.length > 0) {
+      for (const sourceClass of sourceClasses) {
+        if (
+          !classByName.has(
+            sourceClass.name
+          )
+        ) {
+          const newClass = {
+            id:
+              crypto.randomUUID(),
+            schoolId,
+            name:
+              sourceClass.name,
+            sequence:
+              sourceClass.sequence,
+            academicYear:
+              targetAcademicYear,
+            createdAt:
+              new Date(),
+          };
+
+          await db
+            .insert(classesTable)
+            .values(newClass);
+          classByName.set(
+            newClass.name,
+            newClass
+          );
+        }
+      }
+    }
 
     for (const sourceClass of sourceClasses) {
       const targetClass =
@@ -637,6 +786,81 @@ const ensureAcademicYearStructure =
         targetSectionNames.add(
           sourceSection.name
         );
+      }
+
+      // Clone class fees from source to target
+      const sourceFees =
+        await db
+          .select()
+          .from(classFeesTable)
+          .where(
+            and(
+              eq(
+                classFeesTable.schoolId,
+                schoolId
+              ),
+              eq(
+                classFeesTable.classId,
+                sourceClass.id
+              ),
+              eq(
+                classFeesTable.isArchived,
+                false
+              )
+            )
+          );
+
+      const targetFees =
+        await db
+          .select()
+          .from(classFeesTable)
+          .where(
+            and(
+              eq(
+                classFeesTable.schoolId,
+                schoolId
+              ),
+              eq(
+                classFeesTable.classId,
+                targetClass.id
+              )
+            )
+          );
+
+      const targetFeeTypeIds =
+        new Set(
+          targetFees.map(
+            (fee) =>
+              fee.feeTypeId
+          )
+        );
+
+      for (const sourceFee of sourceFees) {
+        if (
+          targetFeeTypeIds.has(
+            sourceFee.feeTypeId
+          )
+        ) {
+          continue;
+        }
+
+        await db
+          .insert(classFeesTable)
+          .values({
+            id:
+              crypto.randomUUID(),
+            schoolId,
+            classId:
+              targetClass.id,
+            feeTypeId:
+              sourceFee.feeTypeId,
+            amount:
+              sourceFee.amount,
+            isDefault:
+              sourceFee.isDefault,
+            isArchived:
+              false,
+          });
       }
     }
 
@@ -1018,7 +1242,113 @@ export const ensureStudentLifecycleColumns =
       CREATE UNIQUE INDEX IF NOT EXISTS unique_receipt_counter_idx
       ON receipt_counters (school_id, academic_year)
     `);
+
+    // Ensure student_fees has class_id and academic_year columns
+    const studentFeesColumns =
+      await sqlClient.execute(
+        "PRAGMA table_info(student_fees)"
+      );
+    const existingStudentFeesColumns =
+      new Set(
+        studentFeesColumns.rows.map((row) =>
+          String(row.name)
+        )
+      );
+
+    if (!existingStudentFeesColumns.has("class_id")) {
+      await sqlClient.execute(
+        "ALTER TABLE student_fees ADD class_id text"
+      );
+    }
+    if (!existingStudentFeesColumns.has("academic_year")) {
+      await sqlClient.execute(
+        "ALTER TABLE student_fees ADD academic_year text"
+      );
+    }
+
+    // Trigger backfill asynchronously on startup
+    backfillStudentFeesAcademicYears().catch((err) => {
+      console.error("[Backfill Error]", err);
+    });
   };
+
+export const backfillStudentFeesAcademicYears = async () => {
+  const pendingFees = await db
+    .select()
+    .from(studentFeesTable)
+    .where(
+      or(
+        isNull(studentFeesTable.classId),
+        isNull(studentFeesTable.academicYear)
+      )
+    );
+
+  if (pendingFees.length === 0) return;
+
+  console.log(`[Backfill] Found ${pendingFees.length} student_fees records to backfill.`);
+  for (const fee of pendingFees) {
+    try {
+      const enrollments = await db
+        .select()
+        .from(enrollmentsTable)
+        .where(eq(enrollmentsTable.studentId, fee.studentId));
+
+      if (enrollments.length === 0) {
+        const [student] = await db
+          .select()
+          .from(studentsTable)
+          .where(eq(studentsTable.id, fee.studentId));
+        if (student && student.classId) {
+          const [cls] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, student.classId));
+          if (cls) {
+            await db
+              .update(studentFeesTable)
+              .set({ classId: cls.id, academicYear: cls.academicYear })
+              .where(eq(studentFeesTable.id, fee.id));
+          }
+        }
+        continue;
+      }
+
+      let matchedEnrollment = null;
+      for (const enrollment of enrollments) {
+        const [classFee] = await db
+          .select()
+          .from(classFeesTable)
+          .where(
+            and(
+              eq(classFeesTable.classId, enrollment.classId),
+              eq(classFeesTable.feeTypeId, fee.feeTypeId)
+            )
+          );
+        if (classFee) {
+          matchedEnrollment = enrollment;
+          break;
+        }
+      }
+
+      if (!matchedEnrollment) {
+        matchedEnrollment = enrollments[0];
+      }
+
+      if (matchedEnrollment) {
+        await db
+          .update(studentFeesTable)
+          .set({
+            classId: matchedEnrollment.classId,
+            academicYear: matchedEnrollment.academicYear
+          })
+          .where(eq(studentFeesTable.id, fee.id));
+      }
+    } catch (e) {
+      console.error(`[Backfill] Failed backfilling fee ID ${fee.id}:`, e);
+    }
+  }
+  console.log(`[Backfill] Finished backfilling.`);
+};
 
 const normalizeListQuery =
   (query = {}) => {
@@ -1079,6 +1409,7 @@ const normalizeDirectoryQuery =
           "active",
           "alumni",
           "previous",
+          "archived",
         ].includes(normalizedStatus)
           ? normalizedStatus
           : "all",
@@ -1097,6 +1428,8 @@ const normalizeFeesLedgerQuery =
       normalizeListQuery(query);
     const status =
       clean(query.status);
+    const studentStatus =
+      clean(query.studentStatus);
 
     return {
       ...base,
@@ -1110,6 +1443,14 @@ const normalizeFeesLedgerQuery =
         ].includes(status)
           ? status
           : "All",
+      studentStatus:
+        [
+          "all",
+          "active",
+          "alumni",
+        ].includes(studentStatus)
+          ? studentStatus
+          : "active",
       classId:
         clean(query.classId),
       sectionId:
@@ -1399,9 +1740,53 @@ const createStudentRecord =
       .insert(studentsTable)
       .values(student);
 
+    // Create enrollment record so student appears in dashboard/class counts
+    const [targetClass] = await db
+      .select()
+      .from(classesTable)
+      .where(
+        and(
+          eq(classesTable.id, student.classId),
+          eq(classesTable.schoolId, schoolId)
+        )
+      );
+
+    if (targetClass) {
+      const enrollmentId = crypto.randomUUID();
+      await db
+        .insert(enrollmentsTable)
+        .values({
+          id: enrollmentId,
+          schoolId,
+          studentId: student.id,
+          academicYear: targetClass.academicYear,
+          classId: student.classId,
+          sectionId: student.sectionId,
+          rollNumber: student.rollNumber,
+          admissionType: "new",
+          status: "active",
+          createdAt: Date.now(),
+        });
+
+      await db
+        .update(studentsTable)
+        .set({
+          currentEnrollmentId: enrollmentId,
+        })
+        .where(
+          eq(studentsTable.id, student.id)
+        );
+    }
+
     await allocateMandatoryFeesForStudent({
       schoolId,
       student,
+    });
+
+    await reshuffleRollNumbers({
+      schoolId,
+      classId: student.classId,
+      sectionId: student.sectionId,
     });
 
     return student;
@@ -1494,6 +1879,18 @@ export const getStudentsBySectionService =
       sectionId,
     });
 
+    const [singleClass] = await db
+      .select({ academicYear: classesTable.academicYear })
+      .from(classesTable)
+      .where(
+        and(
+          eq(classesTable.schoolId, schoolId),
+          eq(classesTable.id, classId)
+        )
+      );
+
+    const classYear = singleClass?.academicYear || "";
+
     const students =
       await db
       .select()
@@ -1528,70 +1925,40 @@ export const getStudentsBySectionService =
       await Promise.all(
       students.map(
         async (student) => {
-          const feeSummary =
-            await db
-              .select({
-                pending:
-                  sql`
-                    coalesce(
-                      sum(
-                        ${studentFeesTable.dueAmount}
-                      ),
-                      0
-                    )
-                  `,
-                collected:
-                  sql`
-                    coalesce(
-                      sum(
-                        ${studentFeesTable.paidAmount}
-                      ),
-                      0
-                    )
-                  `,
-                total:
-                  sql`
-                    coalesce(
-                      sum(
-                        ${studentFeesTable.amount}
-                      ),
-                      0
-                    )
-                  `,
-              })
-              .from(
-                studentFeesTable
+          const fees = await db
+            .select()
+            .from(studentFeesTable)
+            .where(
+              and(
+                eq(studentFeesTable.schoolId, schoolId),
+                eq(studentFeesTable.studentId, student.id)
               )
-              .where(
-                and(
-                  eq(
-                    studentFeesTable.schoolId,
-                    schoolId
-                  ),
-                  eq(
-                    studentFeesTable.studentId,
-                    student.id
-                  )
-                )
-              );
-
-          const pendingFees =
-            Number(
-              feeSummary[0]
-                ?.pending || 0
             );
 
-          const collectedFees =
-            Number(
-              feeSummary[0]
-                ?.collected || 0
-            );
+          const currentYearFees = fees.filter(
+            (fee) => !classYear || fee.academicYear === classYear
+          );
 
-          const totalFees =
-            Number(
-              feeSummary[0]
-                ?.total || 0
-            );
+          const overdueFeesList = fees.filter(
+            (fee) => classYear && fee.academicYear !== classYear
+          );
+
+          const totalFees = currentYearFees.reduce(
+            (sum, fee) => sum + Number(fee.amount || 0),
+            0
+          );
+          const collectedFees = currentYearFees.reduce(
+            (sum, fee) => sum + Number(fee.paidAmount || 0),
+            0
+          );
+          const pendingFees = currentYearFees.reduce(
+            (sum, fee) => sum + Number(fee.dueAmount || 0),
+            0
+          );
+          const overdueFees = overdueFeesList.reduce(
+            (sum, fee) => sum + Number(fee.dueAmount || 0),
+            0
+          );
 
           const paymentStatus =
             makePaymentStatus({
@@ -1602,8 +1969,10 @@ export const getStudentsBySectionService =
 
           return {
             ...student,
+            totalFees,
             pendingFees,
             collectedFees,
+            overdueFees,
             paymentStatus,
           };
         }
@@ -1861,33 +2230,48 @@ export const getStudentDirectoryService =
                   ),
               ]);
 
-            const totalFees =
-              fees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.amount || 0
-                  ),
-                0
-              );
-            const collectedFees =
-              fees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.paidAmount || 0
-                  ),
-                0
-              );
-            const pendingFees =
-              fees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.dueAmount || 0
-                  ),
-                0
-              );
+            const currentYear = singleClass?.academicYear || "";
+
+            const currentYearFees = fees.filter(
+              (fee) => !currentYear || fee.academicYear === currentYear
+            );
+
+            const overdueFeesList = fees.filter(
+              (fee) => currentYear && fee.academicYear !== currentYear
+            );
+
+            const totalFees = currentYearFees.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.amount || 0
+                ),
+              0
+            );
+            const collectedFees = currentYearFees.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.paidAmount || 0
+                ),
+              0
+            );
+            const pendingFees = currentYearFees.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.dueAmount || 0
+                ),
+              0
+            );
+            const overdueFees = overdueFeesList.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.dueAmount || 0
+                ),
+              0
+            );
 
             return {
               ...student,
@@ -1900,6 +2284,7 @@ export const getStudentDirectoryService =
               totalFees,
               collectedFees,
               pendingFees,
+              overdueFees,
               paymentStatus:
                 makePaymentStatus({
                   pendingFees,
@@ -2002,9 +2387,9 @@ export const getStudentDirectoryService =
       enrichedStudents.filter(
         (student) => {
           const matchesStatus =
-            status === "all" ||
-            (student.status ||
-              "active") === status;
+            status === "all"
+              ? (student.status !== "archived")
+              : (student.status || "active") === status;
           const matchesClass =
             !classId ||
             student.classId === classId;
@@ -2195,6 +2580,7 @@ export const getFeesLedgerService =
       limit,
       search,
       status,
+      studentStatus,
       classId,
       sectionId,
       monthYear,
@@ -2245,9 +2631,9 @@ export const getFeesLedgerService =
               studentsTable.schoolId,
               schoolId
             ),
-            eq(
+            inArray(
               studentsTable.status,
-              "active"
+              ["active", "alumni"]
             )
           )
         )
@@ -2342,9 +2728,28 @@ export const getFeesLedgerService =
                     )
                   ),
               ]);
+            const currentYear = singleClass?.academicYear || "";
+
+            const currentYearFeesList = fees.filter(
+              (fee) => !currentYear || fee.academicYear === currentYear
+            );
+
+            const overdueFeesList = fees.filter(
+              (fee) => currentYear && fee.academicYear !== currentYear
+            );
+
+            const overdueFees = overdueFeesList.reduce(
+              (sum, fee) => sum + Number(fee.dueAmount || 0),
+              0
+            );
+
+            const currentYearPayments = payments.filter(
+              (p) => !currentYear || p.receiptAcademicYear === currentYear
+            );
+
             const enrichedFees =
               await Promise.all(
-                fees.map(
+                currentYearFeesList.map(
                   async (fee) => {
                     const [feeType] =
                       await db
@@ -2409,10 +2814,10 @@ export const getFeesLedgerService =
                 0
               );
             const lastPayment =
-              payments[0] || null;
+              currentYearPayments[0] || null;
             const selectedMonthPayments =
               monthWindow
-                ? payments.filter(
+                ? currentYearPayments.filter(
                     (payment) =>
                       Number(
                         payment.paidAt
@@ -2423,7 +2828,7 @@ export const getFeesLedgerService =
                       ) <
                         monthWindow.end
                   )
-                : payments;
+                : currentYearPayments;
             const hasPaymentInMonth =
               selectedMonthPayments
                 .length > 0;
@@ -2510,6 +2915,8 @@ export const getFeesLedgerService =
                     ),
                   feeTypeName:
                     fee.feeTypeName,
+                  academicYear:
+                    fee.academicYear,
                 }));
 
             return {
@@ -2543,10 +2950,13 @@ export const getFeesLedgerService =
               totalFees,
               paidAmount,
               dueAmount,
+              overdueFees,
               status:
                 ledgerStatus,
               baseStatus,
-                  lastPayment:
+              studentStatus:
+                student.status,
+              lastPayment:
                 lastPayment
                   ? {
                       id:
@@ -2615,8 +3025,12 @@ export const getFeesLedgerService =
           }
         )
       );
+    const studentStatusFilteredRows = ledgerRows.filter((row) => {
+      return studentStatus === "all" || row.studentStatus === studentStatus;
+    });
+
     const filterOptions =
-      ledgerRows.reduce(
+      studentStatusFilteredRows.reduce(
         (options, row) => {
           if (
             row.classId &&
@@ -2669,7 +3083,7 @@ export const getFeesLedgerService =
         }
       );
     const filtered =
-      ledgerRows.filter((row) => {
+      studentStatusFilteredRows.filter((row) => {
         const matchesSearch =
           !search ||
           [
@@ -2711,7 +3125,7 @@ export const getFeesLedgerService =
         );
       });
     const statusCounts =
-      ledgerRows.reduce(
+      studentStatusFilteredRows.reduce(
         (summary, row) => {
           summary.All += 1;
           summary[row.status] =
@@ -3132,6 +3546,11 @@ export const getStudentDetailService =
         }),
       ]);
 
+    const activeAcademicYear =
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+
     const normalizedFees =
       fees.map((fee) => ({
         ...fee,
@@ -3148,14 +3567,13 @@ export const getStudentDetailService =
             fee.dueAmount || 0
           ),
         status:
-          fee.status ||
-          makeFeeStatus(fee),
+          makeFeeStatus({
+            amount: fee.amount,
+            paidAmount: fee.paidAmount,
+            academicYear: fee.academicYear,
+            activeAcademicYear,
+          }),
       }));
-
-    const activeAcademicYear =
-      await getActiveAcademicYearService({
-        schoolId,
-      });
     const [concession] =
       await db
         .select()
@@ -3179,38 +3597,58 @@ export const getStudentDetailService =
           )
         );
 
+    const currentYear = singleClass?.academicYear || "";
+
+    const currentYearFees = normalizedFees.filter(
+      (fee) => !currentYear || fee.academicYear === currentYear
+    );
+
+    const overdueFeesList = normalizedFees.filter(
+      (fee) => currentYear && fee.academicYear !== currentYear
+    );
+
+    const overdueFees = overdueFeesList.reduce(
+      (sum, fee) => sum + Number(fee.dueAmount || 0),
+      0
+    );
+
+    const currentYearPayments = payments.filter(
+      (p) => !currentYear || p.receiptAcademicYear === currentYear
+    );
+
+    const currentYearTotalFees = currentYearFees.reduce(
+      (sum, fee) => sum + Number(fee.amount || 0),
+      0
+    );
+
+    const currentYearCollectedFees = currentYearFees.reduce(
+      (sum, fee) => sum + Number(fee.paidAmount || 0),
+      0
+    );
+
+    const currentYearPendingFees = currentYearFees.reduce(
+      (sum, fee) => sum + Number(fee.dueAmount || 0),
+      0
+    );
+
+    const statsObj = makeStudentStats({
+      fees: currentYearFees,
+      payments: currentYearPayments,
+    });
+    statsObj.overdueFees = overdueFees;
+
     return {
       student: {
         ...student,
+        pendingFees: currentYearPendingFees,
+        collectedFees: currentYearCollectedFees,
+        totalFees: currentYearTotalFees,
+        overdueFees,
         paymentStatus:
           makePaymentStatus({
-            pendingFees:
-              normalizedFees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.dueAmount || 0
-                  ),
-                0
-              ),
-            collectedFees:
-              normalizedFees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.paidAmount || 0
-                  ),
-                0
-              ),
-            totalFees:
-              normalizedFees.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.amount || 0
-                  ),
-                0
-              ),
+            pendingFees: currentYearPendingFees,
+            collectedFees: currentYearCollectedFees,
+            totalFees: currentYearTotalFees,
           }),
       },
       class:
@@ -3222,12 +3660,7 @@ export const getStudentDetailService =
       concession:
         concession || null,
       activeAcademicYear,
-      stats:
-        makeStudentStats({
-          fees:
-            normalizedFees,
-          payments,
-        }),
+      stats: statsObj,
     };
   };
 
@@ -3305,10 +3738,6 @@ export const updateStudentService =
     const updateData = {
       ...parsed,
       schoolRegisterNo,
-      rollNumber:
-        makeRollNumber(
-          schoolRegisterNo
-        ),
       firstName:
         nextFirstName,
       lastName:
@@ -3337,6 +3766,18 @@ export const updateStudentService =
           )
         )
       );
+
+    const nameChanged = (parsed.firstName !== undefined && parsed.firstName !== current.firstName) ||
+                        (parsed.lastName !== undefined && parsed.lastName !== current.lastName);
+    const statusChanged = (parsed.status !== undefined && parsed.status !== current.status);
+
+    if (nameChanged || statusChanged) {
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: current.classId,
+        sectionId: current.sectionId,
+      });
+    }
 
     return await getStudentDetailService({
       schoolId,
@@ -3510,6 +3951,7 @@ export const promoteStudentService =
     studentId,
     data = {},
     skipTenthGuard = false,
+    skipReshuffle = false,
   }) => {
     const parsed =
       studentLifecycleSchema.parse(
@@ -3539,7 +3981,8 @@ export const promoteStudentService =
       });
     }
 
-    if (isFinalClass(singleClass)) {
+    const isFinal = await isFinalClassForSchool(schoolId, singleClass.academicYear, singleClass);
+    if (isFinal) {
       return await markStudentAlumniService({
         schoolId,
         studentId,
@@ -3637,6 +4080,30 @@ export const promoteStudentService =
         )
       );
 
+    // STEP 5: allocate mandatory fees for the target class
+    await allocateMandatoryFeesForStudent({
+      schoolId,
+      student: {
+        ...student,
+        id: studentId,
+        classId: parsed.targetClassId,
+      },
+    });
+
+    if (!skipReshuffle) {
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: student.classId,
+        sectionId: student.sectionId,
+      });
+
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: parsed.targetClassId,
+        sectionId: parsed.targetSectionId,
+      });
+    }
+
     return await getStudentDetailService({
       schoolId,
       studentId,
@@ -3696,12 +4163,17 @@ export const bulkPromoteStudentsService =
               parsed.fromSectionId)
       );
 
+    const targetYear = targetAcademicYear || (fromAcademicYear ? getNextAcademicYear(fromAcademicYear) : getCurrentAcademicYear());
+    const hasUpper = await hasUpperClasses(schoolId, targetYear);
+
     const result = {
       promoted: 0,
       alumni: 0,
       skipped: 0,
       errors: [],
     };
+
+    const affectedPairs = [];
 
     for (const student of targetStudents) {
       try {
@@ -3725,7 +4197,8 @@ export const bulkPromoteStudentsService =
           continue;
         }
 
-        if (isFinalClass(singleClass)) {
+        const isFinal = await isFinalClassForSchool(schoolId, singleClass.academicYear, singleClass);
+        if (isFinal || (isTenthClass(singleClass) && !hasUpper)) {
           await markStudentAlumniService({
             schoolId,
             studentId:
@@ -3740,14 +4213,18 @@ export const bulkPromoteStudentsService =
           continue;
         }
 
-        if (isTenthClass(singleClass)) {
-          result.skipped += 1;
-          result.errors.push({
+        if (isTenthClass(singleClass) && hasUpper) {
+          await markStudentAlumniService({
+            schoolId,
             studentId:
               student.id,
-            message:
-              "10th class requires manual stream selection",
+            data: {
+              note:
+                parsed.note ||
+                "Not promoted to 11th class — marked as alumni",
+            },
           });
+          result.alumni += 1;
           continue;
         }
 
@@ -3782,13 +4259,17 @@ export const bulkPromoteStudentsService =
               });
 
         if (!nextClass) {
-          result.skipped += 1;
-          result.errors.push({
+          await markStudentAlumniService({
+            schoolId,
             studentId:
               student.id,
-            message:
-              "Next class is not available",
+            data: {
+              note:
+                parsed.note ||
+                "No next class available — marked as alumni",
+            },
           });
+          result.alumni += 1;
           continue;
         }
 
@@ -3835,7 +4316,12 @@ export const bulkPromoteStudentsService =
               parsed.note ||
               "Automatic May academic year movement",
           },
+          skipReshuffle: true,
         });
+
+        affectedPairs.push({ classId: student.classId, sectionId: student.sectionId });
+        affectedPairs.push({ classId: nextClass.id, sectionId: nextSection.id });
+
         result.promoted += 1;
       } catch (error) {
         result.skipped += 1;
@@ -3846,6 +4332,31 @@ export const bulkPromoteStudentsService =
             error.message,
         });
       }
+    }
+
+    const uniquePairs = [];
+    const seen = new Set();
+    for (const pair of affectedPairs) {
+      const key = `${pair.classId}_${pair.sectionId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniquePairs.push(pair);
+      }
+    }
+
+    for (const pair of uniquePairs) {
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: pair.classId,
+        sectionId: pair.sectionId,
+      });
+    }
+
+    if (result.promoted > 0 && targetAcademicYear) {
+      await setActiveAcademicYearService({
+        schoolId,
+        year: targetAcademicYear,
+      });
     }
 
     return result;
@@ -3963,17 +4474,49 @@ export const updateStudentFeeService =
     const dueAmount =
       amount - paidAmount;
 
+    const oldPaidAmount = Number(fee.paidAmount || 0);
+    const paidDifference = paidAmount - oldPaidAmount;
+
+    if (paidDifference > 0) {
+      const profile = await getSchoolProfileService({ schoolId });
+      const receiptMeta = await getNextReceiptMeta({
+        schoolId,
+        schoolName: profile.schoolName,
+      });
+      const paymentId = crypto.randomUUID();
+
+      await db.insert(studentPaymentsTable).values({
+        id: paymentId,
+        schoolId,
+        studentId,
+        studentFeeId: fee.id,
+        feeTypeId: fee.feeTypeId,
+        amount: paidDifference,
+        paymentMode: "Cash",
+        receiptNo: receiptMeta.receiptNo,
+        receiptSequence: receiptMeta.receiptSequence,
+        receiptAcademicYear: receiptMeta.receiptAcademicYear,
+        paidAt: Date.now(),
+        note: "Direct fee edit adjustment",
+        createdAt: Date.now(),
+      });
+    }
+
+    const activeAcademicYear = await getActiveAcademicYearService({ schoolId });
+    const status = makeFeeStatus({
+      amount,
+      paidAmount,
+      academicYear: fee.academicYear,
+      activeAcademicYear,
+    });
+
     await db
       .update(studentFeesTable)
       .set({
         amount,
         paidAmount,
         dueAmount,
-        status:
-          makeFeeStatus({
-            amount,
-            paidAmount,
-          }),
+        status,
       })
       .where(
         and(
@@ -4124,6 +4667,11 @@ export const recordStudentPaymentService =
           Date.now(),
       });
 
+    const activeAcademicYear =
+      await getActiveAcademicYearService({
+        schoolId,
+      });
+
     await db
       .update(studentFeesTable)
       .set({
@@ -4137,6 +4685,9 @@ export const recordStudentPaymentService =
               fee.amount,
             paidAmount:
               nextPaid,
+            academicYear:
+              fee.academicYear,
+            activeAcademicYear,
           }),
       })
       .where(
@@ -4645,3 +5196,336 @@ export const promoteStreamService = async ({ schoolId, data = {} }) => {
 
   return result;
 };
+
+export const moveStudentStreamService = async ({ schoolId, studentId, data }) => {
+  const { targetClassId, targetSectionId, note } = data;
+
+  // 1. Fetch student and verify school ownership
+  const student = await getStudentForSchool({ schoolId, studentId });
+  if (student.status !== "active") {
+    throw createStudentError({
+      statusCode: 400,
+      code: "INACTIVE_STUDENT",
+      message: "Student is not active",
+    });
+  }
+
+  // 2. Fetch current class and section
+  const { singleClass: currentClass } = await assertSectionForSchool({
+    schoolId,
+    classId: student.classId,
+    sectionId: student.sectionId,
+  });
+
+  // Verify it is an 11th or 12th grade class
+  const currentClassName = String(currentClass.name || "");
+  const isStreamClass = currentClassName.startsWith("11th-") || currentClassName.startsWith("12th-");
+  if (!isStreamClass) {
+    throw createStudentError({
+      statusCode: 400,
+      code: "NOT_STREAM_CLASS",
+      message: "Student must be in an 11th or 12th grade class to move stream",
+    });
+  }
+
+  // 3. Fetch target class
+  const [targetClass] = await db
+    .select()
+    .from(classesTable)
+    .where(
+      and(
+        eq(classesTable.id, targetClassId),
+        eq(classesTable.schoolId, schoolId),
+        eq(classesTable.isArchived, false)
+      )
+    );
+
+  if (!targetClass) {
+    throw createStudentError({
+      statusCode: 404,
+      code: "CLASS_NOT_FOUND",
+      message: "Target class not found",
+    });
+  }
+
+  const targetClassName = String(targetClass.name || "");
+  
+  // Verify target class is at the same grade level (e.g. 11th to 11th, or 12th to 12th)
+  const getPrefix = (name) => name.startsWith("11th-") ? "11th-" : name.startsWith("12th-") ? "12th-" : null;
+  const currentPrefix = getPrefix(currentClassName);
+  const targetPrefix = getPrefix(targetClassName);
+
+  if (!targetPrefix || currentPrefix !== targetPrefix) {
+    throw createStudentError({
+      statusCode: 400,
+      code: "INVALID_STREAM_TARGET",
+      message: `Cannot move student from ${currentClassName} to ${targetClassName}. Grade level must match.`,
+    });
+  }
+
+  // 4. Verify target section is active under target class
+  await assertActiveSection({
+    schoolId,
+    classId: targetClassId,
+    sectionId: targetSectionId,
+  });
+
+  // 5. Update enrollment: find the active enrollment for this student in this academic year
+  const [activeEnrollment] = await db
+    .select()
+    .from(enrollmentsTable)
+    .where(
+      and(
+        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.schoolId, schoolId),
+        eq(enrollmentsTable.status, "active")
+      )
+    );
+
+  if (activeEnrollment) {
+    await db
+      .update(enrollmentsTable)
+      .set({
+        classId: targetClassId,
+        sectionId: targetSectionId,
+        note: note ? normalizeOptional(note) : activeEnrollment.note,
+      })
+      .where(eq(enrollmentsTable.id, activeEnrollment.id));
+  }
+
+  // 6. Update student cache fields
+  await db
+    .update(studentsTable)
+    .set({
+      classId: targetClassId,
+      sectionId: targetSectionId,
+      movementNote: note ? normalizeOptional(note) : student.movementNote,
+      previousClassId: student.classId,
+      previousSectionId: student.sectionId,
+    })
+    .where(eq(studentsTable.id, studentId));
+
+  // 7. Reallocate fees:
+  // Fetch existing fees for this student in the OLD class
+  const existingStudentFees = await db
+    .select()
+    .from(studentFeesTable)
+    .where(
+      and(
+        eq(studentFeesTable.studentId, studentId),
+        eq(studentFeesTable.classId, student.classId),
+        eq(studentFeesTable.schoolId, schoolId)
+      )
+    );
+
+  // Fetch active class fees for the TARGET class
+  const targetClassFees = await db
+    .select()
+    .from(classFeesTable)
+    .where(
+      and(
+        eq(classFeesTable.classId, targetClassId),
+        eq(classFeesTable.schoolId, schoolId),
+        eq(classFeesTable.isArchived, false)
+      )
+    );
+
+  // Match by feeTypeId
+  const matchedStudentFeeIds = new Set();
+
+  for (const targetFee of targetClassFees) {
+    const matchedFee = existingStudentFees.find(
+      (sf) => sf.feeTypeId === targetFee.feeTypeId
+    );
+
+    if (matchedFee) {
+      // Update existing fee record to refer to targetClassId and adjust amounts
+      const newAmount = targetFee.amount;
+      const paidAmount = matchedFee.paidAmount || 0;
+      const dueAmount = Math.max(0, newAmount - paidAmount);
+      const newStatus = dueAmount <= 0 ? "paid" : (paidAmount > 0 ? "partial" : "pending");
+
+      await db
+        .update(studentFeesTable)
+        .set({
+          classId: targetClassId,
+          amount: newAmount,
+          dueAmount: dueAmount,
+          status: newStatus,
+        })
+        .where(eq(studentFeesTable.id, matchedFee.id));
+
+      matchedStudentFeeIds.add(matchedFee.id);
+    } else {
+      // Allocate new fee for the target class
+      await db
+        .insert(studentFeesTable)
+        .values({
+          id: crypto.randomUUID(),
+          schoolId,
+          studentId,
+          feeTypeId: targetFee.feeTypeId,
+          amount: targetFee.amount,
+          paidAmount: 0,
+          dueAmount: targetFee.amount,
+          status: "pending",
+          classId: targetClassId,
+          academicYear: targetClass.academicYear,
+          createdAt: Date.now(),
+        });
+    }
+  }
+
+  // Handle fees that were in the old class but are NOT in the target class
+  for (const sf of existingStudentFees) {
+    if (matchedStudentFeeIds.has(sf.id)) continue;
+
+    if ((sf.paidAmount || 0) === 0) {
+      // Delete the student fee record since it has no payments
+      await db
+        .delete(studentFeesTable)
+        .where(eq(studentFeesTable.id, sf.id));
+    } else {
+      // Keep the student fee record, but update its classId to targetClassId
+      // so it is associated with their current enrollment class.
+      await db
+        .update(studentFeesTable)
+        .set({
+          classId: targetClassId,
+        })
+        .where(eq(studentFeesTable.id, sf.id));
+    }
+  }
+
+  await reshuffleRollNumbers({
+    schoolId,
+    classId: student.classId,
+    sectionId: student.sectionId,
+  });
+
+  await reshuffleRollNumbers({
+    schoolId,
+    classId: targetClassId,
+    sectionId: targetSectionId,
+  });
+
+  return await getStudentDetailService({
+    schoolId,
+    studentId,
+  });
+};
+
+export const archiveStudentService = async ({ schoolId, studentId }) => {
+  const student = await getStudentForSchool({ schoolId, studentId });
+  if (student.status === "archived") {
+    throw createStudentError({
+      statusCode: 400,
+      code: "STUDENT_ALREADY_ARCHIVED",
+      message: "Student is already archived",
+    });
+  }
+
+  await db
+    .update(studentsTable)
+    .set({
+      status: "archived",
+      movementNote: "Student archived",
+    })
+    .where(
+      and(
+        eq(studentsTable.id, studentId),
+        eq(studentsTable.schoolId, schoolId)
+      )
+    );
+
+  const [activeEnrollment] = await db
+    .select()
+    .from(enrollmentsTable)
+    .where(
+      and(
+        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.schoolId, schoolId),
+        eq(enrollmentsTable.status, "active")
+      )
+    );
+
+  if (activeEnrollment) {
+    await db
+      .update(enrollmentsTable)
+      .set({
+        status: "left",
+        note: "Student archived",
+      })
+      .where(eq(enrollmentsTable.id, activeEnrollment.id));
+  }
+
+  await reshuffleRollNumbers({
+    schoolId,
+    classId: student.classId,
+    sectionId: student.sectionId,
+  });
+
+  return await getStudentDetailService({
+    schoolId,
+    studentId,
+  });
+};
+
+export const unarchiveStudentService = async ({ schoolId, studentId }) => {
+  const student = await getStudentForSchool({ schoolId, studentId });
+  if (student.status !== "archived") {
+    throw createStudentError({
+      statusCode: 400,
+      code: "STUDENT_NOT_ARCHIVED",
+      message: "Student is not archived",
+    });
+  }
+
+  await db
+    .update(studentsTable)
+    .set({
+      status: "active",
+      movementNote: "Student unarchived",
+    })
+    .where(
+      and(
+        eq(studentsTable.id, studentId),
+        eq(studentsTable.schoolId, schoolId)
+      )
+    );
+
+  // Restore the enrollment record to active if it was set to left when archived
+  const [leftEnrollment] = await db
+    .select()
+    .from(enrollmentsTable)
+    .where(
+      and(
+        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.schoolId, schoolId),
+        eq(enrollmentsTable.status, "left")
+      )
+    )
+    .orderBy(desc(enrollmentsTable.createdAt));
+
+  if (leftEnrollment) {
+    await db
+      .update(enrollmentsTable)
+      .set({
+        status: "active",
+        note: "Student unarchived",
+      })
+      .where(eq(enrollmentsTable.id, leftEnrollment.id));
+  }
+
+  await reshuffleRollNumbers({
+    schoolId,
+    classId: student.classId,
+    sectionId: student.sectionId,
+  });
+
+  return await getStudentDetailService({
+    schoolId,
+    studentId,
+  });
+};
+

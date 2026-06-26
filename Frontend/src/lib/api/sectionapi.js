@@ -4,10 +4,12 @@ const API =
   import.meta.env.VITE_BASE_URL;
 
 export const getSectionsByClass =
-  async ({
-    classId,
-    status = "active",
-  }) => {
+  async (params) => {
+    const classId = typeof params === "string" ? params : params?.classId;
+    const status = typeof params === "string" ? "active" : (params?.status || "active");
+    if (!classId || classId === "undefined") {
+      return [];
+    }
     const response =
       await axios.get(
         `${API}/sections/class/${classId}`,
@@ -23,6 +25,9 @@ export const getSectionsByClass =
 
 export const getSectionCatalog =
   async (classId) => {
+    if (!classId || classId === "undefined") {
+      return [];
+    }
     const response =
       await axios.get(
         `${API}/sections/class/${classId}/catalog`
@@ -33,6 +38,9 @@ export const getSectionCatalog =
 
 export const getSectionStats =
   async (classId) => {
+    if (!classId || classId === "undefined") {
+      return { totalSections: 0, totalStudents: 0, totalPendingFees: 0, totalCollectedFees: 0 };
+    }
     const response =
       await axios.get(
         `${API}/sections/class/${classId}/stats`

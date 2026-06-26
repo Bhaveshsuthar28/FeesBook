@@ -356,6 +356,35 @@ function PickStudentModal({
     []
   );
 
+  const [
+    classes,
+    setClasses,
+  ] = useState([]);
+
+  const [
+    selectedClassId,
+    setSelectedClassId,
+  ] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setClasses([]);
+      setSelectedClassId("");
+      return;
+    }
+
+    const loadClasses = async () => {
+      try {
+        const data = await getClassesByStatus("active");
+        setClasses(data || []);
+      } catch (error) {
+        console.error("Failed to load classes in PickStudentModal", error);
+      }
+    };
+
+    loadClasses();
+  }, [open]);
+
   useEffect(
     () => {
 
@@ -401,9 +430,10 @@ function PickStudentModal({
               await getStudentDirectory({
                 status: "active",
                 page: 1,
-                limit: 20,
+                limit: 100,
                 search:
                   debounced,
+                classId: selectedClassId,
                 sortBy: "name",
               });
 
@@ -411,10 +441,13 @@ function PickStudentModal({
               return;
             }
 
-            setStudents(
-              data.students ||
-                []
+            const activeStudents = data.students || [];
+            const pendingStudents = activeStudents.filter(
+              (student) =>
+                Number(student.pendingFees || 0) > 0
             );
+
+            setStudents(pendingStudents);
           } catch (error) {
             notify.error(
               error,
@@ -438,6 +471,7 @@ function PickStudentModal({
     [
       open,
       debounced,
+      selectedClassId,
     ]
   );
 
@@ -448,55 +482,83 @@ function PickStudentModal({
   return (
     <ModalFrame
       title="Record payment"
-      description="Search and select a student."
+      description="Search and select a student with pending payments."
       onClose={onClose}
     >
 
-      <div
-        className="
-          relative
-          mb-3
-        "
-      >
-
-        <Search
-          className="
-            pointer-events-none
-            absolute
-            left-3
-            top-1/2
-            h-4
-            w-4
-            -translate-y-1/2
-            text-slate-400
-          "
-        />
-
-        <input
-          value={search}
-          onChange={(event) =>
-            setSearch(
-              event.target.value
-            )
-          }
-          placeholder="Name, roll no, phone..."
-          className="
-            h-11
-            w-full
-            rounded-xl
-            border
-            border-slate-200
-            bg-slate-50
-            pl-9
-            pr-3
-            text-sm
-            outline-none
-            focus:border-blue-500
-            focus:ring-2
-            focus:ring-blue-100
-          "
-        />
-
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="relative">
+          <Search
+            className="
+              pointer-events-none
+              absolute
+              left-3
+              top-1/2
+              h-4
+              w-4
+              -translate-y-1/2
+              text-slate-400
+            "
+          />
+          <input
+            value={search}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Name, roll no..."
+            className="
+              h-11
+              w-full
+              rounded-xl
+              border
+              border-slate-200
+              bg-slate-50
+              pl-9
+              pr-3
+              text-sm
+              outline-none
+              focus:border-blue-500
+              focus:ring-2
+              focus:ring-blue-100
+            "
+          />
+        </div>
+        <div>
+          <select
+            value={selectedClassId}
+            onChange={(event) =>
+              setSelectedClassId(
+                event.target.value
+              )
+            }
+            className="
+              h-11
+              w-full
+              rounded-xl
+              border
+              border-slate-200
+              bg-slate-50
+              px-3
+              text-sm
+              outline-none
+              focus:border-blue-500
+              focus:ring-2
+              focus:ring-blue-100
+            "
+          >
+            <option value="">All Classes</option>
+            {classes.map((cls) => (
+              <option
+                key={cls.id}
+                value={cls.id}
+              >
+                {cls.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div
@@ -544,7 +606,7 @@ function PickStudentModal({
                 text-slate-500
               "
             >
-              No students found.
+              No students found with pending payments.
             </p>
           )
         }
@@ -576,15 +638,21 @@ function PickStudentModal({
                 "
               >
 
-                <span
-                  className="
-                    text-sm
-                    font-semibold
-                    text-slate-900
-                  "
-                >
-                  {student.fullName}
-                </span>
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span
+                    className="
+                      text-sm
+                      font-semibold
+                      text-slate-900
+                    "
+                  >
+                    {student.fullName}
+                  </span>
+
+                  <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                    ₹ {Number(student.pendingFees || 0).toLocaleString("en-IN")} Pending
+                  </span>
+                </div>
 
                 <span
                   className="

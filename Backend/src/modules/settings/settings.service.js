@@ -640,38 +640,38 @@ const ensureAcademicYearStructure =
     let copiedSections = 0;
     let copiedFees = 0;
 
-    for (const catalogClass of getClassCatalog(
-      targetAcademicYear
-    )) {
-      if (
-        !targetByName.has(
-          catalogClass.name
-        )
-      ) {
-        const newClass = {
-          id:
-            crypto.randomUUID(),
-          schoolId,
-          name:
-            catalogClass.name,
-          sequence:
-            catalogClass.sequence,
-          academicYear:
-            catalogClass.academicYear,
-          isArchived:
-            false,
-          createdAt:
-            new Date(),
-        };
+    if (sourceClasses.length > 0) {
+      for (const sourceClass of sourceClasses) {
+        if (
+          !targetByName.has(
+            sourceClass.name
+          )
+        ) {
+          const newClass = {
+            id:
+              crypto.randomUUID(),
+            schoolId,
+            name:
+              sourceClass.name,
+            sequence:
+              sourceClass.sequence,
+            academicYear:
+              targetAcademicYear,
+            isArchived:
+              sourceClass.isArchived,
+            createdAt:
+              new Date(),
+          };
 
-        await db
-          .insert(classesTable)
-          .values(newClass);
-        targetByName.set(
-          newClass.name,
-          newClass
-        );
-        createdClasses += 1;
+          await db
+            .insert(classesTable)
+            .values(newClass);
+          targetByName.set(
+            newClass.name,
+            newClass
+          );
+          createdClasses += 1;
+        }
       }
     }
 

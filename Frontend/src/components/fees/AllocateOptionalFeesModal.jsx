@@ -68,7 +68,7 @@ export default function AllocateOptionalFeesModal({
         try {
           setLoading(true);
           const structure =
-            await getFeeStructure();
+            await getFeeStructure({ classId });
           const classItem =
             structure.classes.find(
               (item) =>

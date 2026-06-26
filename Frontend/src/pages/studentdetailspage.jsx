@@ -17,6 +17,7 @@ import {
   ReceiptText,
   Save,
   User,
+  UserMinus,
   WalletCards,
 } from "lucide-react";
 
@@ -45,7 +46,11 @@ import {
   getStudentEnrollmentHistory,
   updateStudent,
   updateStudentFee,
+  moveStudentStream,
 } from "../lib/api/studentapi.js";
+
+import { getClassesByStatus } from "../lib/api/classapi.js";
+import { getSectionsByClass } from "../lib/api/sectionapi.js";
 
 import {
   notify,
@@ -105,6 +110,8 @@ const statusClass = {
     "bg-orange-100 text-orange-700",
   pending:
     "bg-red-100 text-red-700",
+  overdue:
+    "bg-rose-100 text-rose-700",
 };
 
 const toInputDate =
@@ -609,6 +616,7 @@ function FeeEditRow({
   fee,
   studentId,
   onSaved,
+  activeAcademicYear,
 }) {
   const [
     editing,
@@ -657,6 +665,13 @@ function FeeEditRow({
     <tr className="border-b border-slate-100 last:border-0">
       <td className="px-4 py-3 text-sm font-bold text-slate-800">
         <span>{fee.feeTypeName}</span>
+        {
+          fee.academicYear && fee.academicYear !== activeAcademicYear && fee.status !== "paid" && (
+            <span className="ml-2 rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-700">
+              {fee.academicYear} Due
+            </span>
+          )
+        }
         {
           fee.isOptional && (
             <span className="ml-2 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-700">
@@ -774,6 +789,10 @@ export default function StudentDetailsPage() {
     setHistoryLoading,
   ] = useState(false);
 
+  const [showMoveStream, setShowMoveStream] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
   useEffect(() => {
     const load =
       async () => {
@@ -808,6 +827,33 @@ export default function StudentDetailsPage() {
     };
     load();
   }, [activeTab, enrollmentHistory, studentId]);
+
+  const handleArchive = async () => {
+    try {
+      setArchiving(true);
+      setShowArchiveConfirm(false);
+      const updated = await archiveStudent(studentId);
+      setDetail(updated);
+      notify.success("Student marked as left");
+    } catch (err) {
+      notify.error(err, "Could not mark student as left");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    try {
+      setArchiving(true);
+      const updated = await unarchiveStudent(studentId);
+      setDetail(updated);
+      notify.success("Student marked as active");
+    } catch (err) {
+      notify.error(err, "Could not mark student as active");
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   const reminderDefault =
     useMemo(
@@ -877,10 +923,10 @@ export default function StudentDetailsPage() {
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-4">
             <StudentAvatar student={student} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold text-slate-950">{student.fullName}</h1>
                 <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
@@ -907,9 +953,9 @@ export default function StudentDetailsPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setShowEdit(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">
-              <Edit3 size={17} />
+          <div className="flex flex-wrap gap-1.5 md:flex-nowrap justify-start md:justify-end md:items-center">
+            <button type="button" onClick={() => setShowEdit(true)} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-white hover:bg-blue-700 whitespace-nowrap">
+              <Edit3 size={14} />
               Edit Student
             </button>
             <button
@@ -917,9 +963,9 @@ export default function StudentDetailsPage() {
               onClick={() =>
                 setShowConcessionConfirm(true)
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 hover:bg-amber-100"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-amber-800 hover:bg-amber-100 whitespace-nowrap"
             >
-              <Percent size={17} />
+              <Percent size={14} />
               Fee Concession
             </button>
             <button
@@ -933,11 +979,42 @@ export default function StudentDetailsPage() {
               onClick={() =>
                 setShowPayment(true)
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             >
-              <CreditCard size={17} />
+              <CreditCard size={14} />
               Record Payment
             </button>
+            {detail.class?.name && (detail.class.name.startsWith("11th-") || detail.class.name.startsWith("12th-")) && student.status === "active" && (
+              <button
+                type="button"
+                onClick={() => setShowMoveStream(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-blue-800 hover:bg-blue-100 whitespace-nowrap"
+              >
+                <ClipboardList size={14} />
+                Move Stream
+              </button>
+            )}
+            {student.status === "archived" ? (
+              <button
+                type="button"
+                disabled={archiving}
+                onClick={handleUnarchive}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 whitespace-nowrap"
+              >
+                {archiving ? <LoaderCircle size={14} className="animate-spin" /> : <UserMinus size={14} />}
+                Mark as Active
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={archiving}
+                onClick={() => setShowArchiveConfirm(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap"
+              >
+                {archiving ? <LoaderCircle size={14} className="animate-spin" /> : <UserMinus size={14} />}
+                Mark as Left
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -945,7 +1022,16 @@ export default function StudentDetailsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={WalletCards} title="Total Fee" value={formatCurrency(stats.totalFees)} note={`${stats.totalFeeItems} fee records`} />
         <StatCard icon={CheckCircle2} title="Paid Till Date" value={formatCurrency(stats.paidFees)} note={`${stats.paidPercent}% collected`} />
-        <StatCard icon={Bell} title="Pending Balance" value={formatCurrency(stats.pendingFees)} note={`${stats.pendingItems} pending records`} />
+        <StatCard 
+          icon={Bell} 
+          title="Pending Balance" 
+          value={formatCurrency(stats.pendingFees)} 
+          note={
+            Number(stats.overdueFees || 0) > 0 
+              ? `(+ ${formatCurrency(stats.overdueFees)} Overdue from past years)` 
+              : `${stats.pendingItems} pending records`
+          } 
+        />
         <StatCard icon={CalendarDays} title="Last Payment" value={stats.lastPayment ? formatDate(stats.lastPayment.paidAt) : "Not recorded"} note={stats.lastPayment ? formatCurrency(stats.lastPayment.amount) : "No dated payment yet"} />
       </div>
 
@@ -1030,6 +1116,12 @@ export default function StudentDetailsPage() {
                       <span className="text-orange-500">Pending</span>
                       <span>{stats.pendingPercent}%</span>
                     </p>
+                    {Number(stats.overdueFees || 0) > 0 && (
+                      <p className="flex justify-between font-bold text-slate-700 pt-1 border-t border-slate-100">
+                        <span className="text-rose-600">Overdue (Past Years)</span>
+                        <span className="text-rose-600">{formatCurrency(stats.overdueFees)}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1089,8 +1181,8 @@ export default function StudentDetailsPage() {
                         </tr>
                       ) : (
                         fees.map((fee) => (
-                          <FeeEditRow key={fee.id} fee={fee} studentId={student.id} onSaved={setDetail} />
-                        ))
+                           <FeeEditRow key={fee.id} fee={fee} studentId={student.id} onSaved={setDetail} activeAcademicYear={detail.activeAcademicYear} />
+                         ))
                       )
                     }
                   </tbody>
@@ -1454,6 +1546,227 @@ export default function StudentDetailsPage() {
           />
         )
       }
+
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-extrabold text-slate-950">
+              Mark Student as Left
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {student.fullName}
+            </p>
+            <p className="mt-4 text-sm font-semibold text-slate-600">
+              Are you sure you want to mark this student as left? This will deactivate their active enrollment and move them to the left students listing.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowArchiveConfirm(false)}
+                className="h-11 rounded-xl border border-slate-200 px-4 text-sm font-extrabold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={archiving}
+                onClick={handleArchive}
+                className="h-11 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-extrabold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {archiving && <LoaderCircle size={16} className="animate-spin" />}
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMoveStream && (
+        <MoveStreamDialog
+          student={student}
+          currentClass={detail.class}
+          onClose={() => setShowMoveStream(false)}
+          onSuccess={(updatedDetail) => {
+            setDetail(updatedDetail);
+            setShowMoveStream(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function MoveStreamDialog({ student, currentClass, onClose, onSuccess }) {
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [fetchingClasses, setFetchingClasses] = useState(true);
+  const [fetchingSections, setFetchingSections] = useState(false);
+
+  useEffect(() => {
+    const loadClasses = async () => {
+      try {
+        setFetchingClasses(true);
+        const activeClasses = await getClassesByStatus("active", currentClass?.academicYear);
+        const prefix = currentClass?.name?.startsWith("11th-") ? "11th-" : "12th-";
+        const candidates = activeClasses.filter(
+          (c) => c.id !== currentClass.id && c.name?.startsWith(prefix)
+        );
+        setClasses(candidates);
+      } catch (err) {
+        notify.error(err, "Failed to load classes");
+      } finally {
+        setFetchingClasses(false);
+      }
+    };
+    loadClasses();
+  }, [currentClass]);
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      setSections([]);
+      setSelectedSectionId("");
+      return;
+    }
+    const loadSections = async () => {
+      try {
+        setFetchingSections(true);
+        const list = await getSectionsByClass(selectedClassId);
+        setSections(list);
+        if (list.length > 0) {
+          setSelectedSectionId(list[0].id);
+        } else {
+          setSelectedSectionId("");
+        }
+      } catch (err) {
+        notify.error(err, "Failed to load sections");
+      } finally {
+        setFetchingSections(false);
+      }
+    };
+    loadSections();
+  }, [selectedClassId]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedClassId || !selectedSectionId) {
+      notify.error(null, "Please select target class and section");
+      return;
+    }
+    try {
+      setLoading(true);
+      const updated = await moveStudentStream(student.id, {
+        targetClassId: selectedClassId,
+        targetSectionId: selectedSectionId,
+        note,
+      });
+      notify.success("Student stream moved successfully");
+      onSuccess(updated);
+    } catch (err) {
+      notify.error(err, "Failed to move student stream");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4 animate-fade-in">
+      <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-950">Move Student Stream</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Move {student.fullName} from {currentClass?.name} to another stream of the same grade level.
+          </p>
+        </div>
+
+        {fetchingClasses ? (
+          <div className="flex justify-center py-6">
+            <LoaderCircle className="animate-spin text-blue-600" size={32} />
+          </div>
+        ) : classes.length === 0 ? (
+          <p className="text-sm font-semibold text-amber-600 py-4">
+            No other active stream classes found for {currentClass?.name?.startsWith("11th-") ? "11th" : "12th"} grade. Please create them in Settings first.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-600">Target Class</span>
+              <select
+                required
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+              >
+                <option value="">Select Stream Class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-600">Target Section</span>
+              {fetchingSections ? (
+                <div className="flex h-11 items-center px-3">
+                  <LoaderCircle className="animate-spin text-slate-500" size={18} />
+                </div>
+              ) : (
+                <select
+                  required
+                  disabled={sections.length === 0}
+                  value={selectedSectionId}
+                  onChange={(e) => setSelectedSectionId(e.target.value)}
+                  className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:opacity-65"
+                >
+                  {sections.length === 0 ? (
+                    <option value="">No sections configured</option>
+                  ) : (
+                    sections.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              )}
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-600">Transition Note</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Reason for stream movement..."
+                rows={3}
+                className="rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 resize-none"
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || classes.length === 0 || !selectedClassId || !selectedSectionId}
+            className="h-11 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-extrabold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading && <LoaderCircle size={16} className="animate-spin" />}
+            Confirm Move
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

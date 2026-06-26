@@ -16,6 +16,10 @@ import {
 } from "../../cors/schema/students.schema.js";
 
 import {
+  enrollmentsTable,
+} from "../../cors/schema/enrollments.schema.js";
+
+import {
   studentFeesTable,
 } from "../../cors/schema/studentFees.schema.js";
 
@@ -24,6 +28,7 @@ import {
   and,
   asc,
   sql,
+  inArray,
 } from "drizzle-orm";
 
 import {
@@ -522,27 +527,31 @@ export const getSectionStatsService =
               count(*)
             `,
         })
-        .from(studentsTable)
+        .from(enrollmentsTable)
         .innerJoin(
           sectionsTable,
           eq(
             sectionsTable.id,
-            studentsTable.sectionId
+            enrollmentsTable.sectionId
           )
         )
         .where(
           and(
             eq(
-              studentsTable.schoolId,
+              enrollmentsTable.schoolId,
               schoolId
             ),
             eq(
-              studentsTable.classId,
+              enrollmentsTable.classId,
               classId
             ),
+            inArray(
+              enrollmentsTable.status,
+              ["active", "promoted"]
+            ),
             eq(
-              studentsTable.status,
-              "active"
+              enrollmentsTable.academicYear,
+              singleClass.academicYear
             ),
             eq(
               sectionsTable.schoolId,
@@ -579,9 +588,9 @@ export const getSectionStatsService =
         })
         .from(studentFeesTable)
         .innerJoin(
-          studentsTable,
+          enrollmentsTable,
           eq(
-            studentsTable.id,
+            enrollmentsTable.studentId,
             studentFeesTable.studentId
           )
         )
@@ -589,7 +598,7 @@ export const getSectionStatsService =
           sectionsTable,
           eq(
             sectionsTable.id,
-            studentsTable.sectionId
+            enrollmentsTable.sectionId
           )
         )
         .where(
@@ -599,16 +608,16 @@ export const getSectionStatsService =
               schoolId
             ),
             eq(
-              studentsTable.schoolId,
+              enrollmentsTable.schoolId,
               schoolId
             ),
             eq(
-              studentsTable.classId,
+              enrollmentsTable.classId,
               classId
             ),
-            eq(
-              studentsTable.status,
-              "active"
+            inArray(
+              enrollmentsTable.status,
+              ["active", "promoted"]
             ),
             eq(
               sectionsTable.schoolId,
@@ -617,6 +626,14 @@ export const getSectionStatsService =
             eq(
               sectionsTable.isArchived,
               false
+            ),
+            eq(
+              studentFeesTable.academicYear,
+              singleClass.academicYear
+            ),
+            eq(
+              enrollmentsTable.academicYear,
+              singleClass.academicYear
             )
           )
         );
