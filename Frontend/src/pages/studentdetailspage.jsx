@@ -37,6 +37,8 @@ import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 
 import AllocateOptionalFeesModal from "../components/fees/AllocateOptionalFeesModal.jsx";
 import FeeConcessionModal from "../components/fees/FeeConcessionModal.jsx";
+import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
+import { FaWhatsapp } from "react-icons/fa";
 
 import {
   downloadReceiptBlob,
@@ -50,6 +52,7 @@ import {
   moveStudentStream,
   archiveStudent,
   unarchiveStudent,
+  sendPersonalWhatsapp,
 } from "../lib/api/studentapi.js";
 
 import { getClassesByStatus } from "../lib/api/classapi.js";
@@ -58,6 +61,8 @@ import { getSectionsByClass } from "../lib/api/sectionapi.js";
 import {
   notify,
 } from "../lib/toast.js";
+import { useHindiInput } from "../lib/hooks/useHindiInput.js";
+import { Sparkles } from "lucide-react";
 
 import {
   DetailPageSkeleton,
@@ -782,6 +787,22 @@ export default function StudentDetailsPage() {
     setReminderMessage,
   ] = useState("");
 
+  const {
+    textareaRef: reminderTextareaRef,
+    isHindiMode: reminderHindiMode,
+    setIsHindiMode: setReminderHindiMode,
+    suggestions: reminderSuggestions,
+    highlightIdx: reminderHighlightIdx,
+    handleTextareaChange: handleReminderTextareaChange,
+    handleTextareaSelect: handleReminderTextareaSelect,
+    handleKeyDown: handleReminderKeyDown,
+    selectSuggestion: selectReminderSuggestion,
+  } = useHindiInput({
+    value: reminderMessage,
+    onChange: setReminderMessage,
+    enabled: activeTab === "reminders",
+  });
+
   const [
     enrollmentHistory,
     setEnrollmentHistory,
@@ -795,6 +816,8 @@ export default function StudentDetailsPage() {
   const [showMoveStream, setShowMoveStream] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -864,6 +887,26 @@ export default function StudentDetailsPage() {
       notify.error(err, "Could not mark student as active");
     } finally {
       setArchiving(false);
+    }
+  };
+
+  const handleSendWhatsapp = async () => {
+    if (!reminderMessage.trim()) {
+      notify.error(null, "Message content cannot be empty");
+      return;
+    }
+    try {
+      setSendingWhatsapp(true);
+      await sendPersonalWhatsapp({
+        studentId,
+        message: reminderMessage,
+      });
+      notify.success("WhatsApp message queued successfully!");
+    } catch (err) {
+      console.error(err);
+      notify.error(err, "Failed to send WhatsApp reminder");
+    } finally {
+      setSendingWhatsapp(false);
     }
   };
 
@@ -1443,33 +1486,54 @@ export default function StudentDetailsPage() {
 
         {
           activeTab === "reminders" && (
-            <div className="grid gap-5 p-5 lg:grid-cols-[1fr_320px]">
+            <div className="max-w-xl mx-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-6 mt-4">
               <div>
-                <h2 className="text-base font-extrabold text-slate-950">Reminder Draft</h2>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Send WhatsApp Reminder
+                </h3>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  WhatsApp/SMS sending can be connected later. This draft uses the real student number and pending amount.
+                  Launch the interactive message builder to send template-based or custom WhatsApp alerts with attachments.
                 </p>
-                <textarea
-                  value={reminderMessage}
-                  onChange={(event) => setReminderMessage(event.target.value)}
-                  rows={7}
-                  className="mt-4 w-full rounded-xl border border-slate-200 p-4 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-                />
-                <button
-                  type="button"
-                  disabled
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-200 px-4 py-3 text-sm font-bold text-slate-500"
-                >
-                  <MessageCircle size={17} />
-                  Send later
-                </button>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase text-slate-500">Receiver</p>
-                <p className="mt-2 text-lg font-extrabold text-slate-950">{student.phone}</p>
-                <p className="mt-4 text-xs font-bold uppercase text-slate-500">Pending Balance</p>
-                <p className="mt-2 text-2xl font-extrabold text-red-500">{formatCurrency(stats.pendingFees)}</p>
+
+              <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-450 tracking-wider">Receiver Name</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-800">{student.fullName}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-455 tracking-wider">Parent Phone</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-800">{student.phone}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-450 tracking-wider">Class & Section</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-800">
+                    {detail.class?.name || ""} {detail.section?.name ? `- ${detail.section.name}` : ""}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-450 tracking-wider">Pending Balance</p>
+                  <p className="mt-1 text-sm font-extrabold text-red-600">{formatCurrency(stats.pendingFees)}</p>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setWhatsappStudent({
+                  id: studentId,
+                  fullName: student.fullName,
+                  phone: student.phone,
+                  parentName: student.fatherName || "",
+                  className: detail.class?.name || "",
+                  pendingFees: stats.pendingFees,
+                  totalFees: stats.totalFees,
+                  paidAmount: stats.collectedFees
+                })}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-600 active:scale-95 transition"
+              >
+                <FaWhatsapp size={18} />
+                Create WhatsApp Message
+              </button>
             </div>
           )
         }
@@ -1620,6 +1684,14 @@ export default function StudentDetailsPage() {
             setDetail(updatedDetail);
             setShowMoveStream(false);
           }}
+        />
+      )}
+
+      {whatsappStudent && (
+        <SendWhatsappModal
+          isOpen={Boolean(whatsappStudent)}
+          onClose={() => setWhatsappStudent(null)}
+          student={whatsappStudent}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ import {
   Wallet,
   Settings,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 export const mobileNavItems = [
   {
@@ -31,6 +32,12 @@ export const mobileNavItems = [
     label: "Fees",
     path: "/fees",
     icon: Wallet,
+  },
+
+  {
+    label: "Reminders",
+    path: "/reminders",
+    icon: FaWhatsapp,
   },
 
   {

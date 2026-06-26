@@ -17,6 +17,9 @@ import sectionRoutes from "./src/modules/sections/section.routes.js";
 import studentRoutes from "./src/modules/students/students.routes.js";
 import enrollmentRoutes from "./src/modules/enrollments/enrollments.routes.js";
 import promotionRoutes from "./src/modules/promotion/promotion.routes.js";
+import whatsappRoutes from "./src/modules/whatsapp/whatsapp.routes.js";
+import { ensureWhatsappTables } from "./src/modules/whatsapp/whatsapp.service.js";
+import "./src/utils/reminder.cron.js";
 import {
   requireAuthenticatedUser,
 } from "./src/modules/auth/auth.middleware.js";
@@ -78,6 +81,9 @@ app.addHook(
     if (
       path.startsWith(
         "/api/v1/health"
+      ) ||
+      path.startsWith(
+        "/api/whatsapp/webhook"
       )
     ) {
       return;
@@ -167,6 +173,10 @@ await app.register(promotionRoutes, {
   prefix: "/api/v1/promotion",
 });
 
+await app.register(whatsappRoutes, {
+  prefix: "/api/whatsapp",
+});
+
 await app.register(healthRoutes, {
   prefix: "/api/v1/health",
 });
@@ -180,6 +190,8 @@ await ensureFeeConcessionColumns();
 await ensureSettingsColumns();
 
 await ensureFeeColumns();
+
+await ensureWhatsappTables();
 
 cron.schedule(
   "0 0 1 5 *",

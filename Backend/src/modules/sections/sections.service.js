@@ -407,20 +407,25 @@ export const getSectionsByClassService =
       );
     }
 
-    return await db
-      .select()
-
+    const results = await db
+      .select({
+        section: sectionsTable,
+        studentsCount: sql`coalesce((select count(*) from students where students.section_id = ${sectionsTable.id} and students.status = 'active'), 0)`
+      })
       .from(sectionsTable)
-
       .where(
         and(...filters)
       )
-
       .orderBy(
         asc(
           sectionsTable.name
         )
       );
+
+    return results.map(item => ({
+      ...item.section,
+      studentsCount: Number(item.studentsCount)
+    }));
   };
 
 export const getSectionCatalogService =

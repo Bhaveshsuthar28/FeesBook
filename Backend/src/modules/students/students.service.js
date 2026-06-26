@@ -2841,9 +2841,7 @@ export const getFeesLedgerService =
                     ? "Partial"
                     : "Unpaid";
             const ledgerStatus =
-              dueAmount > 0 &&
-              monthWindow &&
-              !hasPaymentInMonth
+              overdueFees > 0
                 ? "Overdue"
                 : baseStatus;
             const normalizedPayments =
@@ -3613,6 +3611,29 @@ export const getStudentDetailService =
       0
     );
 
+    const overdueGroups = {};
+    for (const fee of overdueFeesList) {
+      const feeDue = Number(fee.dueAmount || 0);
+      if (feeDue > 0) {
+        let clsName = "Previous Class";
+        if (fee.classId) {
+          const [clsRow] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, fee.classId));
+          if (clsRow?.name) {
+            clsName = clsRow.name;
+          }
+        }
+        const groupYear = fee.academicYear || "Previous Year";
+        const groupKey = `${clsName} (${groupYear})`;
+        overdueGroups[groupKey] = (overdueGroups[groupKey] || 0) + feeDue;
+      }
+    }
+    const overdueDetails = overdueFees > 0
+      ? Object.entries(overdueGroups).map(([key, amount]) => `₹${amount} for ${key}`).join(", ")
+      : "None";
+
     const currentYearPayments = payments.filter(
       (p) => !currentYear || p.receiptAcademicYear === currentYear
     );
@@ -3646,6 +3667,7 @@ export const getStudentDetailService =
         collectedFees: currentYearCollectedFees,
         totalFees: currentYearTotalFees,
         overdueFees,
+        overdueDetails,
         paymentStatus:
           makePaymentStatus({
             pendingFees: currentYearPendingFees,
@@ -4681,6 +4703,10 @@ export const recordStudentPaymentService =
           nextPaid,
         dueAmount:
           nextDue,
+        lastPaidDate:
+          Date.now(),
+        nextReminderDate:
+          Date.now() + 90 * 24 * 60 * 60 * 1000,
         status:
           makeFeeStatus({
             amount:
@@ -4704,6 +4730,16 @@ export const recordStudentPaymentService =
           )
         )
       );
+
+    // Trigger WhatsApp receipt send asynchronously
+    (async () => {
+      try {
+        const { sendFeeReceipt } = await import("../whatsapp/whatsapp.service.js");
+        await sendFeeReceipt(paymentId);
+      } catch (err) {
+        console.error("Failed to trigger WhatsApp receipt sending:", err);
+      }
+    })();
 
     const detail =
       await getStudentDetailService({

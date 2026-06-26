@@ -37,6 +37,9 @@ import FeesPage
 import SettingsPage
   from "./pages/settingspages.jsx";
 
+import RemindersPage
+  from "./pages/reminderspage.jsx";
+
 import {
   AppProvider,
 } from "./context/user.context.jsx";
@@ -112,6 +115,11 @@ const App = () => {
           <Route
             path="settings"
             element={<SettingsPage />}
+          />
+
+          <Route
+            path="reminders"
+            element={<RemindersPage />}
           />
 
         </Route>

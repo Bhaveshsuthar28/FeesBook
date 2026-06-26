@@ -58,6 +58,13 @@ export const studentPaymentsTable =
       transactionRef:
         text("transaction_ref"),
 
+      receiptSent:
+        integer("receipt_sent", { mode: "boolean" })
+          .default(false),
+
+      receiptSentAt:
+        integer("receipt_sent_at"),
+
       createdAt:
         integer("created_at")
           .notNull(),

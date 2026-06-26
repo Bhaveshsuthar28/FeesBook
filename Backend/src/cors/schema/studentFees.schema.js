@@ -49,6 +49,12 @@ export const studentFeesTable =
       academicYear:
         text("academic_year"),
 
+      lastPaidDate:
+        integer("last_paid_date"),
+
+      nextReminderDate:
+        integer("next_reminder_date"),
+
       createdAt:
         integer("created_at")
           .notNull(),

@@ -2,10 +2,10 @@ import {
   LayoutDashboard,
   GraduationCap,
   Users,
-  ArrowUpCircle,
   Wallet,
   Settings,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 export const sidebarItems = [
   {
@@ -30,6 +30,12 @@ export const sidebarItems = [
     label: "Fees",
     path: "/fees",
     icon: Wallet,
+  },
+
+  {
+    label: "Reminders",
+    path: "/reminders",
+    icon: FaWhatsapp,
   },
 
   {

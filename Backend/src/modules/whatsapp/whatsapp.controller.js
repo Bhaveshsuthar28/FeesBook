@@ -1,0 +1,340 @@
+import { env } from "../../cors/config/env.js";
+import { db } from "../../cors/database/DB.Connect.js";
+import { whatsappMessages, whatsappSettings } from "./whatsapp.schema.js";
+import { studentsTable } from "../../cors/schema/students.schema.js";
+import { eq, and, desc, gt, inArray } from "drizzle-orm";
+import { whatsappQueue } from "../../utils/queue.js";
+import { studentFeesTable } from "../../cors/schema/studentFees.schema.js";
+import { 
+  normalizePhone, 
+  validatePhone, 
+  queueBroadcastMessages 
+} from "./whatsapp.service.js";
+import { 
+  isPrincipalNumber, 
+  processBotMessage 
+} from "./bot.service.js";
+import { processAutoReminders } from "./reminder.service.js";
+
+// 1. GET Verification Handshake for Meta API Webhook
+export async function verifyWebhookController(request, reply) {
+  const mode = request.query["hub.mode"];
+  const token = request.query["hub.verify_token"];
+  const challenge = request.query["hub.challenge"];
+
+  const verifyToken = env.WHATSAPP_VERIFY_TOKEN;
+
+  if (mode === "subscribe" && token === verifyToken) {
+    console.log("[WhatsApp Webhook] Handshake verified successfully.");
+    return reply.status(200).send(challenge);
+  } else {
+    console.warn("[WhatsApp Webhook] Handshake verification failed.");
+    return reply.status(403).send("Forbidden");
+  }
+}
+
+// 2. POST Incoming Messages Webhook (Meta)
+export async function handleWebhookController(request, reply) {
+  // Always return 200 immediately to prevent Meta from retrying and causing duplicate requests
+  reply.status(200).send({ status: "ok" });
+
+  const body = request.body || {};
+
+  // Process asynchronously in the background
+  (async () => {
+    try {
+      // 1. Handle Delivery Status Webhook Updates
+      const statusUpdate = body.entry?.[0]?.changes?.[0]?.value?.statuses?.[0];
+      if (statusUpdate) {
+        const waMessageId = statusUpdate.id;
+        const status = statusUpdate.status?.toUpperCase();
+
+        await db
+          .update(whatsappMessages)
+          .set({ status })
+          .where(eq(whatsappMessages.waMessageId, waMessageId));
+        return;
+      }
+
+      // 2. Handle Incoming User Messages
+      const incomingMessage = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      if (incomingMessage) {
+        const from = incomingMessage.from;
+        const text = incomingMessage.text?.body?.trim();
+
+        if (!from || !text) return;
+
+        // Check if this is a principal number
+        const isPrincipal = await isPrincipalNumber(from);
+        if (isPrincipal) {
+          await processBotMessage(from, text);
+        } else {
+          console.log(`[WhatsApp Webhook] Ignored non-principal incoming message from: ${from}`);
+        }
+      }
+    } catch (error) {
+      console.error("[WhatsApp Webhook] Error processing incoming payload:", error);
+    }
+  })();
+}
+
+// 3. POST send-personal API
+export async function sendPersonalController(request, reply) {
+  const { studentId, message, fileData, fileName, fileType } = request.body || {};
+  const schoolId = request.user?.schoolId;
+
+  if (!studentId || !message) {
+    return reply.status(400).send({ success: false, message: "studentId and message are required" });
+  }
+
+  try {
+    const [student] = await db
+      .select()
+      .from(studentsTable)
+      .where(and(eq(studentsTable.id, studentId), eq(studentsTable.schoolId, schoolId)));
+
+    if (!student) {
+      return reply.status(404).send({ success: false, message: "Student not found" });
+    }
+
+    const to = normalizePhone(student.phone);
+    if (!validatePhone(to)) {
+      return reply.status(400).send({ success: false, message: `Invalid recipient phone number: ${student.phone}` });
+    }
+
+    // Create message record
+    const [msgRecord] = await db
+      .insert(whatsappMessages)
+      .values({
+        schoolId,
+        studentId,
+        recipientPhone: to,
+        messageType: "PERSONAL",
+        status: "PENDING",
+      })
+      .returning();
+
+    // Queue job to Bull
+    await whatsappQueue.add({
+      type: "SEND_PERSONAL",
+      messageRecordId: msgRecord.id,
+      phone: to,
+      message,
+      fileData,
+      fileName,
+      fileType,
+    });
+
+    return reply.status(200).send({ success: true, message: "Message queued successfully" });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 4. POST broadcast API
+export async function sendBroadcastController(request, reply) {
+  const { targetType, targetId, message, fileData, fileName, fileType, isFeesReminder } = request.body || {};
+  const schoolId = request.user?.schoolId;
+
+  if (!targetType || !message) {
+    return reply.status(400).send({ success: false, message: "targetType and message are required" });
+  }
+
+  try {
+    let queryConditions = [eq(studentsTable.schoolId, schoolId), eq(studentsTable.status, "active")];
+
+    if (targetType === "CLASS") {
+      if (!targetId) return reply.status(400).send({ success: false, message: "targetId is required for CLASS type" });
+      queryConditions.push(eq(studentsTable.classId, targetId));
+    } else if (targetType === "SECTION") {
+      if (!targetId) return reply.status(400).send({ success: false, message: "targetId is required for SECTION type" });
+      queryConditions.push(eq(studentsTable.sectionId, targetId));
+    } else if (targetType !== "SCHOOL") {
+      return reply.status(400).send({ success: false, message: "Invalid targetType. Must be SCHOOL, CLASS, or SECTION" });
+    }
+
+    if (isFeesReminder) {
+      const pendingStudentIds = await db
+        .select({ studentId: studentFeesTable.studentId })
+        .from(studentFeesTable)
+        .where(and(eq(studentFeesTable.schoolId, schoolId), gt(studentFeesTable.dueAmount, 0)))
+        .groupBy(studentFeesTable.studentId);
+
+      const pendingIds = pendingStudentIds.map((p) => p.studentId);
+      if (pendingIds.length === 0) {
+        return reply.status(200).send({ success: true, queued: 0, estimatedTime: "0 seconds" });
+      }
+      queryConditions.push(inArray(studentsTable.id, pendingIds));
+    }
+
+    const students = await db
+      .select({
+        id: studentsTable.id,
+        phone: studentsTable.phone,
+      })
+      .from(studentsTable)
+      .where(and(...queryConditions));
+
+    if (students.length === 0) {
+      return reply.status(200).send({ success: true, queued: 0, estimatedTime: "0 seconds" });
+    }
+
+    // Deduplicate phone numbers to prevent duplicates
+    const phoneMap = new Map();
+    students.forEach((s) => {
+      const normalized = normalizePhone(s.phone);
+      if (normalized && validatePhone(normalized)) {
+        if (!phoneMap.has(normalized)) {
+          phoneMap.set(normalized, s.id);
+        }
+      }
+    });
+
+    const studentsList = Array.from(phoneMap.entries()).map(([phone, studentId]) => ({
+      phone,
+      studentId,
+    }));
+
+    const result = await queueBroadcastMessages({
+      schoolId,
+      studentsList,
+      message,
+      fileData,
+      fileName,
+      fileType,
+    });
+
+    const estimatedTime = Math.ceil(result.queued / 5) * 0.5;
+
+    return reply.status(200).send({
+      success: true,
+      queued: result.queued,
+      estimatedTime: `${estimatedTime} seconds`,
+    });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 5. GET WhatsApp Settings
+export async function getWhatsappSettingsController(request, reply) {
+  const schoolId = request.user?.schoolId;
+
+  try {
+    const [settings] = await db
+      .select()
+      .from(whatsappSettings)
+      .where(eq(whatsappSettings.schoolId, schoolId));
+
+    if (!settings) {
+      return reply.status(200).send({
+        success: true,
+        data: {
+          schoolId,
+          reminderIntervalDays: 90,
+          reminderTime: "09:00",
+          autoSendEnabled: false,
+          templates: [],
+        },
+      });
+    }
+
+    const data = {
+      ...settings,
+      autoSendEnabled: Boolean(settings.autoSendEnabled),
+      templates: typeof settings.templates === "string" ? JSON.parse(settings.templates || "[]") : settings.templates,
+    };
+
+    return reply.status(200).send({ success: true, data });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 6. POST WhatsApp Settings
+export async function updateWhatsappSettingsController(request, reply) {
+  const schoolId = request.user?.schoolId;
+  const { reminderIntervalDays, reminderTime, autoSendEnabled, templates } = request.body || {};
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(whatsappSettings)
+      .where(eq(whatsappSettings.schoolId, schoolId));
+
+    const templatesStr = typeof templates === "string" ? templates : JSON.stringify(templates || []);
+
+    if (existing) {
+      await db
+        .update(whatsappSettings)
+        .set({
+          reminderIntervalDays: reminderIntervalDays !== undefined ? parseInt(reminderIntervalDays, 10) : existing.reminderIntervalDays,
+          reminderTime: reminderTime !== undefined ? reminderTime : existing.reminderTime,
+          autoSendEnabled: autoSendEnabled !== undefined ? Boolean(autoSendEnabled) : existing.autoSendEnabled,
+          templates: templates !== undefined ? templatesStr : existing.templates,
+        })
+        .where(eq(whatsappSettings.schoolId, schoolId));
+    } else {
+      await db.insert(whatsappSettings).values({
+        schoolId,
+        reminderIntervalDays: reminderIntervalDays !== undefined ? parseInt(reminderIntervalDays, 10) : 90,
+        reminderTime: reminderTime !== undefined ? reminderTime : "09:00",
+        autoSendEnabled: autoSendEnabled !== undefined ? Boolean(autoSendEnabled) : false,
+        templates: templatesStr,
+        createdAt: Date.now(),
+      });
+    }
+
+    return reply.status(200).send({ success: true, message: "Settings updated successfully" });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 7. GET WhatsApp Sent Messages History
+export async function getWhatsappHistoryController(request, reply) {
+  const schoolId = request.user?.schoolId;
+  const limit = parseInt(request.query.limit, 10) || 50;
+
+  try {
+    const history = await db
+      .select({
+        id: whatsappMessages.id,
+        recipientPhone: whatsappMessages.recipientPhone,
+        messageType: whatsappMessages.messageType,
+        status: whatsappMessages.status,
+        waMessageId: whatsappMessages.waMessageId,
+        errorReason: whatsappMessages.errorReason,
+        sentAt: whatsappMessages.sentAt,
+        createdAt: whatsappMessages.createdAt,
+        studentName: studentsTable.fullName,
+      })
+      .from(whatsappMessages)
+      .leftJoin(studentsTable, eq(whatsappMessages.studentId, studentsTable.id))
+      .where(eq(whatsappMessages.schoolId, schoolId))
+      .orderBy(desc(whatsappMessages.createdAt))
+      .limit(limit);
+
+    return reply.status(200).send({ success: true, data: history });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 8. POST Trigger Fees Reminders Manually
+export async function triggerFeesRemindersController(request, reply) {
+  const schoolId = request.user?.schoolId;
+
+  try {
+    const queuedCount = await processAutoReminders(schoolId, true); // forceSend = true
+    return reply.status(200).send({ success: true, queued: queuedCount });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: error.message });
+  }
+}

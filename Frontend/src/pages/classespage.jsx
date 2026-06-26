@@ -34,6 +34,9 @@ import ClassCard
 import AddClassModal
   from "../components/class/addClassModel.jsx";
 
+import SendWhatsappModal
+  from "../components/common/SendWhatsappModal.jsx";
+
 import { notify } from "../lib/toast.js";
 
 import {
@@ -85,7 +88,19 @@ export default function ClassesPage() {
     setShowAddModal,
   ] = useState(false);
 
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
+
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleSendWhatsappClass = (cls) => {
+    setWhatsappStudent({
+      id: "class-broadcast",
+      classId: cls.id,
+      fullName: `Class ${cls.name}`,
+      phone: "All Class Parents",
+      isClassBroadcast: true
+    });
+  };
 
   const refreshClasses =
     useCallback(async () => {
@@ -286,6 +301,7 @@ export default function ClassesPage() {
           classes={shownClasses}
           mode={activeTab}
           onRefresh={refreshClasses}
+          onSendWhatsapp={handleSendWhatsappClass}
           onViewClass={
             (singleClass) =>
               navigate(
@@ -334,6 +350,7 @@ export default function ClassesPage() {
                   index={index}
                   mode={activeTab}
                   onRefresh={refreshClasses}
+                  onSendWhatsapp={handleSendWhatsappClass}
                   onViewClass={
                     (singleClass) =>
                       navigate(
@@ -368,6 +385,14 @@ export default function ClassesPage() {
           />
         )
       }
+
+      {whatsappStudent && (
+        <SendWhatsappModal
+          isOpen={Boolean(whatsappStudent)}
+          onClose={() => setWhatsappStudent(null)}
+          student={whatsappStudent}
+        />
+      )}
     </div>
   );
 }

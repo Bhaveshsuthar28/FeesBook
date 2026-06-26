@@ -2,6 +2,11 @@ import {
   useUser,
 } from "@clerk/clerk-react";
 
+import { FaWhatsapp } from "react-icons/fa";
+import { useHindiInput } from "../lib/hooks/useHindiInput.js";
+import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
+import { Sparkles } from "lucide-react";
+
 import {
   Bell,
   Building2,
@@ -64,6 +69,8 @@ import {
 
 import {
   getStudentDirectory,
+  sendBroadcastWhatsapp,
+  triggerFeesReminders,
 } from "../lib/api/studentapi.js";
 
 import {
@@ -752,6 +759,12 @@ export default function DashboardPage() {
     setReminderModalOpen,
   ] = useState(false);
 
+  const [broadcastType, setBroadcastType] = useState("SCHOOL");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
+  const [showReminderConfirm, setShowReminderConfirm] = useState(false);
+
   const [
     addClassOpen,
 
@@ -1154,15 +1167,49 @@ export default function DashboardPage() {
     dashboard?.stats
       ?.totalClasses ?? 0;
 
-  const reminderNudge =
-    () => {
-      toast(
-        "WhatsApp reminders are coming soon.",
-        {
-          icon: "🔔",
-        }
-      );
-    };
+  const reminderNudge = async () => {
+    try {
+      setSendingReminders(true);
+      setShowReminderConfirm(false);
+      const res = await triggerFeesReminders();
+      notify.success(`WhatsApp reminders queued successfully for ${res.queued} parents!`);
+    } catch (err) {
+      console.error(err);
+      notify.error(err, "Failed to send WhatsApp reminders");
+    } finally {
+      setSendingReminders(false);
+    }
+  };
+
+  const handleProceedBroadcast = () => {
+    if (broadcastType === "CLASS" && !selectedClassId) {
+      notify.error(null, "Please select a target class");
+      return;
+    }
+    
+    let targetStudent = null;
+    if (broadcastType === "SCHOOL") {
+      targetStudent = {
+        id: "school-broadcast",
+        fullName: "Entire School",
+        phone: "All School Parents",
+        isSchoolBroadcast: true
+      };
+    } else {
+      const cls = (dashboard?.classes || []).find(c => (c.id || c.classId) === selectedClassId);
+      const clsName = cls ? cls.name : "Selected Class";
+      targetStudent = {
+        id: "class-broadcast",
+        classId: selectedClassId,
+        fullName: `Class ${clsName}`,
+        phone: "All Class Parents",
+        isClassBroadcast: true
+      };
+    }
+    
+    setReminderModalOpen(false);
+    setWhatsappStudent(targetStudent);
+  };
 
   const stats = [
     {
@@ -2020,7 +2067,8 @@ export default function DashboardPage() {
 
             <button
               type="button"
-              onClick={reminderNudge}
+              onClick={() => setShowReminderConfirm(true)}
+              disabled={sendingReminders}
               className="
                 mt-4
                 flex
@@ -2029,18 +2077,23 @@ export default function DashboardPage() {
                 justify-center
                 gap-2
                 rounded-xl
-                bg-orange-500
+                bg-[#25D366]
                 py-3.5
                 text-sm
                 font-bold
                 text-white
                 shadow
                 transition
-                hover:bg-orange-600
+                hover:bg-[#20ba5a]
+                disabled:opacity-60
               "
             >
-              <Bell size={18} />
-              Send WhatsApp Reminders
+              {sendingReminders ? (
+                <LoaderCircle className="animate-spin" size={18} />
+              ) : (
+                <FaWhatsapp size={18} />
+              )}
+              {sendingReminders ? "Sending..." : "Send WhatsApp Reminders"}
             </button>
 
           </div>
@@ -2297,7 +2350,7 @@ export default function DashboardPage() {
                   justify-center
                   gap-2
                   rounded-xl
-                  bg-orange-500
+                  bg-[#25D366]
                   px-2
                   py-3
                   text-center
@@ -2306,14 +2359,14 @@ export default function DashboardPage() {
                   text-white
                   shadow-sm
                   transition
-                  hover:bg-orange-600
+                  hover:bg-[#20ba5a]
                   sm:text-sm
                 "
               >
 
-                <Bell size={22} />
+                <FaWhatsapp size={22} />
 
-                Send Reminder
+                Send WhatsApp
 
               </button>
 
@@ -2503,7 +2556,8 @@ export default function DashboardPage() {
 
       <button
         type="button"
-        onClick={reminderNudge}
+        onClick={() => setShowReminderConfirm(true)}
+        disabled={sendingReminders}
         className="
           fixed
           bottom-[88px]
@@ -2514,7 +2568,7 @@ export default function DashboardPage() {
           items-center
           gap-2
           rounded-full
-          bg-orange-500
+          bg-[#25D366]
           px-5
           text-sm
           font-bold
@@ -2523,13 +2577,18 @@ export default function DashboardPage() {
           ring-4
           ring-white/40
           transition
-          hover:bg-orange-600
+          hover:bg-[#20ba5a]
+          disabled:opacity-60
           md:bottom-6
           md:right-8
         "
       >
-        <Bell size={20} />
-        Reminders
+        {sendingReminders ? (
+          <LoaderCircle className="animate-spin" size={20} />
+        ) : (
+          <FaWhatsapp size={20} />
+        )}
+        {sendingReminders ? "Sending..." : "Reminders"}
       </button>
 
       {
@@ -2840,48 +2899,200 @@ export default function DashboardPage() {
       {
         reminderModalOpen && (
           <ModalFrame
-            title="Send Reminder"
-            description="WhatsApp reminders will be available in a future update."
-            onClose={() =>
-              setReminderModalOpen(
-                false
-              )
-            }
+            title="Send WhatsApp Broadcast"
+            description="Select the target audience for your broadcast message."
+            onClose={() => setReminderModalOpen(false)}
           >
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500">Target Audience</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBroadcastType("SCHOOL")}
+                    className={`rounded-xl border py-2.5 text-xs font-bold transition ${
+                      broadcastType === "SCHOOL"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Entire School
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBroadcastType("CLASS")}
+                    className={`rounded-xl border py-2.5 text-xs font-bold transition ${
+                      broadcastType === "CLASS"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Specific Class
+                  </button>
+                </div>
+              </div>
 
-            <p
-              className="
-                text-sm
-                text-slate-600
-              "
-            >
-              You&apos;ll be able to message parents with one tap from here.
-            </p>
+              {broadcastType === "CLASS" && (
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-500">Select Class</label>
+                  <select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  >
+                    <option value="">-- Choose Class --</option>
+                    {(dashboard?.classes || []).map((c) => (
+                      <option key={c.id || c.classId} value={c.id || c.classId}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-            <button
-              type="button"
-              onClick={() =>
-                setReminderModalOpen(
-                  false
-                )
-              }
-              className="
-                mt-4
-                w-full
-                rounded-xl
-                bg-slate-900
-                py-3
-                text-sm
-                font-bold
-                text-white
-              "
-            >
-              OK
-            </button>
-
+              <div className="mt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setReminderModalOpen(false)}
+                  className="w-1/2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProceedBroadcast}
+                  className="w-1/2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 active:scale-95 transition"
+                >
+                  Next: Draft Message
+                </button>
+              </div>
+            </div>
           </ModalFrame>
         )
       }
+
+      {whatsappStudent && (
+        <SendWhatsappModal
+          isOpen={Boolean(whatsappStudent)}
+          onClose={() => setWhatsappStudent(null)}
+          student={whatsappStudent}
+        />
+      )}
+
+      {showReminderConfirm && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[99]
+            flex
+            items-center
+            justify-center
+            bg-black/40
+            p-4
+          "
+        >
+          <div
+            className="
+              w-full
+              max-w-sm
+              rounded-3xl
+              bg-white
+              p-6
+              shadow-2xl
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+              "
+            >
+              <h2
+                className="
+                  text-lg
+                  font-bold
+                  text-slate-900
+                "
+              >
+                Send Fees Reminders
+              </h2>
+
+              <button
+                onClick={() => setShowReminderConfirm(false)}
+                className="
+                  rounded-xl
+                  p-2
+                  hover:bg-slate-100
+                "
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p
+              className="
+                mt-3
+                text-sm
+                text-slate-600
+                leading-relaxed
+              "
+            >
+              Are you sure you want to send automated outstanding fee WhatsApp reminders to all parents? This will send messages to all students with outstanding balances.
+            </p>
+
+            <div
+              className="
+                mt-6
+                flex
+                gap-3
+              "
+            >
+              <button
+                onClick={() => setShowReminderConfirm(false)}
+                className="
+                  flex-1
+                  rounded-xl
+                  border
+                  border-slate-200
+                  py-3
+                  text-sm
+                  font-bold
+                  text-slate-700
+                  hover:bg-slate-50
+                  active:scale-95
+                  transition
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowReminderConfirm(false);
+                  reminderNudge();
+                }}
+                className="
+                  flex-1
+                  rounded-xl
+                  bg-[#25D366]
+                  hover:bg-[#20ba5a]
+                  py-3
+                  text-sm
+                  font-bold
+                  text-white
+                  shadow-sm
+                  active:scale-95
+                  transition
+                "
+              >
+                Confirm & Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

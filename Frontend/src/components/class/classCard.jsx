@@ -19,6 +19,8 @@ import {
   unarchiveClass,
 } from "../../lib/api/classapi.js";
 
+import { FaWhatsapp } from "react-icons/fa";
+
 const classColors = [
   {
     bg: "bg-blue-100",
@@ -56,6 +58,7 @@ export default function ClassCard({
   mode,
   onRefresh,
   onViewClass,
+  onSendWhatsapp,
 }) {
   const [
     showMenu,
@@ -326,6 +329,32 @@ export default function ClassCard({
                       />
                       View
                     </button>
+
+                    {Number(singleClass.studentsCount || 0) > 0 && (
+                      <button
+                        onClick={() => {
+                          onSendWhatsapp && onSendWhatsapp(singleClass);
+                          setShowMenu(false);
+                        }}
+                        className="
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          px-4
+                          py-3
+                          text-sm
+                          font-medium
+                          text-emerald-600
+                          hover:bg-emerald-50
+                        "
+                      >
+                        <FaWhatsapp
+                          size={16}
+                        />
+                        Broadcast
+                      </button>
+                    )}
 
                     <button
                       className="

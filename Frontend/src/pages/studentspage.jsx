@@ -64,6 +64,8 @@ import {
 import {
   notify,
 } from "../lib/toast.js";
+import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
+import { FaWhatsapp } from "react-icons/fa";
 
 
 import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
@@ -1765,6 +1767,8 @@ export default function StudentsPage() {
     setShowOptionalFees,
   ] = useState(false);
 
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
+
   const [isPromotionMode, setIsPromotionMode] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [targetPromotionClassId, setTargetPromotionClassId] = useState("");
@@ -3345,6 +3349,38 @@ export default function StudentsPage() {
             Add Optional Fees to Section
           </button>
 
+          <button
+            type="button"
+            onClick={() =>
+              setWhatsappStudent({
+                id: "section-broadcast",
+                fullName: `Section ${selectedSection?.name || ""} Broadcast`,
+                phone: `${selectedClass?.name || ""} - ${selectedSection?.name || ""}`,
+                isBroadcast: true,
+                sectionId: sectionId,
+                className: selectedClass?.name
+              })
+            }
+            className="
+              flex
+              h-11
+              items-center
+              gap-2
+              rounded-lg
+              border
+              border-emerald-200
+              bg-emerald-50
+              px-4
+              text-xs
+              font-bold
+              text-emerald-700
+              hover:bg-emerald-100
+            "
+          >
+            <FaWhatsapp size={16} className="fill-[#25D366] text-[#25D366]" />
+            Broadcast to Section
+          </button>
+
           {isTenthClassSelected && !isPromotionMode && (
             <button
               type="button"
@@ -3980,6 +4016,7 @@ export default function StudentsPage() {
                                     `/classes/${classId}/sections/${sectionId}/students/${student.id}`
                                   )
                                 }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-600 hover:border-blue-200 hover:bg-blue-50 active:scale-95 transition"
                               >
                                 <Eye size={17} />
                               </button>
@@ -3996,6 +4033,18 @@ export default function StudentsPage() {
                                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
                               >
                                 <WalletCards size={17} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Send WhatsApp Message">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setWhatsappStudent(student);
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 transition"
+                              >
+                                <FaWhatsapp size={17} className="fill-[#25D366]" />
                               </button>
                             </Tooltip>
                           </div>
@@ -4167,7 +4216,19 @@ export default function StudentsPage() {
                       <p>
                         <span className="font-semibold text-slate-400">Mobile</span>
                         <br />
-                        <span className="font-bold text-slate-700">{student.phone}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-700">{student.phone}</span>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setWhatsappStudent(student);
+                            }}
+                            className="text-emerald-500 hover:text-emerald-600 active:scale-95 transition"
+                          >
+                            <FaWhatsapp size={14} className="fill-[#25D366]" />
+                          </button>
+                        </span>
                       </p>
                       <p>
                         <span className="font-semibold text-slate-400">Due</span>
@@ -4493,6 +4554,12 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
+
+      <SendWhatsappModal
+        isOpen={!!whatsappStudent}
+        onClose={() => setWhatsappStudent(null)}
+        student={whatsappStudent}
+      />
     </div>
   );
 }

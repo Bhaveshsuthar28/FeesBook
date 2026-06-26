@@ -16,6 +16,8 @@ import {
   unarchiveSection,
 } from "../../lib/api/sectionapi.js";
 
+import { FaWhatsapp } from "react-icons/fa";
+
 const sectionColors = [
   {
     bg: "bg-blue-200",
@@ -45,6 +47,7 @@ export default function SectionCard({
   mode,
   onRefresh,
   onViewSection,
+  onSendWhatsapp,
 }) {
   const [
     showMenu,
@@ -260,6 +263,32 @@ export default function SectionCard({
                 />
                 View
               </button>
+
+              {mode === "active" && Number(section.studentsCount || 0) > 0 && (
+                <button
+                  onClick={() => {
+                    onSendWhatsapp && onSendWhatsapp(section);
+                    setShowMenu(false);
+                  }}
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    gap-3
+                    px-4
+                    py-3
+                    text-sm
+                    font-medium
+                    text-emerald-600
+                    hover:bg-emerald-50
+                  "
+                >
+                  <FaWhatsapp
+                    size={16}
+                  />
+                  Broadcast
+                </button>
+              )}
 
               {
                 mode === "active" && (

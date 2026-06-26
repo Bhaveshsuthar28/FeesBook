@@ -33,6 +33,11 @@ import {
 import AddSectionModal
   from "../components/section/addSectionModal.jsx";
 
+import SendWhatsappModal
+  from "../components/common/SendWhatsappModal.jsx";
+
+import { FaWhatsapp } from "react-icons/fa";
+
 import { notify } from "../lib/toast.js";
 
 import SectionCard
@@ -116,7 +121,29 @@ export default function SectionsPage() {
     setShowAddModal,
   ] = useState(false);
 
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
+
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleSendWhatsappSection = (sec) => {
+    setWhatsappStudent({
+      id: "section-broadcast",
+      sectionId: sec.id,
+      fullName: `Section ${selectedClass?.name || ""} - ${sec.name}`,
+      phone: "All Section Parents",
+      isBroadcast: true
+    });
+  };
+
+  const handleBroadcastClass = () => {
+    setWhatsappStudent({
+      id: "class-broadcast",
+      classId: classId,
+      fullName: `Class ${selectedClass?.name || ""}`,
+      phone: "All Class Parents",
+      isClassBroadcast: true
+    });
+  };
 
   const refreshSections =
     useCallback(async () => {
@@ -458,6 +485,17 @@ export default function SectionsPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
+          {Number(selectedClass?.studentsCount || 0) > 0 && (
+            <button
+              type="button"
+              onClick={handleBroadcastClass}
+              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-95 w-full sm:w-auto"
+            >
+              <FaWhatsapp size={18} />
+              Broadcast to Class
+            </button>
+          )}
+
           <button
             disabled={
               !canManageSections
@@ -655,9 +693,7 @@ export default function SectionsPage() {
             )
           )
         }
-      </div>
-
-      <div
+      </div>      <div
         className="
           hidden
           lg:block
@@ -669,6 +705,7 @@ export default function SectionsPage() {
           onRefresh={
             refreshSections
           }
+          onSendWhatsapp={handleSendWhatsappSection}
           onViewSection={
             (section) =>
               navigate(
@@ -720,6 +757,7 @@ export default function SectionsPage() {
                   onRefresh={
                     refreshSections
                   }
+                  onSendWhatsapp={handleSendWhatsappSection}
                   onViewSection={
                     (section) =>
                       navigate(
@@ -761,6 +799,13 @@ export default function SectionsPage() {
         )
       }
 
+      {whatsappStudent && (
+        <SendWhatsappModal
+          isOpen={Boolean(whatsappStudent)}
+          onClose={() => setWhatsappStudent(null)}
+          student={whatsappStudent}
+        />
+      )}
     </div>
   );
 }

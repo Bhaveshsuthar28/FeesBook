@@ -15,6 +15,8 @@ import {
   unarchiveSection,
 } from "../../lib/api/sectionapi.js";
 
+import { FaWhatsapp } from "react-icons/fa";
+
 const sectionColors = [
   {
     bg: "bg-blue-100",
@@ -39,6 +41,7 @@ export default function SectionTable({
   mode,
   onRefresh,
   onViewSection,
+  onSendWhatsapp,
 }) {
   const [
     archiveTarget,
@@ -297,6 +300,22 @@ export default function SectionTable({
                                   size={18}
                                 />
                               </button>
+
+                              {mode === "active" && Number(section.studentsCount || 0) > 0 && (
+                                <button
+                                  onClick={() =>
+                                    onSendWhatsapp && onSendWhatsapp(section)
+                                  }
+                                  className="
+                                    text-emerald-500 hover:text-emerald-600
+                                  "
+                                  title="Broadcast to Section"
+                                >
+                                  <FaWhatsapp
+                                    size={18}
+                                  />
+                                </button>
+                              )}
 
                               {
                                 mode === "active" ? (

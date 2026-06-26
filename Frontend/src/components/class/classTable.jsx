@@ -19,6 +19,8 @@ import {
   unarchiveClass,
 } from "../../lib/api/classapi.js";
 
+import { FaWhatsapp } from "react-icons/fa";
+
 const classColors = [
   {
     bg: "bg-blue-100",
@@ -55,6 +57,7 @@ export default function ClassTable({
   mode,
   onRefresh,
   onViewClass,
+  onSendWhatsapp,
 }) {
   const [
     archiveTarget,
@@ -470,7 +473,21 @@ export default function ClassTable({
                                       />
                                     </button>
 
-                                    
+                                    {Number(singleClass.studentsCount || 0) > 0 && (
+                                      <button
+                                        onClick={() =>
+                                          onSendWhatsapp && onSendWhatsapp(singleClass)
+                                        }
+                                        className="
+                                          text-emerald-500 hover:text-emerald-600
+                                        "
+                                        title="Broadcast to Class"
+                                      >
+                                        <FaWhatsapp
+                                          size={18}
+                                        />
+                                      </button>
+                                    )}
 
                                     <button
                                       disabled={isBusy}

@@ -13,6 +13,7 @@ import {
   eq,
   and,
   asc,
+  sql,
 } from "drizzle-orm";
 
 import {
@@ -436,7 +437,17 @@ export const getClassesService =
 
     const classes =
       await db
-      .select()
+      .select({
+        id: classesTable.id,
+        schoolId: classesTable.schoolId,
+        name: classesTable.name,
+        sequence: classesTable.sequence,
+        academicYear: classesTable.academicYear,
+        status: classesTable.status,
+        isArchived: classesTable.isArchived,
+        createdAt: classesTable.createdAt,
+        studentsCount: sql`coalesce((select count(*) from students join sections on students.section_id = sections.id where sections.class_id = classes.id and students.status = 'active'), 0)`
+      })
       .from(classesTable)
       .where(
         and(...filters)
@@ -447,7 +458,10 @@ export const getClassesService =
         )
       );
 
-    return classes;
+    return classes.map((cls) => ({
+      ...cls,
+      studentsCount: Number(cls.studentsCount),
+    }));
   };
 
 export const getClassCatalogService =

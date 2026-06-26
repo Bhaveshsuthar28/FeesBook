@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 
 import StudentReceiptsModal from "../components/fees/StudentReceiptsModal.jsx";
+import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
+import { FaWhatsapp } from "react-icons/fa";
 
 import {
   useCallback,
@@ -300,6 +302,8 @@ export default function FeesPage() {
     receiptsStudent,
     setReceiptsStudent,
   ] = useState(null);
+
+  const [whatsappStudent, setWhatsappStudent] = useState(null);
   const resetFilters =
     () => {
       setSearch("");
@@ -631,6 +635,17 @@ export default function FeesPage() {
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-indigo-600 hover:bg-indigo-50"
           >
             <WalletCards size={17} />
+          </button>
+        </Tooltip>
+        <Tooltip content="Send WhatsApp Reminder">
+          <button
+            type="button"
+            onClick={() =>
+              setWhatsappStudent(student)
+            }
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 transition"
+          >
+            <FaWhatsapp size={17} className="fill-[#25D366]" />
           </button>
         </Tooltip>
       </div>
@@ -1263,6 +1278,17 @@ export default function FeesPage() {
                             <WalletCards size={17} />
                           </button>
                         </Tooltip>
+                        <Tooltip content="Send WhatsApp Reminder">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWhatsappStudent(student)
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 transition"
+                          >
+                            <FaWhatsapp size={17} className="fill-[#25D366]" />
+                          </button>
+                        </Tooltip>
                       </div>
                     </div>
                   </article>
@@ -1355,6 +1381,12 @@ export default function FeesPage() {
         onClose={() =>
           setReceiptsStudent(null)
         }
+      />
+
+      <SendWhatsappModal
+        isOpen={Boolean(whatsappStudent)}
+        student={whatsappStudent}
+        onClose={() => setWhatsappStudent(null)}
       />
     </div>
   );

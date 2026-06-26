@@ -454,3 +454,81 @@ export const getStudentEnrollmentHistory =
 
     return response.data.data;
   };
+
+export const sendPersonalWhatsapp =
+  async (payload) => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.post(
+        `${WHATSAPP_API}/send-personal`,
+        payload
+      );
+
+    return response.data;
+  };
+
+export const sendBroadcastWhatsapp =
+  async (payload) => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.post(
+        `${WHATSAPP_API}/broadcast`,
+        payload
+      );
+
+    return response.data;
+  };
+
+export const getWhatsappSettings =
+  async () => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.get(
+        `${WHATSAPP_API}/settings`
+      );
+
+    return response.data.data;
+  };
+
+export const updateWhatsappSettings =
+  async (data) => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.post(
+        `${WHATSAPP_API}/settings`,
+        data
+      );
+
+    return response.data;
+  };
+
+export const getWhatsappHistory =
+  async (limit = 50) => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.get(
+        `${WHATSAPP_API}/history`,
+        {
+          params: { limit },
+        }
+      );
+
+    return response.data.data;
+  };
+
+export const triggerFeesReminders =
+  async () => {
+    const WHATSAPP_API =
+      API.replace("/v1", "/whatsapp");
+    const response =
+      await axios.post(
+        `${WHATSAPP_API}/trigger-fees-reminders`
+      );
+
+    return response.data;
+  };
