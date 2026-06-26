@@ -444,6 +444,9 @@ export default function SettingsPage() {
     loading,
     setLoading,
   ] = useState(true);
+
+  const [refreshing, setRefreshing] = useState(false);
+
   const [
     savingProfile,
     setSavingProfile,
@@ -563,125 +566,130 @@ export default function SettingsPage() {
 
   const refreshData =
     useCallback(async () => {
-      const [
-        profileSettled,
-        structureSettled,
-        academicSettled,
-        preferencesSettled,
-      ] =
-        await Promise.allSettled([
-          getSchoolProfile(),
-          getFeeStructure(),
-          getAcademicYears(),
-          getSettingsPreferences(),
-        ]);
+      try {
+        setRefreshing(true);
+        const [
+          profileSettled,
+          structureSettled,
+          academicSettled,
+          preferencesSettled,
+        ] =
+          await Promise.allSettled([
+            getSchoolProfile(),
+            getFeeStructure(),
+            getAcademicYears(),
+            getSettingsPreferences(),
+          ]);
 
-      if (profileSettled.status === "fulfilled") {
-        setProfile({
-          ...emptyProfile,
-          ...profileSettled.value,
-        });
-      } else {
-        notify.error(
-          profileSettled.reason,
-          "School profile could not be loaded"
-        );
-      }
+        if (profileSettled.status === "fulfilled") {
+          setProfile({
+            ...emptyProfile,
+            ...profileSettled.value,
+          });
+        } else {
+          notify.error(
+            profileSettled.reason,
+            "School profile could not be loaded"
+          );
+        }
 
-      if (structureSettled.status === "fulfilled") {
-        const structureResult =
-          structureSettled.value;
-        setStructure(
-          structureResult || {
+        if (structureSettled.status === "fulfilled") {
+          const structureResult =
+            structureSettled.value;
+          setStructure(
+            structureResult || {
+              feeTypes: [],
+              classes: [],
+            }
+          );
+          if (
+            !selectedClassId &&
+            structureResult?.classes?.[0]
+          ) {
+            setSelectedClassId(
+              structureResult.classes[0].id
+            );
+          }
+        } else {
+          setStructure({
             feeTypes: [],
             classes: [],
-          }
-        );
-        if (
-          !selectedClassId &&
-          structureResult?.classes?.[0]
-        ) {
-          setSelectedClassId(
-            structureResult.classes[0].id
+          });
+          notify.error(
+            structureSettled.reason,
+            "Fee structure could not be loaded"
           );
         }
-      } else {
-        setStructure({
-          feeTypes: [],
-          classes: [],
+
+        const academicResult =
+          academicSettled.status === "fulfilled"
+            ? academicSettled.value
+            : null;
+
+        if (academicSettled.status === "fulfilled") {
+          setAcademicYears(
+            academicResult || {
+              activeAcademicYear: "",
+              currentAcademicYear: "",
+              previousAcademicYear: "",
+              years: [],
+            }
+          );
+        } else {
+          notify.error(
+            academicSettled.reason,
+            "Academic years could not be loaded"
+          );
+        }
+
+        if (preferencesSettled.status === "fulfilled") {
+          const preferencesResult =
+            preferencesSettled.value;
+          setReceiptSettings(
+            preferencesResult?.receipt || {
+              prefix: "FB",
+              signature: true,
+              stamp: true,
+              footer:
+                "Thank you for your payment. This is a computer generated receipt.",
+            }
+          );
+          setEnabledModes(
+            preferencesResult?.paymentModes?.length
+              ? preferencesResult.paymentModes
+              : [
+                  "Cash",
+                  "UPI",
+                  "Bank Transfer",
+                ]
+          );
+        } else {
+          notify.error(
+            preferencesSettled.reason,
+            "Preferences could not be loaded"
+          );
+        }
+
+        setNewAcademicYear((current) => {
+          if (current) {
+            return current;
+          }
+
+          const active =
+            academicResult?.activeAcademicYear ||
+            "";
+          const startYear =
+            Number(
+              active.split("-")[0]
+            );
+
+          return Number.isFinite(startYear)
+            ? `${startYear + 1}-${startYear + 2}`
+            : "";
         });
-        notify.error(
-          structureSettled.reason,
-          "Fee structure could not be loaded"
-        );
+      } finally {
+        setRefreshing(false);
       }
-
-      const academicResult =
-        academicSettled.status === "fulfilled"
-          ? academicSettled.value
-          : null;
-
-      if (academicSettled.status === "fulfilled") {
-        setAcademicYears(
-          academicResult || {
-            activeAcademicYear: "",
-            currentAcademicYear: "",
-            previousAcademicYear: "",
-            years: [],
-          }
-        );
-      } else {
-        notify.error(
-          academicSettled.reason,
-          "Academic years could not be loaded"
-        );
-      }
-
-      if (preferencesSettled.status === "fulfilled") {
-        const preferencesResult =
-          preferencesSettled.value;
-        setReceiptSettings(
-          preferencesResult?.receipt || {
-            prefix: "FB",
-            signature: true,
-            stamp: true,
-            footer:
-              "Thank you for your payment. This is a computer generated receipt.",
-          }
-        );
-        setEnabledModes(
-          preferencesResult?.paymentModes?.length
-            ? preferencesResult.paymentModes
-            : [
-                "Cash",
-                "UPI",
-                "Bank Transfer",
-              ]
-        );
-      } else {
-        notify.error(
-          preferencesSettled.reason,
-          "Preferences could not be loaded"
-        );
-      }
-
-      setNewAcademicYear((current) => {
-        if (current) {
-          return current;
-        }
-
-        const active =
-          academicResult?.activeAcademicYear ||
-          "";
-        const startYear =
-          Number(
-            active.split("-")[0]
-          );
-
-        return Number.isFinite(startYear)
-          ? `${startYear + 1}-${startYear + 2}`
-          : "";
-      });
     }, [selectedClassId]);
 
   useEffect(() => {
@@ -691,10 +699,7 @@ export default function SettingsPage() {
           setLoading(true);
           await refreshData();
         } catch (apiError) {
-          notify.error(
-            apiError,
-            "Settings could not be loaded"
-          );
+          console.error(apiError);
         } finally {
           setLoading(false);
         }
@@ -1618,14 +1623,7 @@ export default function SettingsPage() {
             Manage your school profile, fees, academic year and ERP configurations.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={refreshData}
-          className="hidden h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 shadow-sm sm:flex"
-        >
-          <RefreshCw size={17} />
-          Refresh
-        </button>
+
       </div>
 
       <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">

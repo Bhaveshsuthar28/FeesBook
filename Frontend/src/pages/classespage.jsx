@@ -5,7 +5,11 @@ import {
 } from "react";
 
 import {
+  FolderArchive,
+  GraduationCap,
+  LoaderCircle,
   Plus,
+  Search,
 } from "lucide-react";
 
 import {
@@ -29,6 +33,8 @@ import ClassCard
 
 import AddClassModal
   from "../components/class/addClassModel.jsx";
+
+import { notify } from "../lib/toast.js";
 
 import {
   PageLoadingSkeleton,
@@ -79,48 +85,54 @@ export default function ClassesPage() {
     setShowAddModal,
   ] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const refreshClasses =
     useCallback(async () => {
-      const [
-        dashboard,
-        catalog,
-        archived,
-      ] =
-        await Promise.all([
-          getClassesDashboard(),
-          getClassCatalog(),
-          getClassesByStatus(
-            "archived"
-          ),
-        ]);
+      try {
+        setRefreshing(true);
+        const [
+          dashboard,
+          catalog,
+          archived,
+        ] =
+          await Promise.all([
+            getClassesDashboard(),
+            getClassCatalog(),
+            getClassesByStatus(
+              "archived"
+            ),
+          ]);
 
-      setDashboardData(
-        dashboard
-      );
+        setDashboardData(
+          dashboard
+        );
 
-      setClassCatalog(
-        catalog
-      );
+        setClassCatalog(
+          catalog
+        );
 
-      setArchivedClasses(
-        archived
-      );
-
+        setArchivedClasses(
+          archived
+        );
+      } catch (error) {
+        console.error(error);
+        notify.error(error, "Classes could not be loaded");
+      } finally {
+        setRefreshing(false);
+      }
     }, []);
 
   useEffect(() => {
-    const fetchData =
-      async () => {
-        try {
-          await refreshClasses();
-        } catch (error) {
-          console.log(error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-    fetchData();
+    const init = async () => {
+      try {
+        setLoading(true);
+        await refreshClasses();
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, [refreshClasses]);
 
   if (
@@ -175,33 +187,35 @@ export default function ClassesPage() {
           </p>
         </div>
 
-        <button
-          onClick={() =>
-            setShowAddModal(
-              true
-            )
-          }
-          className="
-            flex
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-orange-500
-            px-4
-            py-3
-            text-sm
-            font-medium
-            text-white
-            w-full
-            sm:w-auto
-          "
-        >
-          <Plus
-            size={18}
-          />
-          Add Class
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() =>
+              setShowAddModal(
+                true
+              )
+            }
+            className="
+              flex
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              bg-orange-500
+              px-4
+              py-3
+              text-sm
+              font-medium
+              text-white
+              w-full
+              sm:w-auto
+            "
+          >
+            <Plus
+              size={18}
+            />
+            Add Class
+          </button>
+        </div>
       </div>
 
       <div

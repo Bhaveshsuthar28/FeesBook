@@ -33,6 +33,8 @@ import {
 import AddSectionModal
   from "../components/section/addSectionModal.jsx";
 
+import { notify } from "../lib/toast.js";
+
 import SectionCard
   from "../components/section/sectionCard.jsx";
 
@@ -114,76 +116,82 @@ export default function SectionsPage() {
     setShowAddModal,
   ] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const refreshSections =
     useCallback(async () => {
-      const [
-        classes,
-        active,
-        archived,
-        catalog,
-        stats,
-      ] =
-        await Promise.all([
-          getClassesByStatus(
-            "all"
-          ),
-          getSectionsByClass({
-            classId,
-            status: "active",
-          }),
-          getSectionsByClass({
-            classId,
-            status: "archived",
-          }),
-          getSectionCatalog(
-            classId
-          ),
-          getSectionStats(
-            classId
-          ),
-        ]);
+      try {
+        setRefreshing(true);
+        const [
+          classes,
+          active,
+          archived,
+          catalog,
+          stats,
+        ] =
+          await Promise.all([
+            getClassesByStatus(
+              "all"
+            ),
+            getSectionsByClass({
+              classId,
+              status: "active",
+            }),
+            getSectionsByClass({
+              classId,
+              status: "archived",
+            }),
+            getSectionCatalog(
+              classId
+            ),
+            getSectionStats(
+              classId
+            ),
+          ]);
 
-      const foundClass =
-        classes.find(
-          (item) =>
-            item.id === classId
+        const foundClass =
+          classes.find(
+            (item) =>
+              item.id === classId
+          );
+
+        setSelectedClass(
+          foundClass || null
         );
 
-      setSelectedClass(
-        foundClass || null
-      );
+        setActiveSections(
+          active
+        );
 
-      setActiveSections(
-        active
-      );
+        setArchivedSections(
+          archived
+        );
 
-      setArchivedSections(
-        archived
-      );
+        setSectionCatalog(
+          catalog
+        );
 
-      setSectionCatalog(
-        catalog
-      );
-
-      setSectionStats(
-        stats
-      );
+        setSectionStats(
+          stats
+        );
+      } catch (error) {
+        console.error(error);
+        notify.error(error, "Sections could not be loaded");
+      } finally {
+        setRefreshing(false);
+      }
     }, [classId]);
 
   useEffect(() => {
-    const loadSections =
-      async () => {
-        try {
-          setLoading(true);
-          await refreshSections();
-        } catch (error) {
-          console.log(error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-    loadSections();
+    const init = async () => {
+      try {
+        setLoading(true);
+        await refreshSections();
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, [refreshSections]);
 
   const shownSections =
@@ -449,40 +457,42 @@ export default function SectionsPage() {
           </div>
         </div>
 
-        <button
-          disabled={
-            !canManageSections
-          }
-          onClick={() =>
-            setShowAddModal(
-              true
-            )
-          }
-          className={`
-            flex
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            px-4
-            py-3
-            text-sm
-            font-medium
-            text-white
-            w-full
-            sm:w-auto
-            ${
-              canManageSections
-                ? "bg-orange-500 hover:bg-orange-600"
-                : "cursor-not-allowed bg-slate-300"
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            disabled={
+              !canManageSections
             }
-          `}
-        >
-          <Plus
-            size={18}
-          />
-          Add Section
-        </button>
+            onClick={() =>
+              setShowAddModal(
+                true
+              )
+            }
+            className={`
+              flex
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              px-4
+              py-3
+              text-sm
+              font-medium
+              text-white
+              w-full
+              sm:w-auto
+              ${
+                canManageSections
+                  ? "bg-orange-500 hover:bg-orange-600"
+                  : "cursor-not-allowed bg-slate-300"
+              }
+            `}
+          >
+            <Plus
+              size={18}
+            />
+            Add Section
+          </button>
+        </div>
       </div>
 
       <div

@@ -2292,14 +2292,12 @@ export const getStudentDirectoryService =
                   totalFees,
                 }),
               publicStatus:
-                (student.status ||
-                  "active") === "previous"
+                (student.status === "previous" || student.status === "archived")
                   ? "left"
                   : student.status ||
                     "active",
               statusLabel:
-                (student.status ||
-                  "active") === "previous"
+                (student.status === "previous" || student.status === "archived")
                   ? "Left"
                   : (student.status ||
                       "active")
@@ -2315,22 +2313,21 @@ export const getStudentDirectoryService =
     const statusCounts =
       enrichedStudents.reduce(
         (summary, student) => {
-          const key =
-            student.status ||
-            "active";
-          summary[key] =
-            (summary[key] || 0) +
-            1;
-          if (key === "previous") {
+          const key = student.status || "active";
+          if (key === "active") {
+            summary.active += 1;
+            summary.all += 1;
+          } else if (key === "alumni") {
+            summary.alumni += 1;
+            summary.all += 1;
+          } else if (key === "previous" || key === "archived") {
             summary.left += 1;
           }
-          summary.all += 1;
           return summary;
         },
         {
           active: 0,
           alumni: 0,
-          previous: 0,
           left: 0,
           all: 0,
         }
@@ -2386,10 +2383,13 @@ export const getStudentDirectoryService =
     const filtered =
       enrichedStudents.filter(
         (student) => {
+          const studentStatus = student.status || "active";
           const matchesStatus =
             status === "all"
-              ? (student.status !== "archived")
-              : (student.status || "active") === status;
+              ? (studentStatus === "active" || studentStatus === "alumni")
+              : status === "left"
+              ? (studentStatus === "previous" || studentStatus === "archived")
+              : studentStatus === status;
           const matchesClass =
             !classId ||
             student.classId === classId;
@@ -2814,7 +2814,7 @@ export const getFeesLedgerService =
                 0
               );
             const lastPayment =
-              currentYearPayments[0] || null;
+              payments[0] || null;
             const selectedMonthPayments =
               monthWindow
                 ? currentYearPayments.filter(
@@ -3402,6 +3402,7 @@ const makeStudentStats =
   ({
     fees,
     payments,
+    allPayments,
   }) => {
     const totalFees =
       fees.reduce(
@@ -3476,7 +3477,7 @@ const makeStudentStats =
             "pending"
         ).length,
       lastPayment:
-        payments[0] || null,
+        (allPayments || payments)[0] || null,
     };
   };
 
@@ -3634,6 +3635,7 @@ export const getStudentDetailService =
     const statsObj = makeStudentStats({
       fees: currentYearFees,
       payments: currentYearPayments,
+      allPayments: payments,
     });
     statsObj.overdueFees = overdueFees;
 

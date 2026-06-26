@@ -25,6 +25,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useCallback
 } from "react";
 
 import {
@@ -47,6 +48,8 @@ import {
   updateStudent,
   updateStudentFee,
   moveStudentStream,
+  archiveStudent,
+  unarchiveStudent,
 } from "../lib/api/studentapi.js";
 
 import { getClassesByStatus } from "../lib/api/classapi.js";
@@ -793,23 +796,32 @@ export default function StudentDetailsPage() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
-  useEffect(() => {
-    const load =
-      async () => {
-        try {
-          setLoading(true);
-          const result =
-            await getStudentDetail(
-              studentId
-            );
-          setDetail(result);
-        } finally {
-          setLoading(false);
-        }
-      };
+  const [refreshing, setRefreshing] = useState(false);
 
-    load();
+  const refreshDetail = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      const result = await getStudentDetail(studentId);
+      setDetail(result);
+    } catch (err) {
+      console.error(err);
+      notify.error(err, "Student details could not be loaded");
+    } finally {
+      setRefreshing(false);
+    }
   }, [studentId]);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        setLoading(true);
+        await refreshDetail();
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [refreshDetail]);
 
   // Lazily load enrollment history only when that tab is first opened
   useEffect(() => {
@@ -929,8 +941,18 @@ export default function StudentDetailsPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold text-slate-950">{student.fullName}</h1>
-                <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                  {student.status || "active"}
+                <span className={`rounded-md px-2 py-1 text-xs font-bold ${
+                  (student.status === "previous" || student.status === "left" || student.status === "archived")
+                    ? "bg-red-100 text-red-700"
+                    : student.status === "alumni"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}>
+                  {student.status === "previous" || student.status === "left"
+                    ? "Left"
+                    : student.status === "archived"
+                    ? "Archived"
+                    : (student.status || "active").charAt(0).toUpperCase() + (student.status || "active").slice(1)}
                 </span>
               </div>
               <p className="mt-2 text-sm font-semibold text-slate-500">
@@ -994,15 +1016,14 @@ export default function StudentDetailsPage() {
                 Move Stream
               </button>
             )}
-            {student.status === "archived" ? (
+            {student.status === "archived" || student.status === "previous" || student.status === "left" ? (
               <button
                 type="button"
-                disabled={archiving}
-                onClick={handleUnarchive}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 whitespace-nowrap"
+                disabled={true}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 md:px-2.5 md:py-2 text-[11px] md:text-xs font-bold text-slate-400 cursor-not-allowed whitespace-nowrap"
               >
-                {archiving ? <LoaderCircle size={14} className="animate-spin" /> : <UserMinus size={14} />}
-                Mark as Active
+                <UserMinus size={14} />
+                Mark as Left
               </button>
             ) : (
               <button
@@ -1093,7 +1114,16 @@ export default function StudentDetailsPage() {
                   <InfoRow label="Section" value={detail.section?.name} />
                   <InfoRow label="Register No." value={student.schoolRegisterNo} />
                   <InfoRow label="Roll No." value={student.rollNumber} />
-                  <InfoRow label="Student Status" value={student.status} />
+                  <InfoRow 
+                    label="Student Status" 
+                    value={
+                      student.status === "previous" || student.status === "left"
+                        ? "Left"
+                        : student.status === "archived"
+                        ? "Archived"
+                        : (student.status || "active").charAt(0).toUpperCase() + (student.status || "active").slice(1)
+                    } 
+                  />
                   <InfoRow label="Payment Status" value={student.paymentStatus} />
                 </div>
               </div>

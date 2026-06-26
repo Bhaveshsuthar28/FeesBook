@@ -12,7 +12,6 @@ import {
   Search,
   Wallet,
   WalletCards,
-  RotateCcw,
 } from "lucide-react";
 
 import StudentReceiptsModal from "../components/fees/StudentReceiptsModal.jsx";
@@ -659,14 +658,6 @@ export default function FeesPage() {
             Track and manage all student fee payments
           </p>
         </div>
-        <button
-          onClick={refreshLedger}
-          disabled={loading}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
-          title="Refresh ledger"
-        >
-          <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
-        </button>
       </div>
 
       <div className="hidden items-center justify-between md:flex">
@@ -678,15 +669,6 @@ export default function FeesPage() {
             Track and manage all student fee payments
           </p>
         </div>
-        <button
-          onClick={refreshLedger}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
-          title="Refresh ledger"
-        >
-          <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

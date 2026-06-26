@@ -812,12 +812,14 @@ export default function DashboardPage() {
     setLoadingSectionProceed,
   ] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const loadData =
     useCallback(
       async () => {
 
         try {
-          setLoading(true);
+          setRefreshing(true);
 
           const [
             dash,
@@ -854,7 +856,7 @@ export default function DashboardPage() {
             "Dashboard could not be loaded"
           );
         } finally {
-          setLoading(
+          setRefreshing(
             false
           );
         }
@@ -864,7 +866,15 @@ export default function DashboardPage() {
 
   useEffect(
     () => {
-      loadData();
+      const init = async () => {
+        try {
+          setLoading(true);
+          await loadData();
+        } finally {
+          setLoading(false);
+        }
+      };
+      init();
     },
     [
       loadData,
@@ -1211,37 +1221,39 @@ export default function DashboardPage() {
       "
     >
 
-      <div>
-
-        <h1
-          className="
-            text-2xl
-            font-bold
-            tracking-tight
-            text-slate-900
-            md:text-3xl
-          "
-        >
-          {greeting}
-          {" "}
-          <span
-            className="inline-block"
-            aria-hidden
+      <div className="flex items-center justify-between">
+        <div>
+          <h1
+            className="
+              text-2xl
+              font-bold
+              tracking-tight
+              text-slate-900
+              md:text-3xl
+            "
           >
-            👋
-          </span>
-        </h1>
+            {greeting}
+            {" "}
+            <span
+              className="inline-block"
+              aria-hidden
+            >
+              👋
+            </span>
+          </h1>
 
-        <p
-          className="
-            mt-1
-            text-sm
-            text-slate-600
-            md:text-base
-          "
-        >
-          Here&apos;s what&apos;s happening in your school today.
-        </p>
+          <p
+            className="
+              mt-1
+              text-sm
+              text-slate-600
+              md:text-base
+            "
+          >
+            Here&apos;s what&apos;s happening in your school today.
+          </p>
+        </div>
+
 
       </div>
 

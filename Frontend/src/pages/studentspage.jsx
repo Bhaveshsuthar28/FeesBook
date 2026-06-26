@@ -218,7 +218,7 @@ const getPublicStudentStatus =
       student.status ||
       "active";
 
-    return status === "previous"
+    return (status === "previous" || status === "archived" || status === "left")
       ? "left"
       : status;
   };
@@ -1953,6 +1953,9 @@ export default function StudentsPage() {
               }
           );
         }
+      } catch (error) {
+        console.error(error);
+        notify.error(error, "Students could not be loaded");
       } finally {
         setTableLoading(false);
       }
@@ -1972,7 +1975,7 @@ export default function StudentsPage() {
           setLoading(true);
           await refreshStudents();
         } catch (error) {
-          notify.error(error, "Photo could not be uploaded");
+          console.error(error);
         } finally {
           setLoading(false);
         }
@@ -2118,6 +2121,9 @@ export default function StudentsPage() {
               totalPages: 1,
             },
         });
+      } catch (error) {
+        console.error(error);
+        notify.error(error, "Student directory could not be loaded");
       } finally {
         setDirectoryLoading(false);
       }
@@ -2603,6 +2609,8 @@ export default function StudentsPage() {
                 )
               }
             </SelectControl>
+
+
           </div>
         </div>
 
@@ -3309,6 +3317,7 @@ export default function StudentsPage() {
             sm:justify-end
           "
         >
+
           <button
             type="button"
             onClick={() =>
