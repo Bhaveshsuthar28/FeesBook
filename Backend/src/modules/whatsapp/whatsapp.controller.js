@@ -14,7 +14,7 @@ import {
   isPrincipalNumber, 
   processBotMessage 
 } from "./bot.service.js";
-import { processAutoReminders } from "./reminder.service.js";
+import { processAutoReminders, countPendingReminders } from "./reminder.service.js";
 
 // 1. GET Verification Handshake for Meta API Webhook
 export async function verifyWebhookController(request, reply) {
@@ -331,7 +331,15 @@ export async function triggerFeesRemindersController(request, reply) {
   const schoolId = request.user?.schoolId;
 
   try {
-    const queuedCount = await processAutoReminders(schoolId, true); // forceSend = true
+    // 1. Get the count of pending reminders that will be processed
+    const queuedCount = await countPendingReminders(schoolId, true); // forceSend = true
+
+    // 2. Trigger the generation process in the background asynchronously
+    processAutoReminders(schoolId, true).catch((error) => {
+      request.log.error(`[Background Reminders] Failed for school ${schoolId}: ${error.message}`);
+    });
+
+    // 3. Return immediately to the frontend to keep the user experience fast
     return reply.status(200).send({ success: true, queued: queuedCount });
   } catch (error) {
     request.log.error(error);

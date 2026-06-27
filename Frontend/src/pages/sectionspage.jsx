@@ -18,7 +18,10 @@ import {
   School,
   Users,
   WalletCards,
+  Info,
 } from "lucide-react";
+
+import Tooltip from "../components/common/Tooltip.jsx";
 
 import {
   getClassesByStatus,
@@ -64,7 +67,7 @@ const tabs = [
 
 export default function SectionsPage() {
   const {
-    classId,
+    className,
   } = useParams();
 
   const navigate =
@@ -79,6 +82,10 @@ export default function SectionsPage() {
   ] = useState(
     location.state?.selectedClass ||
       null
+  );
+
+  const [resolvedClassId, setResolvedClassId] = useState(
+    location.state?.selectedClass?.id || null
   );
 
   const [
@@ -138,7 +145,7 @@ export default function SectionsPage() {
   const handleBroadcastClass = () => {
     setWhatsappStudent({
       id: "class-broadcast",
-      classId: classId,
+      classId: resolvedClassId,
       fullName: `Class ${selectedClass?.name || ""}`,
       phone: "All Class Parents",
       isClassBroadcast: true
@@ -149,17 +156,24 @@ export default function SectionsPage() {
     useCallback(async () => {
       try {
         setRefreshing(true);
+        const classes = await getClassesByStatus("all");
+        const foundClass = classes.find(c => c.name === className) || null;
+        setSelectedClass(foundClass);
+
+        if (!foundClass) {
+          throw new Error("Class not found");
+        }
+
+        const classId = foundClass.id;
+        setResolvedClassId(classId);
+
         const [
-          classes,
           active,
           archived,
           catalog,
           stats,
         ] =
           await Promise.all([
-            getClassesByStatus(
-              "all"
-            ),
             getSectionsByClass({
               classId,
               status: "active",
@@ -175,16 +189,6 @@ export default function SectionsPage() {
               classId
             ),
           ]);
-
-        const foundClass =
-          classes.find(
-            (item) =>
-              item.id === classId
-          );
-
-        setSelectedClass(
-          foundClass || null
-        );
 
         setActiveSections(
           active
@@ -207,7 +211,7 @@ export default function SectionsPage() {
       } finally {
         setRefreshing(false);
       }
-    }, [classId]);
+    }, [className]);
 
   useEffect(() => {
     const init = async () => {
@@ -238,12 +242,12 @@ export default function SectionsPage() {
               "D",
             ].map((name) => ({
               name,
-              classId,
+              classId: resolvedClassId,
               status: "available",
               sectionId: null,
             })),
       [
-        classId,
+        resolvedClassId,
         sectionCatalog,
       ]
     );
@@ -460,16 +464,23 @@ export default function SectionsPage() {
                 min-w-0
               "
             >
-          <h1
-            className="
-              truncate
-              text-2xl
-              font-bold
-              text-slate-900
-            "
-          >
-            {selectedClass.name} Sections
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1
+              className="
+                truncate
+                text-2xl
+                font-bold
+                text-slate-900
+              "
+            >
+              {selectedClass.name} Sections
+            </h1>
+            <Tooltip content="Manage sections within this class, track student statistics, and broadcast announcements to sections.">
+              <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
+                <Info size={16} />
+              </button>
+            </Tooltip>
+          </div>
 
           <p
             className="
@@ -709,7 +720,7 @@ export default function SectionsPage() {
           onViewSection={
             (section) =>
               navigate(
-                `/classes/${classId}/sections/${section.id}/students`,
+                `/classes/${className}/sections/${section.name}/students`,
                 {
                   state: {
                     selectedClass,
@@ -761,7 +772,7 @@ export default function SectionsPage() {
                   onViewSection={
                     (section) =>
                       navigate(
-                        `/classes/${classId}/sections/${section.id}/students`,
+                        `/classes/${className}/sections/${section.name}/students`,
                         {
                           state: {
                             selectedClass,

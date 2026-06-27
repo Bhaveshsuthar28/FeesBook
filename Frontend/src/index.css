@@ -4,6 +4,24 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Hide Clerk development mode warning banner which pushes page contents down */
+#clerk-development-mode-warning,
+[id*="clerk-development-mode-warning"],
+[class*="clerk-development-mode-warning"],
+[id*="clerk-dev-badge"],
+[class*="clerk-dev-badge"],
+.clerk-dev-badge {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 * {
     font-family: "Outfit", sans-serif;
 }

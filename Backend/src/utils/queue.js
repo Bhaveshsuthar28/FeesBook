@@ -10,9 +10,36 @@ import {
   sendMediaMessageDirect
 } from "../modules/whatsapp/whatsapp.service.js";
 
+import { URL } from "url";
+
 const REDIS_URL = env.REDIS_URL;
 
-export const whatsappQueue = new Bull("whatsapp", REDIS_URL, {
+// Parse Redis URL to supply explicit connection options, especially for secure TLS (rediss://)
+let redisOptions = REDIS_URL;
+try {
+  const parsed = new URL(REDIS_URL);
+  const options = {
+    host: parsed.hostname,
+    port: parsed.port ? parseInt(parsed.port) : 6379,
+  };
+  if (parsed.username) {
+    options.username = parsed.username;
+  }
+  if (parsed.password) {
+    options.password = parsed.password;
+  }
+  if (parsed.protocol === "rediss:") {
+    options.tls = {
+      rejectUnauthorized: false,
+    };
+  }
+  redisOptions = options;
+} catch (err) {
+  console.warn("[Queue Config] Failed to parse REDIS_URL, falling back to connection string:", err.message);
+}
+
+export const whatsappQueue = new Bull("whatsapp", {
+  redis: redisOptions,
   defaultJobOptions: {
     attempts: 3,
     backoff: {

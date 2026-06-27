@@ -169,6 +169,7 @@ export default function SectionTable({
                   {
                     [
                       "Section",
+                      "Students",
                       "Status",
                       "Action",
                     ].map(
@@ -243,6 +244,18 @@ export default function SectionTable({
                             >
                               Section {section.name}
                             </span>
+                          </td>
+
+                          <td
+                            className="
+                              px-4
+                              py-4
+                              text-sm
+                              text-slate-600
+                              font-medium
+                            "
+                          >
+                            {section.studentsCount || 0} students
                           </td>
 
                           <td

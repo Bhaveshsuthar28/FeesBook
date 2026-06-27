@@ -3236,7 +3236,7 @@ const getStudentForSchool =
     schoolId,
     studentId,
   }) => {
-    const [student] =
+    let [student] =
       await db
         .select()
         .from(studentsTable)
@@ -3252,6 +3252,25 @@ const getStudentForSchool =
             )
           )
         );
+
+    if (!student) {
+      [student] =
+        await db
+          .select()
+          .from(studentsTable)
+          .where(
+            and(
+              eq(
+                studentsTable.schoolRegisterNo,
+                studentId
+              ),
+              eq(
+                studentsTable.schoolId,
+                schoolId
+              )
+            )
+          );
+    }
 
     if (!student) {
       throw createStudentError({

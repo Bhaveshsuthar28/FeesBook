@@ -83,17 +83,17 @@ const App = () => {
           />
 
           <Route
-            path="classes/:classId/sections"
+            path="classes/:className/sections"
             element={<SectionsPage />}
           />
 
           <Route
-            path="classes/:classId/sections/:sectionId/students"
+            path="classes/:className/sections/:sectionName/students"
             element={<StudentsPage />}
           />
 
           <Route
-            path="classes/:classId/sections/:sectionId/students/:studentId"
+            path="classes/:className/sections/:sectionName/students/:studentId"
             element={<StudentDetailsPage />}
           />
 

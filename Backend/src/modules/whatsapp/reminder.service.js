@@ -3,7 +3,7 @@ import { studentFeesTable } from "../../cors/schema/studentFees.schema.js";
 import { studentsTable } from "../../cors/schema/students.schema.js";
 import { classesTable } from "../../cors/schema/classes.schema.js";
 import { principals } from "../auth/auth.schema.js";
-import { and, lte, eq } from "drizzle-orm";
+import { and, lte, eq, gt, sql, asc } from "drizzle-orm";
 import { whatsappQueue } from "../../utils/queue.js";
 import { whatsappMessages, whatsappSettings } from "./whatsapp.schema.js";
 
@@ -17,6 +17,37 @@ function formatDate(timestamp) {
   return `${day}/${month}/${year}`;
 }
 
+// Quick helper to count total pending reminders without loading all data
+export async function countPendingReminders(specificSchoolId = null, forceSend = false) {
+  const now = new Date();
+  const kolkataOffset = 5.5 * 60 * 60 * 1000;
+  const todayKolkata = new Date(now.getTime() + kolkataOffset);
+  todayKolkata.setUTCHours(23, 59, 59, 999);
+  const endOfToday = todayKolkata.getTime() - kolkataOffset;
+
+  const conditions = [
+    eq(studentFeesTable.status, "pending")
+  ];
+
+  if (specificSchoolId) {
+    conditions.push(eq(studentFeesTable.schoolId, specificSchoolId));
+  }
+
+  if (!forceSend) {
+    conditions.push(lte(studentFeesTable.nextReminderDate, endOfToday));
+  }
+
+  const result = await db
+    .select({
+      count: sql`COUNT(${studentFeesTable.id})`,
+    })
+    .from(studentFeesTable)
+    .innerJoin(studentsTable, eq(studentFeesTable.studentId, studentsTable.id))
+    .where(and(...conditions));
+
+  return result[0]?.count ? Number(result[0].count) : 0;
+}
+
 export async function processAutoReminders(specificSchoolId = null, forceSend = false) {
   const now = new Date();
   // Calculate end of today in IST (Asia/Kolkata)
@@ -26,7 +57,7 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
   const endOfToday = todayKolkata.getTime() - kolkataOffset;
 
   const BATCH_SIZE = 50;
-  let offset = 0;
+  let lastId = null;
   let totalQueued = 0;
 
   // Load WhatsApp settings
@@ -51,6 +82,11 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
       conditions.push(lte(studentFeesTable.nextReminderDate, endOfToday));
     }
 
+    // Apply keyset pagination using the last processed ID
+    if (lastId) {
+      conditions.push(gt(studentFeesTable.id, lastId));
+    }
+
     // Query a batch of 50 student fees that are pending and due for reminder
     const batch = await db
       .select({
@@ -71,8 +107,8 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
       .leftJoin(classesTable, eq(studentsTable.classId, classesTable.id))
       .leftJoin(principals, eq(studentsTable.schoolId, principals.clerkId))
       .where(and(...conditions))
-      .limit(BATCH_SIZE)
-      .offset(offset);
+      .orderBy(asc(studentFeesTable.id))
+      .limit(BATCH_SIZE);
 
     if (batch.length === 0) {
       break;
@@ -120,9 +156,8 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
         .where(eq(studentFeesTable.id, fee.feeId));
 
       totalQueued += 1;
+      lastId = fee.feeId; // Update cursor to the current fee ID
     }
-
-    offset += BATCH_SIZE;
   }
 
   console.log(`[Reminder Service] Auto reminder process finished. Total queued: ${totalQueued}`);

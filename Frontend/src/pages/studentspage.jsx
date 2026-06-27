@@ -21,6 +21,7 @@ import {
   UserMinus,
   Users,
   WalletCards,
+  Info,
 } from "lucide-react";
 
 import {
@@ -889,9 +890,16 @@ function DirectoryStudentsView({
       "
     >
       <div className="hidden md:block">
-        <h1 className="text-3xl font-extrabold text-slate-950">
-          Students
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-extrabold text-slate-950">
+            Students
+          </h1>
+          <Tooltip content="Register new students, update profiles, record payments, and view student fee statuses.">
+            <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1.5">
+              <Info size={16} />
+            </button>
+          </Tooltip>
+        </div>
         <p className="mt-2 text-sm font-semibold text-slate-500">
           View and manage all students in your school
         </p>
@@ -1275,7 +1283,7 @@ function DirectoryStudentsView({
                                 type="button"
                                 onClick={() =>
                                   navigate(
-                                    `/students/${student.id}`
+                                    `/students/${student.schoolRegisterNo}`
                                   )
                                 }
                                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-700"
@@ -1386,7 +1394,7 @@ function DirectoryStudentsView({
                           type="button"
                           onClick={() =>
                             navigate(
-                              `/students/${student.id}`
+                              `/students/${student.schoolRegisterNo}`
                             )
                           }
                           className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600"
@@ -1673,8 +1681,8 @@ function DirectoryStudentsView({
 
 export default function StudentsPage() {
   const {
-    classId,
-    sectionId,
+    className: classNameParam,
+    sectionName: sectionNameParam,
   } = useParams();
 
   const navigate =
@@ -1698,6 +1706,44 @@ export default function StudentsPage() {
     location.state?.selectedSection ||
       null
   );
+
+  const [resolvedClassId, setResolvedClassId] = useState(
+    location.state?.selectedClass?.id || null
+  );
+
+  const [resolvedSectionId, setResolvedSectionId] = useState(
+    location.state?.selectedSection?.id || null
+  );
+
+  useEffect(() => {
+    async function resolveIds() {
+      if (!classNameParam) {
+        setResolvedClassId(null);
+        setResolvedSectionId(null);
+        return;
+      }
+      try {
+        const classes = await getClassesByStatus("all");
+        const foundClass = classes.find(c => c.name === classNameParam);
+        if (foundClass) {
+          setResolvedClassId(foundClass.id);
+          setSelectedClass(foundClass);
+          
+          if (sectionNameParam) {
+            const sections = await getSectionsByClass({ classId: foundClass.id, status: "all" });
+            const foundSection = sections.find(s => s.name === sectionNameParam);
+            if (foundSection) {
+              setResolvedSectionId(foundSection.id);
+              setSelectedSection(foundSection);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to resolve IDs", err);
+      }
+    }
+    resolveIds();
+  }, [classNameParam, sectionNameParam]);
 
   const [
     students,
@@ -1730,7 +1776,7 @@ export default function StudentsPage() {
   const [
     loading,
     setLoading,
-  ] = useState(Boolean(classId));
+  ] = useState(Boolean(classNameParam));
 
   const [
     tableLoading,
@@ -1864,8 +1910,8 @@ export default function StudentsPage() {
   const refreshStudents =
     useCallback(async () => {
       if (
-        !classId ||
-        !sectionId
+        !resolvedClassId ||
+        !resolvedSectionId
       ) {
         return;
       }
@@ -1881,12 +1927,12 @@ export default function StudentsPage() {
           await Promise.all([
             getClassesByStatus("all"),
             getSectionsByClass({
-              classId,
+              classId: resolvedClassId,
               status: "all",
             }),
             getStudentsBySection({
-              classId,
-              sectionId,
+              classId: resolvedClassId,
+              sectionId: resolvedSectionId,
               page:
                 currentPage,
               limit:
@@ -1902,14 +1948,14 @@ export default function StudentsPage() {
         setSelectedClass(
           classes.find(
             (item) =>
-              item.id === classId
+              item.id === resolvedClassId
           ) || null
         );
 
         setSelectedSection(
           sections.find(
             (item) =>
-              item.id === sectionId
+              item.id === resolvedSectionId
           ) || null
         );
 
@@ -1964,10 +2010,10 @@ export default function StudentsPage() {
         setTableLoading(false);
       }
     }, [
-      classId,
+      resolvedClassId,
       currentPage,
       searchTerm,
-      sectionId,
+      resolvedSectionId,
       sortBy,
       statusFilter,
     ]);
@@ -1989,7 +2035,7 @@ export default function StudentsPage() {
   }, [refreshStudents]);
 
   useEffect(() => {
-    if (!classId) {
+    if (!resolvedClassId) {
       setFeeStructureReady(false);
       return;
     }
@@ -2001,7 +2047,7 @@ export default function StudentsPage() {
         try {
           const status =
             await getClassFeeStructureStatus(
-              classId
+              resolvedClassId
             );
 
           if (!cancelled) {
@@ -2023,7 +2069,7 @@ export default function StudentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [classId]);
+  }, [resolvedClassId]);
 
   useEffect(() => {
     if (!targetPromotionClassId) {
@@ -2057,7 +2103,7 @@ export default function StudentsPage() {
 
   const refreshDirectory =
     useCallback(async () => {
-      if (classId) {
+      if (resolvedClassId) {
         return;
       }
 
@@ -2132,7 +2178,7 @@ export default function StudentsPage() {
         setDirectoryLoading(false);
       }
     }, [
-      classId,
+      resolvedClassId,
       currentPage,
       directoryClassId,
       directoryPaymentStatus,
@@ -2407,7 +2453,7 @@ export default function StudentsPage() {
       [pagination]
     );
 
-  if (!classId) {
+  if (!classNameParam) {
     return (
       <DirectoryStudentsView
         directoryData={
@@ -2462,7 +2508,7 @@ export default function StudentsPage() {
     );
   }
 
-  if (!classId) {
+  if (!classNameParam) {
     const directoryStats =
       directoryData.stats;
     const directoryStudents =
@@ -2926,7 +2972,7 @@ export default function StudentsPage() {
                                 type="button"
                                 onClick={() =>
                                   navigate(
-                                    `/students/${student.id}`
+                                    `/students/${student.schoolRegisterNo}`
                                   )
                                 }
                                 className="
@@ -2966,7 +3012,7 @@ export default function StudentsPage() {
                         type="button"
                         onClick={() =>
                           navigate(
-                            `/students/${student.id}`
+                            `/students/${student.schoolRegisterNo}`
                           )
                         }
                         className="
@@ -3237,7 +3283,7 @@ export default function StudentsPage() {
               type="button"
               onClick={() =>
                 navigate(
-                  `/classes/${classId}/sections`
+                  `/classes/${classNameParam}/sections`
                 )
               }
               className="hover:text-blue-600"
@@ -3259,16 +3305,23 @@ export default function StudentsPage() {
               gap-2
             "
           >
-            <h1
-              className="
-                text-2xl
-                font-extrabold
-                tracking-normal
-                text-slate-950
-              "
-            >
-              {selectedClass.name} - Section {selectedSection.name}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1
+                className="
+                  text-2xl
+                  font-extrabold
+                  tracking-normal
+                  text-slate-950
+                "
+              >
+                {selectedClass.name} - Section {selectedSection.name}
+              </h1>
+              <Tooltip content="Manage students registry, record payments, promote students, and track fees.">
+                <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
+                  <Info size={16} />
+                </button>
+              </Tooltip>
+            </div>
             {!feeStructureReady && (
               <p className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
                 Fee structure is not set for this class. Open{" "}
@@ -4013,7 +4066,7 @@ export default function StudentsPage() {
                                 type="button"
                                 onClick={() =>
                                   navigate(
-                                    `/classes/${classId}/sections/${sectionId}/students/${student.id}`
+                                    `/classes/${classNameParam}/sections/${sectionNameParam}/students/${student.schoolRegisterNo}`
                                   )
                                 }
                                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-600 hover:border-blue-200 hover:bg-blue-50 active:scale-95 transition"
@@ -4098,14 +4151,14 @@ export default function StudentsPage() {
                         }
                       } else {
                         navigate(
-                          `/classes/${classId}/sections/${sectionId}/students/${student.id}`
+                          `/classes/${classNameParam}/sections/${sectionNameParam}/students/${student.schoolRegisterNo}`
                         );
                       }
                     }}
                     onKeyDown={(event) => {
                       if (!isPromotionMode && (event.key === "Enter" || event.key === " ")) {
                         navigate(
-                          `/classes/${classId}/sections/${sectionId}/students/${student.id}`
+                          `/classes/${classNameParam}/sections/${sectionNameParam}/students/${student.schoolRegisterNo}`
                         );
                       }
                     }}
@@ -4499,11 +4552,11 @@ export default function StudentsPage() {
 
       {
         showOptionalFees &&
-          classId &&
-          sectionId && (
+          resolvedClassId &&
+          resolvedSectionId && (
           <AllocateOptionalFeesModal
-            classId={classId}
-            sectionId={sectionId}
+            classId={resolvedClassId}
+            sectionId={resolvedSectionId}
             title="Add Optional Fees to Section"
             description={`Assign optional fees to all students in ${selectedSection?.name || "this section"}`}
             onClose={() =>

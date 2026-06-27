@@ -10,7 +10,10 @@ import {
   LoaderCircle,
   Plus,
   Search,
+  Info,
 } from "lucide-react";
+
+import Tooltip from "../components/common/Tooltip.jsx";
 
 import {
   useNavigate,
@@ -181,15 +184,22 @@ export default function ClassesPage() {
         "
       >
         <div>
-          <h1
-            className="
-              text-2xl
-              font-bold
-              text-slate-900
-            "
-          >
-            Classes
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1
+              className="
+                text-2xl
+                font-bold
+                text-slate-900
+              "
+            >
+              Classes
+            </h1>
+            <Tooltip content="Manage all classes, view their sections, archive classes, or broadcast class announcements.">
+              <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
+                <Info size={16} />
+              </button>
+            </Tooltip>
+          </div>
 
           <p
             className="
@@ -305,7 +315,7 @@ export default function ClassesPage() {
           onViewClass={
             (singleClass) =>
               navigate(
-                `/classes/${singleClass.id}/sections`,
+                `/classes/${singleClass.name}/sections`,
                 {
                   state: {
                     selectedClass:
@@ -354,7 +364,7 @@ export default function ClassesPage() {
                   onViewClass={
                     (singleClass) =>
                       navigate(
-                        `/classes/${singleClass.id}/sections`,
+                        `/classes/${singleClass.name}/sections`,
                         {
                           state: {
                             selectedClass:

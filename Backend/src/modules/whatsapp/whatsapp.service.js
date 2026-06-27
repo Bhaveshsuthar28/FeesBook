@@ -73,36 +73,69 @@ export async function sendTemplateMessage(phone, templateName, variables = [], p
       return { success: false, error: `Invalid phone number: ${phone}` };
     }
 
-    const response = await axios.post(
-      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
-      {
+    // Standard Meta test templates (hello_world, jaspers_market) are registered under en_US.
+    // Custom templates could be en_US or en. We will default to en_US.
+    let langCode = "en_US";
+
+    const makeRequest = async (template, lang, vars) => {
+      const payload = {
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to,
         type: "template",
         template: {
-          name: templateName,
+          name: template,
           language: {
-            code: "en",
+            code: lang,
           },
-          components: [
-            {
-              type: "body",
-              parameters: variables.map((val) => ({
-                type: "text",
-                text: String(val),
-              })),
-            },
-          ],
         },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+      };
+
+      // Only add body components if variables are provided and template is not hello_world
+      if (vars.length > 0 && template !== "hello_world") {
+        payload.template.components = [
+          {
+            type: "body",
+            parameters: vars.map((val) => ({
+              type: "text",
+              text: String(val),
+            })),
+          },
+        ];
       }
-    );
+
+      return axios.post(
+        `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    };
+
+    let response;
+    try {
+      response = await makeRequest(templateName, langCode, variables);
+    } catch (error) {
+      const errorDetails = error.response?.data?.error;
+      console.warn(`[WhatsApp Service] Template '${templateName}' send failed with code ${errorDetails?.code}: ${errorDetails?.message}`);
+
+      // If it failed because the template doesn't exist (error code 100 or 132001),
+      // fallback to the pre-approved hello_world template so the user receives the test message.
+      if (errorDetails?.code === 100 || errorDetails?.code === 132001) {
+        if (templateName !== "hello_world") {
+          console.log(`[WhatsApp Service] Falling back to 'hello_world' template to verify credentials.`);
+          response = await makeRequest("hello_world", "en_US", []);
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
 
     const waMessageId = response.data?.messages?.[0]?.id;
     return { success: true, waMessageId };

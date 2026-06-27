@@ -19,7 +19,10 @@ import {
   User,
   UserMinus,
   WalletCards,
+  Info,
 } from "lucide-react";
+
+import Tooltip from "../components/common/Tooltip.jsx";
 
 import {
   useEffect,
@@ -983,7 +986,14 @@ export default function StudentDetailsPage() {
             <StudentAvatar student={student} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-slate-950">{student.fullName}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-extrabold text-slate-955">{student.fullName}</h1>
+                  <Tooltip content="Detailed student profile showing fee structure, collection history, and contact details.">
+                    <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
+                      <Info size={16} />
+                    </button>
+                  </Tooltip>
+                </div>
                 <span className={`rounded-md px-2 py-1 text-xs font-bold ${
                   (student.status === "previous" || student.status === "left" || student.status === "archived")
                     ? "bg-red-100 text-red-700"
