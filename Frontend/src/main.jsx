@@ -19,7 +19,12 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ClerkProvider
       publishableKey={clerkKey}
-      appearance={clerkAppearance}
+      appearance={{
+        ...clerkAppearance,
+        layout: {
+          unsafe_disableDevelopmentModeWarnings: true,
+        }
+      }}
     >
       <BrowserRouter>
         <AuthAxiosSetup>
