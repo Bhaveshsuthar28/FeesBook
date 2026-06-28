@@ -22,4 +22,14 @@ export const env = {
   WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || 'feesbook_webhook_secret',
   WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION || 'v19.0',
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  CACHE_REDIS_URL: process.env.CACHE_REDIS_URL || 'redis://localhost:6379',
+  QUEUE_REDIS_URL: process.env.QUEUE_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379',
 };
+
+if (!process.env.CACHE_REDIS_URL) {
+  console.warn("[Env Warning] CACHE_REDIS_URL is not set. Cache operations will fall back to local/default Redis server.");
+}
+if (!process.env.QUEUE_REDIS_URL && !process.env.REDIS_URL) {
+  console.warn("[Env Warning] QUEUE_REDIS_URL (or REDIS_URL) is not set. Queue operations will fall back to local/default Redis server.");
+}
+

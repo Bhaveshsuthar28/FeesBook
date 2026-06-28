@@ -24,6 +24,8 @@ import {
   unarchiveStudentController,
 } from "./students.controllers.js";
 
+import idempotencyMiddleware from "../../cors/middlewares/idempotency.middleware.js";
+
 export default async function (
   fastify
 ) {
@@ -99,6 +101,7 @@ export default async function (
 
   fastify.post(
     "/:studentId/payments",
+    { preHandler: [idempotencyMiddleware] },
     recordStudentPaymentController
   );
 

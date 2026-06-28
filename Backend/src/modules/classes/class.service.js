@@ -9,11 +9,15 @@ import { classFeesTable } from "../../cors/schema/classFee.schema.js";
 import { principals } from "../auth/auth.schema.js";
 import { getActiveAcademicYearService } from "../settings/settings.service.js";
 
+import { deleteCache } from "../../cors/cache/cache.service.js";
+import { keys } from "../../cors/cache/cache.keys.js";
+
 import {
   eq,
   and,
   asc,
   sql,
+  or,
 } from "drizzle-orm";
 
 import {
@@ -50,30 +54,23 @@ const getExistingClass =
     academicYear =
       getCurrentAcademicYear(),
   }) => {
-    const existing =
+    const [existingClass] =
       await db
         .select()
         .from(classesTable)
         .where(
           and(
-            eq(
-              classesTable.schoolId,
-              schoolId
-            ),
-
-            eq(
-              classesTable.academicYear,
-              academicYear
-            ),
+            eq(classesTable.schoolId, schoolId),
+            eq(classesTable.academicYear, academicYear),
+            or(
+              eq(classesTable.name, name),
+              eq(classesTable.sequence, sequence)
+            )
           )
-        );
+        )
+        .limit(1);
 
-    return existing.find(
-      (item) =>
-        item.name === name ||
-        item.sequence ===
-          sequence
-    );
+    return existingClass || null;
   };
 
 export const createClassService =
@@ -212,6 +209,8 @@ export const createClassService =
     await db
       .insert(classesTable)
       .values(newClass);
+
+    await deleteCache(keys.dashboard(schoolId, academicYear));
 
     return newClass;
   };
@@ -385,7 +384,6 @@ export const getClassesService =
       }
     }
 
-    await cleanupUnusedClassesService({ schoolId, academicYear: year });
     const allowedStatuses = [
       "active",
       "archived",
@@ -628,11 +626,18 @@ export const archiveClassService =
           ),
 
           eq(
+            classesTable.id,
+            classId
+          ),
+
+          eq(
             classesTable.schoolId,
             schoolId
           )
         )
       );
+
+    await deleteCache(keys.dashboard(schoolId, existingClass.academicYear));
 
     return true;
   };
@@ -743,6 +748,8 @@ export const unarchiveClassService =
         )
       );
 
+    await deleteCache(keys.dashboard(schoolId, existingClass.academicYear));
+
     return {
       ...existingClass,
       isArchived: false,
@@ -750,6 +757,7 @@ export const unarchiveClassService =
   };
 
 export const cleanupUnusedClassesService = async ({ schoolId, academicYear }) => {
+  let deletedCount = 0;
   try {
     const classes = await db
       .select()
@@ -761,7 +769,7 @@ export const cleanupUnusedClassesService = async ({ schoolId, academicYear }) =>
         )
       );
 
-    if (classes.length === 0) return;
+    if (classes.length === 0) return 0;
 
     const previousYear = getPreviousAcademicYear(academicYear);
     const previousClasses = await db
@@ -828,9 +836,11 @@ export const cleanupUnusedClassesService = async ({ schoolId, academicYear }) =>
         await db
           .delete(classesTable)
           .where(eq(classesTable.id, singleClass.id));
+        deletedCount++;
       }
     }
   } catch (error) {
     console.error("Failed to clean up unused classes:", error);
   }
+  return deletedCount;
 };

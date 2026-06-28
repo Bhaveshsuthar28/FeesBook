@@ -71,6 +71,13 @@
       "when": 1779016000000,
       "tag": "0009_student_payment_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1780026203000,
+      "tag": "0010_performance_indexes",
+      "breakpoints": true
     }
   ]
 }

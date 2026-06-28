@@ -18,6 +18,9 @@ import {
   classesTable,
 } from "../../cors/schema/classes.schema.js";
 
+import { getCache, setCache, deleteCache } from "../../cors/cache/cache.service.js";
+import { keys, TTL } from "../../cors/cache/cache.keys.js";
+
 import {
   studentsTable,
 } from "../../cors/schema/students.schema.js";
@@ -69,8 +72,12 @@ export const ensureFeeColumns =
   };
 
 export const getFeeTypesService =
-  async ({ schoolId }) =>
-    db
+  async ({ schoolId }) => {
+    const cacheKey = keys.feeTypes(schoolId);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
+
+    const result = await db
       .select()
       .from(feeTypesTable)
       .where(
@@ -85,6 +92,31 @@ export const getFeeTypesService =
           )
         )
       );
+
+    await setCache(cacheKey, result, TTL.FEE_TYPES);
+    return result;
+  };
+
+export const getClassFeesService =
+  async ({ schoolId, classId }) => {
+    const cacheKey = keys.classFees(classId);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
+
+    const result = await db
+      .select()
+      .from(classFeesTable)
+      .where(
+        and(
+          eq(classFeesTable.schoolId, schoolId),
+          eq(classFeesTable.classId, classId),
+          eq(classFeesTable.isArchived, false)
+        )
+      );
+
+    await setCache(cacheKey, result, TTL.CLASS_FEES);
+    return result;
+  };
 
 export const assertClassHasFeeStructure =
   async ({
@@ -389,6 +421,8 @@ export const createFeeTypeService =
         .insert(feeTypesTable)
         .values(feeType);
 
+      await deleteCache(keys.feeTypes(schoolId));
+
       return feeType;
 
     } catch (error) {
@@ -427,6 +461,8 @@ export const updateFeeTypeService =
             )
           )
         );
+
+      await deleteCache(keys.feeTypes(schoolId));
 
       return true;
     } catch (error) {
@@ -496,6 +532,8 @@ export const assignFeeToClassService =
             )
           );
 
+        await deleteCache(keys.classFees(data.classId));
+
         return {
           ...existing,
           ...updateData,
@@ -514,6 +552,8 @@ export const assignFeeToClassService =
       await db
         .insert(classFeesTable)
         .values(classFee);
+
+      await deleteCache(keys.classFees(data.classId));
 
       return classFee;
 
@@ -543,6 +583,10 @@ export const updateClassFeeService =
     classFeeId,
     data,
   }) => {
+    const [fee] = await db
+      .select({ classId: classFeesTable.classId })
+      .from(classFeesTable)
+      .where(eq(classFeesTable.id, classFeeId));
 
     await db
       .update(classFeesTable)
@@ -562,6 +606,10 @@ export const updateClassFeeService =
           )
         )
       );
+
+    if (fee) {
+      await deleteCache(keys.classFees(fee.classId));
+    }
 
     return true;
   };
@@ -590,6 +638,8 @@ export const archiveFeeTypeService =
         )
       );
 
+    await deleteCache(keys.feeTypes(schoolId));
+
     return true;
   };
 
@@ -599,6 +649,11 @@ export const archiveClassFeeService =
     classFeeId,
     isArchived = true,
   }) => {
+    const [fee] = await db
+      .select({ classId: classFeesTable.classId })
+      .from(classFeesTable)
+      .where(eq(classFeesTable.id, classFeeId));
+
     await db
       .update(classFeesTable)
       .set({
@@ -616,6 +671,10 @@ export const archiveClassFeeService =
           )
         )
       );
+
+    if (fee) {
+      await deleteCache(keys.classFees(fee.classId));
+    }
 
     return true;
   };

@@ -44,6 +44,9 @@ import {
   getActiveAcademicYearService,
 } from "../settings/settings.service.js";
 
+import { getCache, setCache } from "../../cors/cache/cache.service.js";
+import { keys, TTL } from "../../cors/cache/cache.keys.js";
+
 export const getClassesDashboardService =
   async ({
     schoolId,
@@ -55,6 +58,10 @@ export const getClassesDashboardService =
         schoolId,
       });
 
+    const cacheKey = keys.dashboard(schoolId, targetYear);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
+
     await cleanupUnusedClassesService({
       schoolId,
       academicYear: targetYear,
@@ -63,242 +70,49 @@ export const getClassesDashboardService =
     const classes =
       await db
         .select({
-          id:
-            classesTable.id,
-
-          name:
-            classesTable.name,
+          id: classesTable.id,
+          name: classesTable.name,
+          sectionsCount: sql`(SELECT COUNT(*) FROM sections WHERE sections.class_id = classes.id AND sections.school_id = ${schoolId} AND sections.is_archived = 0)`,
+          studentsCount: sql`(SELECT COUNT(*) FROM enrollments WHERE enrollments.class_id = classes.id AND enrollments.academic_year = ${targetYear} AND enrollments.status IN ('active','promoted'))`,
+          pendingFees: sql`COALESCE((SELECT SUM(sf.due_amount) FROM student_fees sf INNER JOIN enrollments e ON e.student_id = sf.student_id WHERE e.class_id = classes.id AND e.academic_year = ${targetYear} AND e.status IN ('active','promoted') AND sf.academic_year = ${targetYear}), 0)`,
+          collectedFees: sql`COALESCE((SELECT SUM(sf.paid_amount) FROM student_fees sf INNER JOIN enrollments e ON e.student_id = sf.student_id WHERE e.class_id = classes.id AND e.academic_year = ${targetYear} AND e.status IN ('active','promoted') AND sf.academic_year = ${targetYear}), 0)`
         })
-
         .from(classesTable)
-
         .where(
           and(
-
-            eq(
-              classesTable.schoolId,
-              schoolId
-            ),
-
-            eq(
-              classesTable.academicYear,
-              targetYear
-            ),
-
-            eq(
-              classesTable.isArchived,
-              false
-            )
+            eq(classesTable.schoolId, schoolId),
+            eq(classesTable.academicYear, targetYear),
+            eq(classesTable.isArchived, false)
           )
         )
-
         .orderBy(
-          asc(
-            classesTable.sequence
-          )
+          asc(classesTable.sequence)
         );
 
-    const result =
-      await Promise.all(
+    const result = classes.map((cls) => {
+      const pendingFees = Number(cls.pendingFees || 0);
+      const collectedFees = Number(cls.collectedFees || 0);
+      const total = pendingFees + collectedFees;
+      const pendingPercentage = total === 0 ? 0 : (pendingFees / total) * 100;
 
-        classes.map(
-          async (singleClass) => {
+      let feeHealth = "healthy";
+      if (pendingPercentage >= 30) {
+        feeHealth = "critical";
+      } else if (pendingPercentage >= 10) {
+        feeHealth = "medium";
+      }
 
-            const [
-              sectionsCountResult,
-            ] =
-              await db
-                .select({
-                  count:
-                    sql`
-                      count(*)
-                    `,
-                })
+      return {
+        id: cls.id,
+        name: cls.name,
+        sectionsCount: Number(cls.sectionsCount || 0),
+        studentsCount: Number(cls.studentsCount || 0),
+        pendingFees,
+        collectedFees,
+        feeHealth,
+      };
+    });
 
-                .from(
-                  sectionsTable
-                )
-
-                .where(
-                  and(
-                    eq(
-                      sectionsTable.schoolId,
-                      schoolId
-                    ),
-
-                    eq(
-                      sectionsTable.classId,
-                      singleClass.id
-                    ),
-
-                    eq(
-                      sectionsTable.isArchived,
-                      false
-                    )
-                  )
-                );
-
-            const [
-              studentsCountResult,
-            ] =
-              await db
-                .select({
-                  count:
-                    sql`
-                      count(*)
-                    `,
-                })
-
-                .from(
-                  enrollmentsTable
-                )
-
-                .where(
-                  and(
-                    eq(
-                      enrollmentsTable.classId,
-                      singleClass.id
-                    ),
-                    inArray(
-                      enrollmentsTable.status,
-                      ["active", "promoted"]
-                    ),
-                    eq(
-                      enrollmentsTable.academicYear,
-                      targetYear
-                    )
-                  )
-                );
-
-            const feeSummary =
-              await db
-                .select({
-                  pending:
-                    sql`
-                      coalesce(
-                        sum(
-                          ${studentFeesTable.dueAmount}
-                        ),
-                        0
-                      )
-                    `,
-
-                  collected:
-                    sql`
-                      coalesce(
-                        sum(
-                          ${studentFeesTable.paidAmount}
-                        ),
-                        0
-                      )
-                    `,
-                })
-
-                .from(
-                  studentFeesTable
-                )
-
-                .innerJoin(
-                  enrollmentsTable,
-
-                  eq(
-                    enrollmentsTable.studentId,
-                    studentFeesTable.studentId
-                  )
-                )
-
-                .where(
-                  and(
-                    eq(
-                      enrollmentsTable.classId,
-                      singleClass.id
-                    ),
-                    inArray(
-                      enrollmentsTable.status,
-                      ["active", "promoted"]
-                    ),
-                    eq(
-                      studentFeesTable.academicYear,
-                      targetYear
-                    ),
-                    eq(
-                      enrollmentsTable.academicYear,
-                      targetYear
-                    )
-                  )
-                );
-
-            const pendingFees =
-              Number(
-                feeSummary[0]
-                  ?.pending || 0
-              );
-
-            const collectedFees =
-              Number(
-                feeSummary[0]
-                  ?.collected || 0
-              );
-
-            const total =
-              pendingFees +
-              collectedFees;
-
-            const pendingPercentage =
-              total === 0
-                ? 0
-                : (
-                    pendingFees /
-                    total
-                  ) * 100;
-
-            let feeHealth =
-              "healthy";
-
-            if (
-              pendingPercentage >=
-              30
-            ) {
-              feeHealth =
-                "critical";
-            }
-
-            else if (
-              pendingPercentage >=
-              10
-            ) {
-              feeHealth =
-                "medium";
-            }
-
-            return {
-              id:
-                singleClass.id,
-
-              name:
-                singleClass.name,
-
-              sectionsCount:
-                Number(
-                  sectionsCountResult
-                    ?.count || 0
-                ),
-
-              studentsCount:
-                Number(
-                  studentsCountResult
-                    ?.count || 0
-                ),
-
-              pendingFees,
-
-              collectedFees,
-
-              feeHealth,
-            };
-          }
-        )
-      );
 
     const stats = {
       totalClasses:
@@ -341,10 +155,13 @@ export const getClassesDashboardService =
         ),
     };
 
-    return {
+    const finalResult = {
       stats,
 
       classes:
         result,
     };
+
+    await setCache(cacheKey, finalResult, TTL.DASHBOARD);
+    return finalResult;
   };

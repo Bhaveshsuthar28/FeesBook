@@ -1,4 +1,4 @@
-import {sqliteTable , integer , text} from "drizzle-orm/sqlite-core"
+import {sqliteTable , integer , text, index} from "drizzle-orm/sqlite-core"
 
 export const principals = sqliteTable("principals", {
     id: integer("id").primaryKey({
@@ -82,4 +82,6 @@ export const principals = sqliteTable("principals", {
     createdAt: integer("created_at", {
         mode: "timestamp",
     }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+    clerkIdIdx: index("idx_principals_clerk_id").on(table.clerkId),
+}));

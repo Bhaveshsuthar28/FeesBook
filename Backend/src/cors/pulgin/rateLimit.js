@@ -4,9 +4,11 @@ export default async function rateLimitPlugin(app) {
   await app.register(rateLimit, {
     global: true,
 
-    max: 100,
+    max: 300,
 
     timeWindow: "1 minute",
+
+    keyGenerator: (request) => request.userId || request.ip,
 
     errorResponseBuilder: function (_, context) {
       return {
@@ -18,3 +20,8 @@ export default async function rateLimitPlugin(app) {
     },
   });
 }
+
+export const heavyRateLimit = {
+  max: 10,
+  timeWindow: "1 minute",
+};

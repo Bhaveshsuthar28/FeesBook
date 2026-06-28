@@ -34,6 +34,12 @@ import {
 import {
   ensureSettingsColumns,
 } from "./src/modules/settings/settings.service.js";
+import { db } from "./src/cors/database/DB.Connect.js";
+import { principals } from "./src/modules/auth/auth.schema.js";
+import { cleanupUnusedClassesService } from "./src/modules/classes/class.service.js";
+import { getActiveAcademicYearService } from "./src/modules/settings/settings.service.js";
+import { registerIdempotencyHook } from "./src/cors/middlewares/idempotency.middleware.js";
+import sanitizeBody from "./src/cors/middlewares/sanitize.middleware.js";
 
 const app = Fastify({
   logger: {
@@ -54,6 +60,8 @@ const app = Fastify({
 
   bodyLimit: 10 * 1024 * 1024,
 });
+
+registerIdempotencyHook(app);
 
 await app.register(corsPlugin);
 
@@ -100,6 +108,8 @@ app.addHook(
     }
   }
 );
+
+app.addHook("preHandler", sanitizeBody);
 
 app.addHook("onRequest", async (request) => {
   request.log.info({
@@ -187,7 +197,7 @@ await ensureStudentLifecycleColumns();
 
 await ensureFeeConcessionColumns();
 
-await ensureSettingsColumns();
+// ensureSettingsColumns() removed because it executed PRAGMA table_info on every boot, which was a development workaround. Proper database migrations now handle schema updates.
 
 await ensureFeeColumns();
 
@@ -211,6 +221,45 @@ cron.schedule(
         error,
         "May academic year movement failed"
       );
+    }
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
+
+cron.schedule(
+  "0 2 * * *",
+  async () => {
+    const startTime = Date.now();
+    app.log.info("Starting scheduled cleanup of unused classes...");
+    try {
+      const schools = await db
+        .select({ clerkId: principals.clerkId })
+        .from(principals);
+
+      for (const school of schools) {
+        const schoolId = school.clerkId;
+        if (!schoolId) continue;
+        try {
+          const academicYear = await getActiveAcademicYearService({ schoolId });
+          const cleanedCount = await cleanupUnusedClassesService({ schoolId, academicYear });
+          app.log.info(
+            { schoolId, academicYear, cleanedCount },
+            `Cleaned ${cleanedCount} unused classes for school ${schoolId}`
+          );
+        } catch (schoolErr) {
+          app.log.error(
+            { schoolId, err: schoolErr },
+            `Failed to cleanup unused classes for school ${schoolId}`
+          );
+        }
+      }
+    } catch (err) {
+      app.log.error(err, "Failed to fetch schools for cleanup job");
+    } finally {
+      const duration = Date.now() - startTime;
+      app.log.info({ duration }, `Completed scheduled cleanup of unused classes in ${duration}ms`);
     }
   },
   {

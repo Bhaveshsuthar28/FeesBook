@@ -1,15 +1,18 @@
 import crypto from "crypto";
-
 import {
   and,
   asc,
   eq,
+  inArray,
 } from "drizzle-orm";
 
 import {
   db,
   sqlClient,
 } from "../../cors/database/DB.Connect.js";
+
+import { getCache, setCache, deleteCache } from "../../cors/cache/cache.service.js";
+import { keys, TTL } from "../../cors/cache/cache.keys.js";
 
 import {
   principals,
@@ -266,6 +269,10 @@ const normalizeProfile =
 
 export const getSchoolProfileService =
   async ({ schoolId }) => {
+    const cacheKey = keys.schoolProfile(schoolId);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
+
     const [principal] =
       await db
         .select()
@@ -278,9 +285,11 @@ export const getSchoolProfileService =
         );
 
     if (principal) {
-      return normalizeProfile(
+      const result = normalizeProfile(
         principal
       );
+      await setCache(cacheKey, result, TTL.PROFILE);
+      return result;
     }
 
     const [created] =
@@ -293,9 +302,11 @@ export const getSchoolProfileService =
         )
         .returning();
 
-    return normalizeProfile(
+    const result = normalizeProfile(
       created
     );
+    await setCache(cacheKey, result, TTL.PROFILE);
+    return result;
   };
 
 export const updateSchoolProfileService =
@@ -303,10 +314,14 @@ export const updateSchoolProfileService =
     schoolId,
     data,
   }) => {
-    const profile =
-      await getSchoolProfileService({
-        schoolId,
-      });
+    const [profile] = await db
+      .select()
+      .from(principals)
+      .where(eq(principals.clerkId, schoolId));
+
+    if (!profile) {
+      throw new Error("School profile not found");
+    }
 
     const updates = {
       ...data,
@@ -350,9 +365,9 @@ export const updateSchoolProfileService =
         )
       );
 
-    return getSchoolProfileService({
-      schoolId,
-    });
+    await deleteCache(keys.schoolProfile(schoolId));
+
+    return normalizeProfile({ ...profile, ...updates });
   };
 
 const parsePaymentModes =
@@ -485,15 +500,22 @@ export const updateSettingsPreferencesService =
 
 export const getActiveAcademicYearService =
   async ({ schoolId }) => {
+    const cacheKey = keys.academicYear(schoolId);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
+
     const profile =
       await getSchoolProfileService({
         schoolId,
       });
 
-    return (
+    const result = (
       profile.activeAcademicYear ||
       getCurrentAcademicYear()
     );
+
+    await setCache(cacheKey, result, TTL.ACADEMIC_YEAR);
+    return result;
   };
 
 export const getAcademicYearsService =
@@ -872,6 +894,8 @@ export const createAcademicYearService =
       },
     });
 
+    await deleteCache(keys.academicYear(schoolId));
+
     const {
       bulkPromoteStudentsService,
     } =
@@ -914,14 +938,17 @@ export const setActiveAcademicYearService =
   async ({
     schoolId,
     year,
-  }) =>
-    updateSchoolProfileService({
+  }) => {
+    const result = await updateSchoolProfileService({
       schoolId,
       data: {
         activeAcademicYear:
           year,
       },
     });
+    await deleteCache(keys.academicYear(schoolId));
+    return result;
+  };
 
 export const archiveAcademicYearService =
   async ({
@@ -965,23 +992,17 @@ export const archiveAcademicYearService =
           )
         );
 
-    for (const singleClass of yearClasses) {
+    const classIds = yearClasses.map(c => c.id);
+    if (classIds.length > 0) {
       await db
         .update(sectionsTable)
         .set({
-          isArchived:
-            Boolean(archived),
+          isArchived: Boolean(archived),
         })
         .where(
           and(
-            eq(
-              sectionsTable.schoolId,
-              schoolId
-            ),
-            eq(
-              sectionsTable.classId,
-              singleClass.id
-            )
+            eq(sectionsTable.schoolId, schoolId),
+            inArray(sectionsTable.classId, classIds)
           )
         );
     }

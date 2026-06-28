@@ -38,6 +38,9 @@ import {
   sectionsTable,
 } from "../../cors/schema/sections.schema.js";
 
+import { deleteCache, deleteCachePattern } from "../../cors/cache/cache.service.js";
+import { keys } from "../../cors/cache/cache.keys.js";
+
 import {
   getClassCatalog,
   getCurrentAcademicYear,
@@ -1273,6 +1276,10 @@ export const ensureStudentLifecycleColumns =
   };
 
 export const backfillStudentFeesAcademicYears = async () => {
+  const [{ count }] = await db.select({ count: sql`COUNT(*)` }).from(studentFeesTable)
+    .where(or(isNull(studentFeesTable.classId), isNull(studentFeesTable.academicYear)));
+  if (Number(count) === 0) return;
+
   const pendingFees = await db
     .select()
     .from(studentFeesTable)
@@ -1788,6 +1795,10 @@ const createStudentRecord =
       classId: student.classId,
       sectionId: student.sectionId,
     });
+
+    const year = targetClass?.academicYear || getCurrentAcademicYear();
+    await deleteCache(keys.dashboard(schoolId, year));
+    await deleteCachePattern(`section:${student.sectionId}:students:*`);
 
     return student;
   };
@@ -3311,48 +3322,49 @@ const getStudentFeeRows =
           )
         );
 
-    return await Promise.all(
-      rows.map(async (fee) => {
-        const [feeType] =
-          await db
-            .select()
-            .from(feeTypesTable)
-            .where(
-              and(
-                eq(
-                  feeTypesTable.id,
-                  fee.feeTypeId
-                ),
-                eq(
-                  feeTypesTable.schoolId,
-                  schoolId
-                )
-              )
-            );
+    if (rows.length === 0) return [];
 
-        return {
-          ...fee,
-          feeTypeName:
-            feeType?.name ||
-            "Fee",
-          isOptional:
-            Boolean(
-              feeType?.isOptional
-            ),
-          grossAmount:
-            fee.grossAmount != null
-              ? Number(
-                  fee.grossAmount
-                )
-              : null,
-          concessionAmount:
-            Number(
-              fee.concessionAmount ||
-                0
-            ),
-        };
-      })
-    );
+    const feeTypeIds = [...new Set(rows.map(row => row.feeTypeId).filter(Boolean))];
+    const feeTypesMap = new Map();
+    if (feeTypeIds.length > 0) {
+      const feeTypes = await db
+        .select()
+        .from(feeTypesTable)
+        .where(
+          and(
+            inArray(feeTypesTable.id, feeTypeIds),
+            eq(feeTypesTable.schoolId, schoolId)
+          )
+        );
+      for (const ft of feeTypes) {
+        feeTypesMap.set(ft.id, ft);
+      }
+    }
+
+    return rows.map((fee) => {
+      const feeType = feeTypesMap.get(fee.feeTypeId);
+      return {
+        ...fee,
+        feeTypeName:
+          feeType?.name ||
+          "Fee",
+        isOptional:
+          Boolean(
+            feeType?.isOptional
+          ),
+        grossAmount:
+          fee.grossAmount != null
+            ? Number(
+                fee.grossAmount
+              )
+            : null,
+        concessionAmount:
+          Number(
+            fee.concessionAmount ||
+              0
+          ),
+      };
+    });
   };
 
 const getStudentPaymentRows =
@@ -3382,37 +3394,38 @@ const getStudentPaymentRows =
           )
         );
 
-    return await Promise.all(
-      rows.map(async (payment) => {
-        const [feeType] =
-          await db
-            .select()
-            .from(feeTypesTable)
-            .where(
-              and(
-                eq(
-                  feeTypesTable.id,
-                  payment.feeTypeId
-                ),
-                eq(
-                  feeTypesTable.schoolId,
-                  schoolId
-                )
-              )
-            );
+    if (rows.length === 0) return [];
 
-        return {
-          ...payment,
-          feeTypeName:
-            feeType?.name ||
-            "Fee",
-          receiptNo:
-            payment.receiptNo,
-          receiptAcademicYear:
-            payment.receiptAcademicYear,
-        };
-      })
-    );
+    const feeTypeIds = [...new Set(rows.map(row => row.feeTypeId).filter(Boolean))];
+    const feeTypesMap = new Map();
+    if (feeTypeIds.length > 0) {
+      const feeTypes = await db
+        .select()
+        .from(feeTypesTable)
+        .where(
+          and(
+            inArray(feeTypesTable.id, feeTypeIds),
+            eq(feeTypesTable.schoolId, schoolId)
+          )
+        );
+      for (const ft of feeTypes) {
+        feeTypesMap.set(ft.id, ft);
+      }
+    }
+
+    return rows.map((payment) => {
+      const feeType = feeTypesMap.get(payment.feeTypeId);
+      return {
+        ...payment,
+        feeTypeName:
+          feeType?.name ||
+          "Fee",
+        receiptNo:
+          payment.receiptNo,
+        receiptAcademicYear:
+          payment.receiptAcademicYear,
+      };
+    });
   };
 
 const makeStudentStats =
@@ -3821,6 +3834,8 @@ export const updateStudentService =
         sectionId: current.sectionId,
       });
     }
+
+    await deleteCachePattern(`section:${current.sectionId}:students:*`);
 
     return await getStudentDetailService({
       schoolId,
@@ -4749,6 +4764,13 @@ export const recordStudentPaymentService =
           )
         )
       );
+
+    await deleteCache(keys.dashboard(schoolId, fee.academicYear));
+    await deleteCache(keys.dashboardInsights(schoolId, fee.academicYear));
+    if (activeAcademicYear !== fee.academicYear) {
+      await deleteCache(keys.dashboard(schoolId, activeAcademicYear));
+      await deleteCache(keys.dashboardInsights(schoolId, activeAcademicYear));
+    }
 
     // Trigger WhatsApp receipt send asynchronously
     (async () => {

@@ -2,6 +2,7 @@ import {
   integer,
   sqliteTable,
   text,
+  index,
 } from "drizzle-orm/sqlite-core";
 
 export const studentPaymentsTable =
@@ -68,5 +69,10 @@ export const studentPaymentsTable =
       createdAt:
         integer("created_at")
           .notNull(),
-    }
+    },
+    (table) => ({
+      schoolPaidIdx: index("idx_student_payments_school_paid").on(table.schoolId, table.paidAt),
+      studentIdx: index("idx_student_payments_student").on(table.studentId),
+      studentFeeIdx: index("idx_student_payments_student_fee").on(table.studentFeeId),
+    })
   );

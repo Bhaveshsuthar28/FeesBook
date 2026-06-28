@@ -5,6 +5,7 @@ import {
   text,
   integer,
   uniqueIndex,
+  index,
 } from "drizzle-orm/sqlite-core";
 
 export const studentsTable =
@@ -118,5 +119,8 @@ export const studentsTable =
           table.schoolId,
           table.schoolRegisterNo
         ),
+      classSectionIdx: index("idx_students_class_section").on(table.classId, table.sectionId),
+      schoolStatusIdx: index("idx_students_school_status").on(table.schoolId, table.status),
+      sectionIdIdx: index("idx_students_section_id").on(table.sectionId),
     })
   );

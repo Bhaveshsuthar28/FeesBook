@@ -44,5 +44,9 @@ export const enrollmentsTable = sqliteTable(
       table.schoolId,
       table.studentId
     ),
+    studentIdIdx: index("idx_enrollments_student_id").on(table.studentId),
+    classYearIdx: index("idx_enrollments_class_year").on(table.classId, table.academicYear),
+    schoolYearIdx: index("idx_enrollments_school_year").on(table.schoolId, table.academicYear),
+    statusIdx: index("idx_enrollments_status").on(table.schoolId, table.status, table.academicYear),
   })
 );

@@ -33,6 +33,9 @@ import {
   getActiveAcademicYearService,
 } from "../settings/settings.service.js";
 
+import { getCache, setCache } from "../../cors/cache/cache.service.js";
+import { keys, TTL } from "../../cors/cache/cache.keys.js";
+
 const startOfMonth =
   (d) =>
     new Date(
@@ -67,6 +70,10 @@ export const getDashboardInsightsService =
       await getActiveAcademicYearService({
         schoolId,
       });
+
+    const cacheKey = keys.dashboardInsights(schoolId, targetYear);
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
 
     const now =
       new Date();
@@ -445,7 +452,7 @@ export const getDashboardInsightsService =
         lastMonthSum?.total || 0
       );
 
-    return {
+    const finalResult = {
       recentPayments:
         recentRows.map(
           (row) => ({
@@ -479,4 +486,7 @@ export const getDashboardInsightsService =
 
       dailyTrend,
     };
+
+    await setCache(cacheKey, finalResult, TTL.DASHBOARD);
+    return finalResult;
   };
