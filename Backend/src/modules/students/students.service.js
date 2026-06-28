@@ -1798,6 +1798,7 @@ const createStudentRecord =
 
     const year = targetClass?.academicYear || getCurrentAcademicYear();
     await deleteCache(keys.dashboard(schoolId, year));
+    await deleteCache(keys.dashboardInsights(schoolId, year));
     await deleteCachePattern(`section:${student.sectionId}:students:*`);
 
     return student;
@@ -3030,6 +3031,7 @@ export const getFeesLedgerService =
                     }
                   : null,
               dueFees,
+              hasPaymentInMonth,
             };
           }
         )
@@ -3124,13 +3126,16 @@ export const getFeesLedgerService =
           row.status === status ||
           (status === "Partial" &&
             row.baseStatus === "Partial");
+        const matchesMonthYear =
+          !monthWindow || row.hasPaymentInMonth;
 
         return (
           matchesSearch &&
           matchesClass &&
           matchesSection &&
           matchesPaymentMode &&
-          matchesStatus
+          matchesStatus &&
+          matchesMonthYear
         );
       });
     const statusCounts =

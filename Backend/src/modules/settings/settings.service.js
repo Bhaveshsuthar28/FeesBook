@@ -292,21 +292,51 @@ export const getSchoolProfileService =
       return result;
     }
 
-    const [created] =
-      await db
-        .insert(principals)
-        .values(
-          emptyProfile(
-            schoolId
+    try {
+      const [created] =
+        await db
+          .insert(principals)
+          .values(
+            emptyProfile(
+              schoolId
+            )
           )
-        )
-        .returning();
+          .returning();
 
-    const result = normalizeProfile(
-      created
-    );
-    await setCache(cacheKey, result, TTL.PROFILE);
-    return result;
+      const result = normalizeProfile(
+        created
+      );
+      await setCache(cacheKey, result, TTL.PROFILE);
+      return result;
+    } catch (insertErr) {
+      // Handle race condition: another concurrent request already inserted this profile
+      const isUniqueViolation =
+        insertErr?.message?.includes("UNIQUE") ||
+        insertErr?.message?.includes("SQLITE_CONSTRAINT") ||
+        insertErr?.code === "SQLITE_CONSTRAINT" ||
+        insertErr?.cause?.message?.includes("UNIQUE") ||
+        insertErr?.cause?.message?.includes("SQLITE_CONSTRAINT") ||
+        insertErr?.cause?.code === "SQLITE_CONSTRAINT" ||
+        String(insertErr).includes("UNIQUE") ||
+        String(insertErr).includes("SQLITE_CONSTRAINT");
+
+      if (isUniqueViolation) {
+        // Fetch the row the other request just inserted
+        const [existing] = await db
+          .select()
+          .from(principals)
+          .where(eq(principals.clerkId, schoolId));
+
+        if (existing) {
+          const result = normalizeProfile(existing);
+          await setCache(cacheKey, result, TTL.PROFILE);
+          return result;
+        }
+      }
+
+      // Unknown error — rethrow
+      throw insertErr;
+    }
   };
 
 export const updateSchoolProfileService =

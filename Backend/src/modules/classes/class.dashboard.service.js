@@ -37,10 +37,6 @@ import {
 } from "./class.catalog.js";
 
 import {
-  cleanupUnusedClassesService,
-} from "./class.service.js";
-
-import {
   getActiveAcademicYearService,
 } from "../settings/settings.service.js";
 
@@ -61,11 +57,6 @@ export const getClassesDashboardService =
     const cacheKey = keys.dashboard(schoolId, targetYear);
     const cached = await getCache(cacheKey);
     if (cached) return cached;
-
-    await cleanupUnusedClassesService({
-      schoolId,
-      academicYear: targetYear,
-    });
 
     const classes =
       await db

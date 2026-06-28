@@ -29,6 +29,7 @@ function sanitizeValue(val, key) {
 }
 
 export default async function sanitizeBody(request, reply) {
+  if (reply.sent) return;
   const contentType = request.headers["content-type"] || "";
   if (!contentType.includes("application/json")) return;
   if (!request.body) return;
@@ -60,6 +61,7 @@ function sanitizeStrictValue(val, key) {
 }
 
 export async function sanitizeStrict(request, reply) {
+  if (reply.sent) return;
   const contentType = request.headers["content-type"] || "";
   if (!contentType.includes("application/json")) return;
   if (!request.body) return;

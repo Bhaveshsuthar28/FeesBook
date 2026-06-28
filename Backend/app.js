@@ -61,8 +61,6 @@ const app = Fastify({
   bodyLimit: 10 * 1024 * 1024,
 });
 
-registerIdempotencyHook(app);
-
 await app.register(corsPlugin);
 
 await app.register(helmetPlugin);
@@ -72,6 +70,8 @@ await app.register(rateLimitPlugin);
 await app.register(sensiblePlugin);
 
 await app.register(clerkAuthPlugin);
+
+registerIdempotencyHook(app);
 
 app.addHook(
   "preHandler",

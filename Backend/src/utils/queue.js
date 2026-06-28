@@ -12,7 +12,7 @@ import {
 
 import { URL } from "url";
 
-const REDIS_URL = env.REDIS_URL;
+const REDIS_URL = env.QUEUE_REDIS_URL;
 
 // Parse Redis URL to supply explicit connection options, especially for secure TLS (rediss://)
 let redisOptions = REDIS_URL;

@@ -40,12 +40,14 @@ export function registerIdempotencyHook(fastifyInstance) {
         body: parsedBody,
       };
 
-      await cacheRedis.set(
-        `idempotency:${idempotencyKey}`,
-        JSON.stringify(cacheData),
-        "EX",
-        86400 // 24 hours in seconds
-      );
+      if (reply.statusCode >= 200 && reply.statusCode < 300) {
+        await cacheRedis.set(
+          `idempotency:${idempotencyKey}`,
+          JSON.stringify(cacheData),
+          "EX",
+          86400
+        );
+      }
     } catch (err) {
       request.log.error(err, "Idempotency onSend error saving response to Redis");
     }
