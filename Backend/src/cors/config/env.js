@@ -24,6 +24,7 @@ export const env = {
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   CACHE_REDIS_URL: process.env.CACHE_REDIS_URL || 'redis://localhost:6379',
   QUEUE_REDIS_URL: process.env.QUEUE_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379',
+  WHATSAPP_DRY_RUN: process.env.WHATSAPP_DRY_RUN || 'false',
 };
 
 if (!process.env.CACHE_REDIS_URL) {

@@ -22,6 +22,7 @@ import {
   Users,
   WalletCards,
   AlertCircle,
+  MessageCircle,
 } from "lucide-react";
 
 import Receipt from "../../assest/feesRecipt.png"
@@ -77,6 +78,8 @@ import {
 import {
   SettingsPageSkeleton,
 } from "../components/skeleton/PageSkeletons.jsx";
+
+import WhatsAppBotSettings from "../components/settings/WhatsAppBotSettings.jsx";
 
 const emptyProfile = {
   schoolName: "",
@@ -136,6 +139,11 @@ const settingsTabs = [
     id: "payments",
     label: "Payment Modes",
     icon: CreditCard,
+  },
+  {
+    id: "whatsappBot",
+    label: "WhatsApp Bot",
+    icon: MessageCircle,
   },
 ];
 
@@ -2548,6 +2556,10 @@ export default function SettingsPage() {
             })}
           </div>
         </SectionCard>
+      )}
+
+      {activeTab === "whatsappBot" && (
+        <WhatsAppBotSettings />
       )}
 
       {showReceiptPreview && (

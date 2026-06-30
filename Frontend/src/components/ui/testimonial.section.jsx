@@ -17,7 +17,7 @@ const TestimonialsSection = () => {
     <section
       id="testimonials"
       className="
-        py-16 lg:py-24
+        pt-16 pb-6 lg:pt-24 lg:pb-8
         bg-gray-50
       "
     >

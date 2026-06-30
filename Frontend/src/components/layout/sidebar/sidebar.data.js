@@ -4,6 +4,7 @@ import {
   Users,
   Wallet,
   Settings,
+  HelpCircle,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -42,5 +43,11 @@ export const sidebarItems = [
     label: "Settings",
     path: "/settings",
     icon: Settings,
+  },
+
+  {
+    label: "Help",
+    path: "/help",
+    icon: HelpCircle,
   },
 ];

@@ -680,7 +680,7 @@ async function searchStudents(schoolId, keyword) {
 }
 
 // Student Details Profile (Option 4 Select / Option 5 Details)
-async function getStudentProfileDetails(schoolId, studentId) {
+export async function getStudentProfileDetails(schoolId, studentId) {
   try {
     const [student] = await db
       .select({

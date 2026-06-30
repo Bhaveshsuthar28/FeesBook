@@ -108,3 +108,56 @@ export const archiveAcademicYear =
 
     return response.data.data;
   };
+
+export const getBotCredentialsStatus =
+  async () => {
+    const response =
+      await axios.get(
+        `${API}/settings/whatsapp-bot/status`
+      );
+
+    return response.data.data;
+  };
+
+export const saveBotCredentials =
+  async (data) => {
+    const response =
+      await axios.post(
+        `${API}/settings/whatsapp-bot/credentials`,
+        data
+      );
+
+    return response.data.data;
+  };
+
+export const revokeBotAccess =
+  async () => {
+    const response =
+      await axios.post(
+        `${API}/settings/whatsapp-bot/revoke`
+      );
+
+    return response.data;
+  };
+
+export const sendSupportRequest =
+  async (question) => {
+    const response =
+      await axios.post(
+        `${API}/settings/support/help`,
+        { question }
+      );
+
+    return response.data;
+  };
+
+export const toggleBotActiveStatus =
+  async (isActive) => {
+    const response =
+      await axios.post(
+        `${API}/settings/whatsapp-bot/active`,
+        { isActive }
+      );
+
+    return response.data;
+  };

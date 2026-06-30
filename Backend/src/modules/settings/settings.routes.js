@@ -8,6 +8,11 @@ import {
   setActiveAcademicYearController,
   updateSettingsPreferencesController,
   updateSchoolProfileController,
+  saveBotCredentialsController,
+  getBotCredentialsStatusController,
+  revokeBotAccessController,
+  sendSupportEmailController,
+  toggleBotActiveStatusController,
 } from "./settings.controllers.js";
 
 export default async function (
@@ -57,4 +62,10 @@ export default async function (
     "/academic-years/:year/archive",
     archiveAcademicYearController
   );
+
+  fastify.post("/whatsapp-bot/credentials", saveBotCredentialsController);
+  fastify.get("/whatsapp-bot/status", getBotCredentialsStatusController);
+  fastify.post("/whatsapp-bot/revoke", revokeBotAccessController);
+  fastify.post("/whatsapp-bot/active", toggleBotActiveStatusController);
+  fastify.post("/support/help", sendSupportEmailController);
 }

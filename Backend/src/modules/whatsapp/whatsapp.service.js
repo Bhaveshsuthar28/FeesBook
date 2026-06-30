@@ -37,6 +37,11 @@ export async function sendTextMessage(phone, message, phoneNumberId = defaultPho
       return { success: false, error: `Invalid phone number: ${phone}` };
     }
 
+    if (env.WHATSAPP_DRY_RUN === "true") {
+      console.log(`\n📱 [DRY RUN] Reply to ${to}:\n${message}\n`);
+      return { success: true, dryRun: true };
+    }
+
     const response = await axios.post(
       `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
       {

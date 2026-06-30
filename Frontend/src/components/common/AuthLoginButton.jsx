@@ -3,21 +3,21 @@ import {
 } from "react";
 
 import {
-  Chrome,
-} from "lucide-react";
+  FcGoogle,
+} from "react-icons/fc";
 
 const variantClass = {
   outline:
-    "border-2 border-blue-600 bg-white text-blue-600 shadow-sm hover:bg-blue-50 hover:text-blue-700",
+    "border border-slate-200 bg-white text-slate-750 shadow-sm hover:bg-slate-50 hover:border-slate-350 hover:text-slate-900",
   solid:
     "border border-blue-500 bg-blue-600 text-white shadow-sm hover:bg-blue-700",
 };
 
 const iconClass = {
   outline:
-    "bg-blue-50 text-blue-600",
+    "flex items-center justify-center bg-white rounded-full p-0.5",
   solid:
-    "bg-white/20 text-white",
+    "flex items-center justify-center bg-white rounded-full p-1",
 };
 
 const AuthLoginButton =
@@ -39,12 +39,13 @@ const AuthLoginButton =
         h-11
         items-center
         justify-center
-        gap-2.5
+        gap-3
         rounded-xl
-        px-4
+        px-5
         text-sm
         font-bold
-        transition
+        transition-all
+        duration-200
         focus:outline-none
         focus:ring-4
         focus:ring-blue-100
@@ -59,16 +60,16 @@ const AuthLoginButton =
           w-7
           items-center
           justify-center
-          rounded-full
           ${iconClass[variant]}
         `}
       >
-        <Chrome className="h-4 w-4" />
+        <FcGoogle className="h-5.5 w-5.5" />
       </span>
 
-      <span>Login with Google</span>
+      <span>Sign in with Google</span>
     </button>
   );
 });
 
 export default AuthLoginButton;
+

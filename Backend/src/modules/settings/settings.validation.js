@@ -115,3 +115,13 @@ export const settingsPreferencesSchema =
         z.enum(allowedPaymentModes)
       ).min(1).optional(),
   });
+
+export const saveBotCredentialsSchema = z.object({
+  activationCommand: z.string()
+    .min(6, "Activation command must be at least 6 characters")
+    .max(30, "Activation command must be under 30 characters")
+    .regex(/^[a-zA-Z0-9]+$/, "Activation command must be alphanumeric only"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters"),
+});
+

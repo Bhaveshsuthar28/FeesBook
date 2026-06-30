@@ -43,108 +43,141 @@ import RemindersPage
 import ProfilePage
   from "./pages/profilepage.jsx";
 
+import HelpPage
+  from "./pages/helppage.jsx";
+
+import AboutPage from "./pages/aboutpage.jsx";
+import PrivacyPage from "./pages/privacypage.jsx";
+import TermsPage from "./pages/termspage.jsx";
+
 import {
   AppProvider,
 } from "./context/user.context.jsx";
 
-const App = () => {
+const AppContent = () => {
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <PublicRoute>
+            <Home />
+          </PublicRoute>
+        }
+      />
 
+      <Route
+        path="/about"
+        element={
+          <PublicRoute>
+            <AboutPage />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/privacy"
+        element={
+          <PublicRoute>
+            <PrivacyPage />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/terms"
+        element={
+          <PublicRoute>
+            <TermsPage />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route
+          path="dashboard"
+          element={<DashboardPage />}
+        />
+
+        <Route
+          path="classes"
+          element={<ClassesPage />}
+        />
+
+        <Route
+          path="classes/:className/sections"
+          element={<SectionsPage />}
+        />
+
+        <Route
+          path="classes/:className/sections/:sectionName/students"
+          element={<StudentsPage />}
+        />
+
+        <Route
+          path="classes/:className/sections/:sectionName/students/:studentId"
+          element={<StudentDetailsPage />}
+        />
+
+        <Route
+          path="students"
+          element={<StudentsPage />}
+        />
+
+        <Route
+          path="students/:studentId"
+          element={<StudentDetailsPage />}
+        />
+
+        <Route
+          path="fees"
+          element={<FeesPage />}
+        />
+
+        <Route
+          path="settings"
+          element={<SettingsPage />}
+        />
+
+        <Route
+          path="reminders"
+          element={<RemindersPage />}
+        />
+
+        <Route
+          path="profile"
+          element={<ProfilePage />}
+        />
+
+        <Route
+          path="help"
+          element={<HelpPage />}
+        />
+      </Route>
+
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to="/dashboard"
+            replace
+          />
+        }
+      />
+    </Routes>
+  );
+};
+
+const App = () => {
   return (
     <AppProvider>
-
-      <Routes>
-
-        <Route
-          path="/"
-
-          element={
-            <PublicRoute>
-              <Home />
-            </PublicRoute>
-          }
-        />
-
-        <Route
-
-          element={
-            <ProtectedRoute>
-
-              <DashboardLayout />
-
-            </ProtectedRoute>
-          }
-        >
-
-          <Route
-            path="dashboard"
-            element={<DashboardPage />}
-          />
-
-          <Route
-            path="classes"
-            element={<ClassesPage />}
-          />
-
-          <Route
-            path="classes/:className/sections"
-            element={<SectionsPage />}
-          />
-
-          <Route
-            path="classes/:className/sections/:sectionName/students"
-            element={<StudentsPage />}
-          />
-
-          <Route
-            path="classes/:className/sections/:sectionName/students/:studentId"
-            element={<StudentDetailsPage />}
-          />
-
-          <Route
-            path="students"
-            element={<StudentsPage />}
-          />
-
-          <Route
-            path="students/:studentId"
-            element={<StudentDetailsPage />}
-          />
-
-          <Route
-            path="fees"
-            element={<FeesPage />}
-          />
-
-          <Route
-            path="settings"
-            element={<SettingsPage />}
-          />
-
-          <Route
-            path="reminders"
-            element={<RemindersPage />}
-          />
-
-          <Route
-            path="profile"
-            element={<ProfilePage />}
-          />
-
-        </Route>
-
-        <Route
-          path="*"
-
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
-
-      </Routes>
-
+      <AppContent />
     </AppProvider>
   );
 };

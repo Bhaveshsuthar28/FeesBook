@@ -7,12 +7,16 @@ import {
   updateWhatsappSettingsController,
   getWhatsappHistoryController,
   triggerFeesRemindersController,
+  handlePublicContactEmailController,
 } from "./whatsapp.controller.js";
 
 export default async function (fastify) {
   // Webhook endpoints for Meta API (Verify and receive webhook events)
   fastify.get("/webhook/whatsapp", verifyWebhookController);
   fastify.post("/webhook/whatsapp", handleWebhookController);
+
+  // Public support email route
+  fastify.post("/webhook/contact-email", handlePublicContactEmailController);
 
   // API endpoints for sending messages
   fastify.post("/send-personal", sendPersonalController);

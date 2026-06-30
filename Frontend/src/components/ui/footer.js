@@ -1,22 +1,21 @@
 const footerLinks = {
   product: [
-    "Features",
-    "How It Works",
-    "Pricing",
-    "Updates",
+    { label: "Features", href: "#features" },
+    { label: "How It Works", href: "#howitworks" },
+    { label: "Pricing", href: "#pricing" },
   ],
 
   company: [
-    "About Us",
-    "Testimonials",
-    "FAQ",
-    "Contact Us",
+    { label: "About Us", href: "/about" },
+    { label: "Testimonials", href: "#testimonials" },
+    { label: "FAQ", href: "#faq" },
+    { label: "Contact Us", action: "contact" },
   ],
 
   support: [
-    "Help Center",
-    "Privacy Policy",
-    "Terms of Service",
+    { label: "Help Center", action: "help" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
   ],
 };
 

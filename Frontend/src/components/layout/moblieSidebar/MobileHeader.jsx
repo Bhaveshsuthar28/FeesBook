@@ -22,6 +22,7 @@ import Logo
 import {
   LogOut,
   User,
+  HelpCircle,
 } from "lucide-react";
 
 export default function MobileHeader() {
@@ -190,6 +191,31 @@ export default function MobileHeader() {
 
                     Profile
 
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate("/help");
+                      setShowProfileMenu(false);
+                    }}
+                    className="
+                      flex
+                      w-full
+                      items-center
+                      gap-3
+                      rounded-xl
+                      px-3
+                      py-3
+                      text-sm
+                      font-medium
+                      hover:bg-slate-100
+                    "
+                  >
+                    <HelpCircle
+                      size={18}
+                    />
+                    Help
                   </button>
 
                   <button

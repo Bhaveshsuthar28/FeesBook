@@ -2,6 +2,7 @@ import Logo from "../common/logo.components.jsx";
 import AuthLoginButton from "../common/AuthLoginButton.jsx";
 import navLinks from "../common/navlink.components.jsx";
 import { useState, useEffect } from "react";
+import { useLocation, Link } from "react-router-dom";
 
 import {
   SignInButton,
@@ -9,6 +10,8 @@ import {
 
 const Navbar = () => {
   const [lastLogin, setLastLogin] = useState(null);
+  const location = useLocation();
+  const isHomePage = location.pathname === "/";
 
   useEffect(() => {
     const saved = localStorage.getItem("feesbook_last_login");
@@ -31,7 +34,7 @@ const Navbar = () => {
           {navLinks.map((link) => (
             <a
               key={link.label}
-              href={link.href}
+              href={isHomePage ? link.href : `/${link.href}`}
               className="text-sm font-medium text-gray-700 hover:text-blue-600 transition"
             >
               {link.label}

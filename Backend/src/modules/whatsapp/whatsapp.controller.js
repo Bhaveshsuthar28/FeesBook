@@ -19,6 +19,13 @@ import {
   processBotMessage 
 } from "./bot.service.js";
 import { processAutoReminders, countPendingReminders } from "./reminder.service.js";
+import {
+  handleIncomingMessage,
+  logoutCommand,
+} from "./principalBot/principalBot.auth.middleware.js";
+import { sendTextMessage } from "./whatsapp.service.js";
+import { handleParentIncomingMessage } from "./parentBot.service.js";
+import nodemailer from "nodemailer";
 
 // 1. GET Verification Handshake for Meta API Webhook
 export async function verifyWebhookController(request, reply) {
@@ -68,12 +75,48 @@ export async function handleWebhookController(request, reply) {
 
         if (!from || !text) return;
 
-        // Check if this is a principal number
+        // Run through the new Principal Bot Auth State Machine first
+        const authResult = await handleIncomingMessage({
+          phoneNumber: from,
+          messageText: text,
+        });
+
+        if (authResult.reply) {
+          await sendTextMessage(from, authResult.reply);
+          return;
+        }
+
+        if (authResult.authenticated) {
+          const command = text.toLowerCase();
+          if (command === "logout") {
+            const logoutRes = await logoutCommand({ phoneNumber: from });
+            await sendTextMessage(from, logoutRes.reply);
+            return;
+          }
+
+          if (command === "help") {
+            const helpMsg = `Available Commands:\n- help: Show this guide\n- logout: Close active bot session`;
+            await sendTextMessage(from, helpMsg);
+            return;
+          }
+
+          await sendTextMessage(from, `🤖 Command received: "${text}"`);
+          return;
+        }
+
+        // Run through the Parent Bot flow next
+        const parentResult = await handleParentIncomingMessage(from, text);
+        if (parentResult.reply) {
+          await sendTextMessage(from, parentResult.reply);
+          return;
+        }
+
+        // Fallback to legacy check if not handled by any bot state machine
         const isPrincipal = await isPrincipalNumber(from);
         if (isPrincipal) {
           await processBotMessage(from, text);
         } else {
-          console.log(`[WhatsApp Webhook] Ignored non-principal incoming message from: ${from}`);
+          console.log(`[WhatsApp Webhook] Ignored incoming message from: ${from}`);
         }
       }
     } catch (error) {
@@ -373,5 +416,90 @@ export async function triggerFeesRemindersController(request, reply) {
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ success: false, message: error.message });
+  }
+}
+
+// 9. POST Public Contact/Help Email Controller
+export async function handlePublicContactEmailController(request, reply) {
+  const { email, message, type } = request.body || {};
+
+  if (!email || !email.trim()) {
+    return reply.status(400).send({ success: false, message: "Email is required." });
+  }
+  if (!message || !message.trim()) {
+    return reply.status(400).send({ success: false, message: "Message is required." });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      replyTo: email,
+      subject: `FeesBook Public Website: New ${type === "help" ? "Help Ticket" : "Contact Query"}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; color: #333333; margin: 0; padding: 20px; }
+            .container { max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); border: 1px solid #e1e4e8; }
+            .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center; color: #ffffff; }
+            .logo-text { font-size: 24px; font-weight: 800; }
+            .content { padding: 30px; }
+            .ticket-title { font-size: 18px; font-weight: 700; color: #1e3a8a; margin-bottom: 20px; border-bottom: 2px solid #e1e4e8; padding-bottom: 10px; }
+            .label { font-size: 12px; font-weight: 800; color: #2563eb; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+            .problem-card { background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; border-radius: 8px; margin-bottom: 25px; line-height: 1.6; font-size: 14px; color: #334155; }
+            .info-grid { background-color: #f8fafc; border-radius: 8px; padding: 20px; border: 1px solid #edf2f7; }
+            .info-row { display: flex; margin-bottom: 12px; font-size: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 8px; }
+            .info-row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+            .info-label { width: 140px; font-weight: 750; color: #64748b; }
+            .info-val { font-weight: 600; color: #0f172a; }
+            .footer { background-color: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #a0aec0; border-top: 1px solid #edf2f7; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo-text">Fees<span style="color: #60a5fa;">Book</span></div>
+            </div>
+            <div class="content">
+              <div class="ticket-title">New Website Request (${type === "help" ? "Help Center Guide" : "Support Form"})</div>
+              <div class="label">User Query Message:</div>
+              <div class="problem-card">${message.replace(/\n/g, "<br/>")}</div>
+              
+              <div class="label">Sender Details:</div>
+              <div class="info-grid">
+                <div class="info-row">
+                  <span class="info-label">Sender Email:</span>
+                  <span class="info-val">${email}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Query Type:</span>
+                  <span class="info-val" style="text-transform: uppercase;">${type || "general"}</span>
+                </div>
+              </div>
+            </div>
+            <div class="footer">
+              This support ticket was sent from the public website contact portal.
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return reply.status(200).send({ success: true, message: "Email sent successfully." });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ success: false, message: "Failed to send support email." });
   }
 }

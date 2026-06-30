@@ -69,14 +69,21 @@ export const AppProvider = ({ children }) => {
     }
   }, [schoolProfile?.logoUrl]);
 
+  const [contactOpen, setContactOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
   const value = useMemo(
     () => ({
       sidebarOpen,
       setSidebarOpen,
       schoolProfile,
       refreshSchoolProfile,
+      contactOpen,
+      setContactOpen,
+      helpOpen,
+      setHelpOpen,
     }),
-    [sidebarOpen, schoolProfile, refreshSchoolProfile]
+    [sidebarOpen, schoolProfile, refreshSchoolProfile, contactOpen, helpOpen]
   );
 
   return (

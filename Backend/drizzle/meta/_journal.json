@@ -78,6 +78,13 @@
       "when": 1780026203000,
       "tag": "0010_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1782819824363,
+      "tag": "0011_principal_bot_credentials",
+      "breakpoints": true
     }
   ]
 }
