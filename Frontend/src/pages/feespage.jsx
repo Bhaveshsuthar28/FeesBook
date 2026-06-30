@@ -54,7 +54,7 @@ const statusTabs = [
   "All",
   "Paid",
   "Partial",
-  "Unpaid",
+  "Pending",
   "Overdue",
 ];
 
@@ -72,9 +72,9 @@ const statusClass = {
   Partial:
     "bg-orange-100 text-orange-700",
   Unpaid:
-    "bg-red-100 text-red-700",
+    "bg-blue-100 text-blue-700",
   Overdue:
-    "bg-red-200 text-red-800",
+    "bg-red-100 text-red-700",
 };
 
 const formatCurrency =
@@ -277,7 +277,7 @@ export default function FeesPage() {
   const [
     monthYear,
     setMonthYear,
-  ] = useState(currentMonth);
+  ] = useState("");
   const [
     paymentMode,
     setPaymentMode,
@@ -310,7 +310,7 @@ export default function FeesPage() {
       setStatus("All");
       setClassId("");
       setSectionId("");
-      setMonthYear(currentMonth());
+      setMonthYear("");
       setPaymentMode("");
       setStudentStatus("active");
       setPage(1);
@@ -330,7 +330,7 @@ export default function FeesPage() {
         setLoading(true);
         const result =
           await getFeesLedger({
-            status,
+            status: status === "Pending" ? "Unpaid" : status,
             page,
             limit: pageSize,
             search,
@@ -1072,7 +1072,7 @@ export default function FeesPage() {
                   }
                 `}
               >
-                {tab} ({ledger.statusCounts[tab] || 0})
+                {tab} ({ledger.statusCounts[tab === "Pending" ? "Unpaid" : tab] || 0})
               </button>
             ))
           }
@@ -1151,7 +1151,7 @@ export default function FeesPage() {
                         </td>
                         <td className="px-4 py-4">
                           <span className={`${statusClass[student.status] || statusClass.Unpaid} rounded-full px-3 py-1 text-xs font-extrabold`}>
-                            {student.status}
+                            {student.status === "Unpaid" ? "Pending" : student.status}
                           </span>
                         </td>
                         <td className="px-4 py-4">
@@ -1215,7 +1215,7 @@ export default function FeesPage() {
                         </div>
                       </div>
                       <span className={`${statusClass[student.status] || statusClass.Unpaid} shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold`}>
-                        {student.status}
+                        {student.status === "Unpaid" ? "Pending" : student.status}
                       </span>
                     </div>
 

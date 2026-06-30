@@ -194,6 +194,7 @@ export default function SectionCard({
                   text-slate-500
                 "
               >
+                {Number(section.studentsCount || 0)} Students •{" "}
                 {
                   mode === "archived"
                     ? "Archived"

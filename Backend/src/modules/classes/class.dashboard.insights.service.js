@@ -64,16 +64,14 @@ export const getDashboardInsightsService =
   async ({
     schoolId,
     academicYear,
+    startDate,
+    endDate,
   }) => {
     const targetYear =
       academicYear ||
       await getActiveAcademicYearService({
         schoolId,
       });
-
-    const cacheKey = keys.dashboardInsights(schoolId, targetYear);
-    const cached = await getCache(cacheKey);
-    if (cached) return cached;
 
     const now =
       new Date();
@@ -89,6 +87,13 @@ export const getDashboardInsightsService =
 
     const lastMonthEnd =
       thisMonthStart;
+
+    const rangeStart = startDate ? Number(startDate) : thisMonthStart;
+    const rangeEnd = endDate ? Number(endDate) : thisMonthEnd;
+
+    const cacheKey = `${keys.dashboardInsights(schoolId, targetYear)}_${rangeStart}_${rangeEnd}`;
+    const cached = await getCache(cacheKey);
+    if (cached) return cached;
 
     const recentRows =
       await db
@@ -307,11 +312,9 @@ export const getDashboardInsightsService =
           paidAt:
             studentPaymentsTable.paidAt,
         })
-
         .from(
           studentPaymentsTable
         )
-
         .innerJoin(
           studentFeesTable,
           eq(
@@ -319,27 +322,23 @@ export const getDashboardInsightsService =
             studentPaymentsTable.studentFeeId
           )
         )
-
         .where(
           and(
             eq(
               studentPaymentsTable.schoolId,
               schoolId
             ),
-
             eq(
               studentFeesTable.academicYear,
               targetYear
             ),
-
             gte(
               studentPaymentsTable.paidAt,
-              thisMonthStart
+              rangeStart
             ),
-
             lt(
               studentPaymentsTable.paidAt,
-              thisMonthEnd
+              rangeEnd
             )
           )
         );
@@ -348,7 +347,6 @@ export const getDashboardInsightsService =
       new Map();
 
     for (const p of monthPayments) {
-
       const d =
         new Date(
           Number(
@@ -387,22 +385,48 @@ export const getDashboardInsightsService =
       );
     }
 
-    const totalPending =
-      Number(
-        pendingRow?.total || 0
+    // Fetch total allocated fees (amount) for the active academic year
+    const [totalAllocatedRow] = await db
+      .select({
+        total: sql`coalesce(sum(${studentFeesTable.amount}), 0)`
+      })
+      .from(studentFeesTable)
+      .innerJoin(studentsTable, eq(studentsTable.id, studentFeesTable.studentId))
+      .where(
+        and(
+          eq(studentFeesTable.schoolId, schoolId),
+          eq(studentsTable.status, "active"),
+          eq(studentFeesTable.academicYear, targetYear)
+        )
       );
 
+    const totalSchoolFees = Number(totalAllocatedRow?.total || 0);
+
+    // Fetch total collected before rangeStart
+    const [collectedBeforeRow] = await db
+      .select({
+        total: sql`coalesce(sum(${studentPaymentsTable.amount}), 0)`
+      })
+      .from(studentPaymentsTable)
+      .innerJoin(studentFeesTable, eq(studentFeesTable.id, studentPaymentsTable.studentFeeId))
+      .where(
+        and(
+          eq(studentPaymentsTable.schoolId, schoolId),
+          eq(studentFeesTable.academicYear, targetYear),
+          lt(studentPaymentsTable.paidAt, rangeStart)
+        )
+      );
+
+    const collectedBeforeRange = Number(collectedBeforeRow?.total || 0);
+
     const dailyTrend = [];
+    let cumulativeCollected = collectedBeforeRange;
 
     for (
-      let t =
-        thisMonthStart;
-
-      t < thisMonthEnd;
-
+      let t = rangeStart;
+      t < rangeEnd;
       t += 86400000
     ) {
-
       const d =
         new Date(t);
 
@@ -425,6 +449,12 @@ export const getDashboardInsightsService =
           ),
         ].join("-");
 
+      const dayCollected = byDay.get(key) || 0;
+      cumulativeCollected += dayCollected;
+
+      // Pending on this day = Total Allocated Fees - Cumulative Collected up to this day
+      const dayPending = Math.max(0, totalSchoolFees - cumulativeCollected);
+
       dailyTrend.push({
         date:
           key,
@@ -435,12 +465,17 @@ export const getDashboardInsightsService =
           ),
 
         collected:
-          byDay.get(key) || 0,
+          dayCollected,
 
         pendingSnapshot:
-          totalPending,
+          dayPending,
       });
     }
+
+    const totalPending =
+      Number(
+        pendingRow?.total || 0
+      );
 
     const collectedThisMonth =
       Number(

@@ -533,6 +533,9 @@ export const assignFeeToClassService =
           );
 
         await deleteCache(keys.classFees(data.classId));
+        const activeYear = await getActiveAcademicYearService({ schoolId });
+        await deleteCache(keys.dashboard(schoolId, activeYear));
+        await deleteCache(keys.dashboardInsights(schoolId, activeYear));
 
         return {
           ...existing,
@@ -554,6 +557,9 @@ export const assignFeeToClassService =
         .values(classFee);
 
       await deleteCache(keys.classFees(data.classId));
+      const activeYearInsert = await getActiveAcademicYearService({ schoolId });
+      await deleteCache(keys.dashboard(schoolId, activeYearInsert));
+      await deleteCache(keys.dashboardInsights(schoolId, activeYearInsert));
 
       return classFee;
 
@@ -610,6 +616,10 @@ export const updateClassFeeService =
     if (fee) {
       await deleteCache(keys.classFees(fee.classId));
     }
+
+    const activeYear = await getActiveAcademicYearService({ schoolId });
+    await deleteCache(keys.dashboard(schoolId, activeYear));
+    await deleteCache(keys.dashboardInsights(schoolId, activeYear));
 
     return true;
   };
@@ -675,6 +685,10 @@ export const archiveClassFeeService =
     if (fee) {
       await deleteCache(keys.classFees(fee.classId));
     }
+
+    const activeYear = await getActiveAcademicYearService({ schoolId });
+    await deleteCache(keys.dashboard(schoolId, activeYear));
+    await deleteCache(keys.dashboardInsights(schoolId, activeYear));
 
     return true;
   };

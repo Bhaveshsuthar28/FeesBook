@@ -55,6 +55,7 @@ import {
   getStudentDirectory,
   getStudentsBySection,
   markStudentLeft,
+  reshuffleRollNumbersApi,
 } from "../lib/api/studentapi.js";
 
 import {
@@ -1859,6 +1860,8 @@ export default function StudentsPage() {
     setDirectorySectionId,
   ] = useState("");
 
+  const [reshuffling, setReshuffling] = useState(false);
+
   const [
     directoryPaymentStatus,
     setDirectoryPaymentStatus,
@@ -2304,6 +2307,24 @@ export default function StudentsPage() {
         stats,
       ]
     );
+
+  const handleReshuffleRollNumbers = async () => {
+    if (!resolvedClassId || !resolvedSectionId) return;
+    try {
+      setReshuffling(true);
+      await reshuffleRollNumbersApi({
+        classId: resolvedClassId,
+        sectionId: resolvedSectionId,
+      });
+      notify.success("Roll numbers reshuffled successfully!");
+      refreshStudents();
+    } catch (err) {
+      console.error("Reshuffle failed", err);
+      notify.error(err, "Failed to reshuffle roll numbers");
+    } finally {
+      setReshuffling(false);
+    }
+  };
 
   const canAddStudents =
     selectedClass &&
@@ -3456,6 +3477,34 @@ export default function StudentsPage() {
             >
               <ArrowUpCircle size={16} />
               Promote Students
+            </button>
+          )}
+
+          {selectedClass && selectedSection && (
+            <button
+              type="button"
+              onClick={handleReshuffleRollNumbers}
+              disabled={reshuffling}
+              className="
+                flex
+                h-11
+                items-center
+                gap-2
+                rounded-lg
+                border
+                border-slate-200
+                bg-slate-50
+                px-4
+                text-xs
+                font-bold
+                text-slate-700
+                hover:bg-slate-100
+                disabled:cursor-not-allowed
+                disabled:opacity-50
+              "
+            >
+              <RotateCcw size={16} className={reshuffling ? "animate-spin" : ""} />
+              {reshuffling ? "Reshuffling..." : "Reshuffle Roll Numbers"}
             </button>
           )}
 

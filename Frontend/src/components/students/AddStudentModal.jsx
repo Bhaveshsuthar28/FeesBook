@@ -534,6 +534,13 @@ export default function AddStudentModal({
 
         setImportResult(result);
         await onSaved();
+
+        if (result.created > 0 && result.skipped === 0) {
+          notify.success(
+            `${result.created} students imported successfully!`
+          );
+          onClose();
+        }
       } catch (error) {
         notify.error(error, "Students could not be imported");
       } finally {
@@ -1414,17 +1421,21 @@ export default function AddStudentModal({
               {
                 importResult && (
                   <div
-                    className="
+                    className={`
                       mt-4
                       rounded-xl
                       border
-                      border-slate-200
                       p-4
                       text-sm
-                      text-slate-700
-                    "
+                      ${importResult.skipped > 0
+                        ? "border-orange-200 bg-orange-50 text-orange-800"
+                        : "border-green-200 bg-green-50 text-green-800"}
+                    `}
                   >
-                    Imported {importResult.created} students. Skipped {importResult.skipped}.
+                    <p className="font-semibold">
+                      Imported {importResult.created} students.{" "}
+                      {importResult.skipped > 0 && `Skipped ${importResult.skipped}.`}
+                    </p>
                     {
                       importResult.errors
                         ?.length > 0 && (
@@ -1449,6 +1460,38 @@ export default function AddStudentModal({
                             )
                           }
                         </div>
+                      )
+                    }
+                    {
+                      importResult.skipped > 0 && (
+                        <label
+                          className="
+                            mt-3
+                            inline-flex
+                            cursor-pointer
+                            items-center
+                            gap-2
+                            rounded-lg
+                            bg-orange-600
+                            px-4
+                            py-2
+                            text-xs
+                            font-semibold
+                            text-white
+                            hover:bg-orange-700
+                          "
+                        >
+                          Re-upload File
+                          <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            hidden
+                            onChange={(event) => {
+                              setImportResult(null);
+                              handleImport(event.target.files?.[0]);
+                            }}
+                          />
+                        </label>
                       )
                     }
                   </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { 
   Clock, 
   Play, 
@@ -14,7 +14,10 @@ import {
   X,
   Sparkles,
   Check,
-  Paperclip
+  Paperclip,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { 
@@ -67,13 +70,13 @@ const DEFAULT_TEMPLATES = [
   },
   {
     name: "overdue_reminder",
-    body: "Dear Parent, {full_name} has pending current class fees of ₹{pending_fees} and overdue fees of ₹{overdue_fees} ({overdue_details}). Please deposit it soon. - School",
+    body: "Dear {parent_name}, your child {full_name} (Class {class_name}) has a pending fee of ₹{pending_fees} and overdue fees of ₹{overdue_fees} ({overdue_details}). Please deposit it soon. Regards, {school_name} school administration.",
     status: "Approved",
     isDefault: true,
   },
   {
-    name: "receipt_template",
-    body: "Dear Parent, fee receipt for ₹{paid_amount} paid on {due_date} for {full_name}. {{receipt_pdf}}",
+    name: "fees_receipt",
+    body: "Dear {parent_name}, thank you for the payment of ₹{receipt_amount} for your child {full_name} (Class {class_name}). Receipt no: {receipt_no}. Regards, {school_name} school administration.",
     status: "Approved",
     isDefault: true,
   },
@@ -610,6 +613,45 @@ export default function RemindersPage() {
   const [triggering, setTriggering] = useState(false);
   const [showTriggerConfirm, setShowTriggerConfirm] = useState(false);
 
+  // Filtering and pagination state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, typeFilter]);
+
+  const uniqueTypes = useMemo(() => {
+    return [...new Set(history.map((h) => h.messageType).filter(Boolean))];
+  }, [history]);
+
+  const filteredHistory = useMemo(() => {
+    return history.filter((item) => {
+      const matchesSearch =
+        (item.studentName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.recipientPhone || "").includes(searchQuery);
+
+      const matchesStatus =
+        !statusFilter || item.status === statusFilter;
+
+      const matchesType =
+        !typeFilter || item.messageType === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [history, searchQuery, statusFilter, typeFilter]);
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage) || 1;
+  
+  const paginatedHistory = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredHistory.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredHistory, currentPage]);
+
   // Template modal state
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -625,7 +667,7 @@ export default function RemindersPage() {
         setLoading(true);
         const [settingsData, historyData] = await Promise.all([
           getWhatsappSettings(),
-          getWhatsappHistory(20)
+          getWhatsappHistory(1000)
         ]);
         if (settingsData) setSettings(settingsData);
         if (historyData) setHistory(historyData);
@@ -638,6 +680,23 @@ export default function RemindersPage() {
     }
     loadData();
   }, []);
+
+  // Real-time polling when there are pending reminders
+  useEffect(() => {
+    const hasPending = history.some((h) => h.status === "PENDING");
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const historyData = await getWhatsappHistory(1000);
+        setHistory(historyData);
+      } catch (err) {
+        console.error("Failed to poll WhatsApp history:", err);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [history]);
 
   const handleSaveSettings = async () => {
     try {
@@ -658,7 +717,7 @@ export default function RemindersPage() {
       setShowTriggerConfirm(false);
       const res = await triggerFeesReminders();
       notify.success(`Successfully queued ${res.queued} pending reminders!`);
-      const historyData = await getWhatsappHistory(20);
+      const historyData = await getWhatsappHistory(1000);
       setHistory(historyData);
     } catch (err) {
       console.error(err);
@@ -828,6 +887,66 @@ export default function RemindersPage() {
         </div>
       </div>
 
+      {/* Visual Message Flow Diagram */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+          <Sparkles className="text-blue-500" size={18} />
+          WhatsApp Message Delivery Flow
+        </h2>
+        
+        <div className="mt-6 grid gap-6 md:grid-cols-4 relative">
+          {/* Step 1 */}
+          <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
+            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-3 shadow-inner group-hover:scale-110 transition">
+              <Play size={20} className="fill-blue-600 ml-0.5" />
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-800">1. Dispatch Triggered</h4>
+            <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
+              Admin triggers a manual batch or the auto-scheduler runs at the configured daily time.
+            </p>
+            {/* Connector Line (Desktop only) */}
+            <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
+            <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-3 shadow-inner group-hover:scale-110 transition">
+              <Clock size={20} />
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-800">2. Added to Queue</h4>
+            <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
+              Message is logged as <span className="text-amber-600 font-bold">PENDING</span>. The background queue processes messages sequentially to prevent rate limits.
+            </p>
+            {/* Connector Line (Desktop only) */}
+            <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
+            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition">
+              <FaWhatsapp size={22} />
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-800">3. Meta API Upload</h4>
+            <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
+              Media attachments are uploaded to Meta first. The system then submits the template message request.
+            </p>
+            {/* Connector Line (Desktop only) */}
+            <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
+          </div>
+
+          {/* Step 4 */}
+          <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
+            <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition">
+              <CheckCircle2 size={20} />
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-800">4. Delivery Status</h4>
+            <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
+              API returns a message ID marking it <span className="text-blue-600 font-bold">SENT</span>. Meta updates the log to <span className="text-emerald-600 font-bold">DELIVERED</span> or <span className="text-rose-600 font-bold">FAILED</span> via webhooks.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Scheduler Settings */}
         <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -993,10 +1112,57 @@ export default function RemindersPage() {
 
       {/* History Sent Messages Log */}
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-          <Smartphone className="text-slate-500" size={18} />
-          Outgoing Messages Log
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+            <Smartphone className="text-slate-500" size={18} />
+            Outgoing Messages Log
+          </h2>
+        </div>
+
+        {/* Filters */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <Search size={16} />
+            </span>
+            <input
+              type="text"
+              placeholder="Search student or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 placeholder:text-slate-400 placeholder:font-normal"
+            />
+          </div>
+
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="">All Statuses</option>
+              <option value="SENT">Sent</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="">All Message Types</option>
+              {uniqueTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -1010,12 +1176,12 @@ export default function RemindersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-              {history.length === 0 ? (
+              {paginatedHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400">No sent history found.</td>
+                  <td colSpan={5} className="py-6 text-center text-slate-400 font-semibold">No outgoing messages found.</td>
                 </tr>
               ) : (
-                history.map((h) => {
+                paginatedHistory.map((h) => {
                   let statusColor = "bg-slate-100 text-slate-700";
                   if (h.status === "SENT" || h.status === "DELIVERED") statusColor = "bg-emerald-100 text-emerald-700";
                   if (h.status === "FAILED") statusColor = "bg-red-100 text-red-700";
@@ -1045,6 +1211,60 @@ export default function RemindersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredHistory.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4 text-xs font-bold text-slate-500">
+            <div>
+              Showing {Math.min(filteredHistory.length, (currentPage - 1) * itemsPerPage + 1)} to{" "}
+              {Math.min(filteredHistory.length, currentPage * itemsPerPage)} of {filteredHistory.length} entries
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 transition disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                .filter(page => {
+                  return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                })
+                .map((page, index, array) => {
+                  const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                  return (
+                    <div key={page} className="flex items-center gap-1">
+                      {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${
+                          currentPage === page
+                            ? "bg-blue-600 text-white"
+                            : "border border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  );
+                })}
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 transition disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Template Create/Edit Modal */}

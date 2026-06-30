@@ -21,6 +21,7 @@ import {
   Upload,
   Users,
   WalletCards,
+  AlertCircle,
 } from "lucide-react";
 
 import Receipt from "../../assest/feesRecipt.png"
@@ -62,6 +63,7 @@ import {
   updateSettingsPreferences,
   updateSchoolProfile,
 } from "../lib/api/settingsapi.js";
+import { useAppContext } from "../context/user.context.jsx";
 
 import {
   checkerStyle,
@@ -346,6 +348,7 @@ function ReceiptPreview({
 }
 
 export default function SettingsPage() {
+  const { schoolProfile, refreshSchoolProfile } = useAppContext();
   const [
     activeTab,
     setActiveTab,
@@ -960,6 +963,9 @@ export default function SettingsPage() {
           ...result,
         });
         notify.success("School profile saved");
+        if (typeof refreshSchoolProfile === "function") {
+          await refreshSchoolProfile();
+        }
       } catch (apiError) {
         notify.error(apiError, "Profile could not be saved");
       } finally {
@@ -1003,6 +1009,9 @@ export default function SettingsPage() {
           result.paymentModes
         );
         notify.success("Settings preferences saved");
+        if (typeof refreshSchoolProfile === "function") {
+          await refreshSchoolProfile();
+        }
       } catch (apiError) {
         notify.error(apiError, "Preferences could not be saved");
       } finally {
@@ -1614,6 +1623,14 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 bg-slate-50/40 pb-8">
+      {schoolProfile && !schoolProfile.isProfileComplete && (
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
+          <AlertCircle size={20} className="shrink-0 animate-bounce" />
+          <div className="text-sm font-medium">
+            <span className="font-bold text-red-800">Setup Required:</span> Please complete your <span className="font-bold">School Profile</span> (all fields: Name, Address, City, State, District, PIN Code, Mobile) and <span className="font-bold">Receipt Settings</span> (Prefix, Footer) under the tabs below to activate your account.
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">

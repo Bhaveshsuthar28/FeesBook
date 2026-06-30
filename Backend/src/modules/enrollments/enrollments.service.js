@@ -15,7 +15,7 @@ const createEnrollmentError = ({ statusCode, code, message, details = {} }) => {
 
 export const getStudentEnrollmentHistoryService = async ({ schoolId, studentId }) => {
   // Verify student exists and belongs to this school
-  const [student] = await db
+  let [student] = await db
     .select()
     .from(studentsTable)
     .where(
@@ -24,6 +24,18 @@ export const getStudentEnrollmentHistoryService = async ({ schoolId, studentId }
         eq(studentsTable.schoolId, schoolId)
       )
     );
+
+  if (!student) {
+    [student] = await db
+      .select()
+      .from(studentsTable)
+      .where(
+        and(
+          eq(studentsTable.schoolRegisterNo, studentId),
+          eq(studentsTable.schoolId, schoolId)
+        )
+      );
+  }
 
   if (!student) {
     throw createEnrollmentError({
@@ -56,7 +68,7 @@ export const getStudentEnrollmentHistoryService = async ({ schoolId, studentId }
     .innerJoin(sectionsTable, eq(sectionsTable.id, enrollmentsTable.sectionId))
     .where(
       and(
-        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.studentId, student.id),
         eq(enrollmentsTable.schoolId, schoolId)
       )
     )

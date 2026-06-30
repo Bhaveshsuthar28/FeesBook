@@ -1,12 +1,12 @@
-import { NotebookText } from "lucide-react";
+import { FaBook } from "react-icons/fa";
 
 const Logo = ({ size = "default" }) => {
-  const sizeClass = size === "small" ? "h-8 w-8" : "h-9 w-9";
+  const sizeClass = size === "small" ? "h-7 w-7" : "h-8 w-8";
 
   return (
     <div className="flex items-center gap-2">
       <div className="rounded-xl">
-        <NotebookText className={`text-blue-600 ${sizeClass}`} />
+        <FaBook className={`text-blue-600 ${sizeClass}`} />
       </div>
       {size !== "small" && (
         <div className="leading-tight">

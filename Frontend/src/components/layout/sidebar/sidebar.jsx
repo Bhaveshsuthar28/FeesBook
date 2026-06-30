@@ -3,13 +3,14 @@
 import {
   ChevronLeft,
   LogOut,
-  NotebookText,
+  LoaderCircle,
 } from "lucide-react";
+
+import { FaBook } from "react-icons/fa";
 
 import {
   useUser,
   useClerk,
-  SignOutButton,
 } from "@clerk/clerk-react";
 
 import {
@@ -20,7 +21,10 @@ import {
 
 import {
   useState,
+  memo,
 } from "react";
+
+import { useNavigate } from "react-router-dom";
 
 import Logo
   from "../../common/logo.components.jsx";
@@ -32,7 +36,7 @@ import {
   sidebarItems,
 } from "./sidebar.data.js";
 
-export default function Sidebar({
+function Sidebar({
 
   isCollapsed,
   setIsCollapsed,
@@ -44,13 +48,30 @@ export default function Sidebar({
 
   const {
     openUserProfile,
+    signOut,
   } = useClerk();
+
+  const navigate = useNavigate();
 
   const [
     showLogoutPopup,
 
     setShowLogoutPopup,
   ] = useState(false);
+
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogoutClick = async () => {
+    setLoggingOut(true);
+    setTimeout(async () => {
+      try {
+        await signOut();
+      } catch (err) {
+        console.error(err);
+        setLoggingOut(false);
+      }
+    }, 1500);
+  };
 
   const prefersReducedMotion =
     useReducedMotion();
@@ -108,7 +129,7 @@ export default function Sidebar({
 
           bg-[#041C4A]
 
-          px-4
+          px-3
           py-5
         "
       >
@@ -122,93 +143,41 @@ export default function Sidebar({
           "
         >
 
-          <div
-            className={`
-              flex
-              items-center
+          <div className="flex items-center justify-between h-[56px] px-3">
+            <div 
+              onClick={() => !expanded && setIsCollapsed(false)}
+              className={`flex items-center flex-1 ${!expanded ? "cursor-pointer" : ""}`}
+            >
+              <div className="flex h-10 w-10 items-center justify-center shrink-0">
+                <FaBook className="h-6 w-6 text-blue-600" />
+              </div>
+              <span className={`
+                ml-3
+                whitespace-nowrap
+                text-lg
+                font-bold
+                transition-all
+                duration-300
+                ease-out
+                ${
+                  expanded
+                    ? "opacity-100"
+                    : "w-0 overflow-hidden opacity-0 ml-0"
+                }
+              `}>
+                <span className="text-blue-500">Fees</span>
+                <span className="text-orange-500">Book</span>
+              </span>
+            </div>
 
-              ${
-                expanded
-                  ? "justify-between"
-                  : "justify-center"
-              }
-
-              px-1
-            `}
-          >
-
-            {
-              expanded ? (
-
-                <>
-
-                  <Logo />
-
-                  <button
-
-                    onClick={() =>
-                      setIsCollapsed(
-                        true
-                      )
-                    }
-
-                    className="
-                      flex
-                      items-center
-                      justify-center
-
-                      rounded-xl
-
-                      p-2
-
-                      text-white
-
-                      hover:bg-slate-800
-                    "
-                  >
-
-                    <ChevronLeft
-                      size={20}
-                    />
-
-                  </button>
-
-                </>
-
-              ) : (
-
-                <button
-
-                  onClick={() =>
-                    setIsCollapsed(
-                      false
-                    )
-                  }
-
-                  className="
-                    flex
-                    h-14
-                    w-14
-                    items-center
-                    justify-center
-
-                    rounded-2xl
-                  "
-                >
-
-                  <NotebookText
-                    className="
-                      h-8
-                      w-8
-                      text-blue-600
-                    "
-                  />
-
-                </button>
-
-              )
-            }
-
+            {expanded && (
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="flex items-center justify-center rounded-xl p-2 text-white hover:bg-slate-800 shrink-0"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
           </div>
 
           <nav
@@ -257,145 +226,90 @@ export default function Sidebar({
         >
 
           <button
-
-            onClick={() =>
-              openUserProfile()
-            }
-
+            onClick={() => navigate("/profile")}
             className={`
               flex
               w-full
               items-center
-
-              ${
-                expanded
-                  ? "gap-3 p-3 bg-slate-900"
-                  : "justify-center"
-              }
-
               rounded-xl
-              
-
               transition-all
               duration-300
               ease-out
-
               hover:bg-slate-800
+              ${
+                expanded
+                  ? "gap-3 p-3 bg-[#02112e]"
+                  : "pl-3 pr-0 justify-start h-[56px]"
+              }
             `}
           >
-
-            <img
-              src={user?.imageUrl}
-
-              alt="profile"
-
-              className="
-                h-11
-                w-11
-
-                rounded-full
-                object-cover
-              "
-            />
-
+            <div className="flex h-10 w-10 items-center justify-center shrink-0">
+              <img
+                src={user?.imageUrl}
+                alt="profile"
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            </div>
             <div
               className={`
-                overflow-hidden
-
                 transition-all
                 duration-300
                 ease-out
-
                 ${
                   expanded
-                    ? "opacity-100"
-                    : "opacity-0 w-0"
+                    ? "opacity-100 ml-3"
+                    : "opacity-0 w-0 overflow-hidden ml-0"
                 }
               `}
             >
-
-              <h3
-                className="
-                  whitespace-nowrap
-
-                  text-sm
-                  font-semibold
-
-                  text-white
-                "
-              >
+              <h3 className="whitespace-nowrap text-sm font-semibold text-white">
                 {user?.fullName}
               </h3>
-
-              <p
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
+              <p className="text-xs text-slate-400 text-left">
                 Principal
               </p>
-
             </div>
-
           </button>
 
           <button
-
-            onClick={() =>
-              setShowLogoutPopup(
-                true
-              )
-            }
-
+            onClick={() => setShowLogoutPopup(true)}
             className={`
               flex
               w-full
               items-center
-
-              ${
-                expanded
-                  ? "justify-center gap-2"
-                  : "justify-center"
-              }
-
               h-[52px]
-
               rounded-xl
-
               border
               border-slate-700
-
               text-white
-
               transition-all
               duration-300
               ease-out
-
               hover:bg-slate-800
+              ${
+                expanded
+                  ? "px-3 justify-start"
+                  : "pl-3 pr-0 justify-start"
+              }
             `}
           >
-
-            <LogOut
-              size={22}
-            />
-
+            <div className="flex h-10 w-10 items-center justify-center shrink-0">
+              <LogOut size={22} />
+            </div>
             <span
               className={`
                 transition-all
                 duration-300
                 ease-out
-
                 ${
                   expanded
-                    ? "opacity-100"
-                    : "opacity-0 w-0 overflow-hidden"
+                    ? "opacity-100 ml-3"
+                    : "opacity-0 w-0 overflow-hidden ml-0"
                 }
               `}
             >
               Logout
             </span>
-
           </button>
 
         </div>
@@ -531,43 +445,27 @@ export default function Sidebar({
               >
 
                 <button
-
-                  onClick={() =>
-                    setShowLogoutPopup(
-                      false
-                    )
-                  }
-
-                  className="
-                    rounded-xl
-
-                    border
-
-                    px-4
-                    py-2
-                  "
+                  disabled={loggingOut}
+                  onClick={() => setShowLogoutPopup(false)}
+                  className="rounded-xl border px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
 
-                <SignOutButton>
-
-                  <button
-                    className="
-                      rounded-xl
-
-                      bg-red-500
-
-                      px-4
-                      py-2
-
-                      text-white
-                    "
-                  >
-                    Logout
-                  </button>
-
-                </SignOutButton>
+                <button
+                  disabled={loggingOut}
+                  onClick={handleLogoutClick}
+                  className="rounded-xl bg-red-500 px-4 py-2 text-white flex items-center justify-center gap-2 min-w-[85px] disabled:opacity-75 disabled:cursor-not-allowed"
+                >
+                  {loggingOut ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      <span>Logging out...</span>
+                    </>
+                  ) : (
+                    "Logout"
+                  )}
+                </button>
 
               </div>
 
@@ -582,3 +480,5 @@ export default function Sidebar({
     </>
   );
 }
+
+export default memo(Sidebar);

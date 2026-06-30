@@ -4,6 +4,8 @@ import {
   and,
   eq,
 } from "drizzle-orm";
+import { deleteCache } from "../../cors/cache/cache.service.js";
+import { keys } from "../../cors/cache/cache.keys.js";
 
 import {
   db,
@@ -100,7 +102,7 @@ const getStudentForSchool =
     schoolId,
     studentId,
   }) => {
-    const [student] =
+    let [student] =
       await db
         .select()
         .from(studentsTable)
@@ -116,6 +118,25 @@ const getStudentForSchool =
             )
           )
         );
+
+    if (!student) {
+      [student] =
+        await db
+          .select()
+          .from(studentsTable)
+          .where(
+            and(
+              eq(
+                studentsTable.schoolRegisterNo,
+                studentId
+              ),
+              eq(
+                studentsTable.schoolId,
+                schoolId
+              )
+            )
+          );
+    }
 
     if (!student) {
       throw createStudentError({
@@ -586,7 +607,7 @@ export const getStudentFeeConcessionService =
     studentId,
     academicYear,
   }) => {
-    await getStudentForSchool({
+    const student = await getStudentForSchool({
       schoolId,
       studentId,
     });
@@ -600,7 +621,7 @@ export const getStudentFeeConcessionService =
     const concession =
       await getConcessionForStudentYear({
         schoolId,
-        studentId,
+        studentId: student.id,
         academicYear: year,
       });
 
@@ -621,7 +642,7 @@ export const upsertStudentFeeConcessionService =
         data
       );
 
-    await getStudentForSchool({
+    const student = await getStudentForSchool({
       schoolId,
       studentId,
     });
@@ -644,7 +665,7 @@ export const upsertStudentFeeConcessionService =
             ),
             eq(
               studentFeesTable.studentId,
-              studentId
+              student.id
             )
           )
         );
@@ -716,21 +737,21 @@ export const upsertStudentFeeConcessionService =
     const existing =
       await getConcessionForStudentYear({
         schoolId,
-        studentId,
+        studentId: student.id,
         academicYear,
       });
 
     if (existing) {
       await restoreFeesFromConcession({
         schoolId,
-        studentId,
+        studentId: student.id,
       });
     }
 
     const totals =
       await applyConcessionToFees({
         schoolId,
-        studentId,
+        studentId: student.id,
         concessionTotal,
       });
 
@@ -791,7 +812,7 @@ export const upsertStudentFeeConcessionService =
       const detail =
         await getStudentDetailService({
           schoolId,
-          studentId,
+          studentId: student.id,
         });
 
       return {
@@ -819,7 +840,7 @@ export const upsertStudentFeeConcessionService =
       .values({
         id: concessionId,
         schoolId,
-        studentId,
+        studentId: student.id,
         academicYear,
         ...payload,
         createdAt: now,
@@ -828,15 +849,18 @@ export const upsertStudentFeeConcessionService =
     const detail =
       await getStudentDetailService({
         schoolId,
-        studentId,
+        studentId: student.id,
       });
+
+    await deleteCache(keys.dashboard(schoolId, academicYear));
+    await deleteCache(keys.dashboardInsights(schoolId, academicYear));
 
     return {
       ...detail,
       concession: {
         id: concessionId,
         schoolId,
-        studentId,
+        studentId: student.id,
         academicYear,
         ...payload,
         createdAt: now,
@@ -854,7 +878,7 @@ export const removeStudentFeeConcessionService =
     studentId,
     concessionId,
   }) => {
-    await getStudentForSchool({
+    const student = await getStudentForSchool({
       schoolId,
       studentId,
     });
@@ -873,7 +897,7 @@ export const removeStudentFeeConcessionService =
             ),
             eq(
               studentFeeConcessionsTable.studentId,
-              studentId
+              student.id
             ),
             eq(
               studentFeeConcessionsTable.schoolId,
@@ -893,7 +917,7 @@ export const removeStudentFeeConcessionService =
 
     await restoreFeesFromConcession({
       schoolId,
-      studentId,
+      studentId: student.id,
     });
 
     await db
@@ -907,9 +931,13 @@ export const removeStudentFeeConcessionService =
         )
       );
 
+    const academicYear = concession.academicYear;
+    await deleteCache(keys.dashboard(schoolId, academicYear));
+    await deleteCache(keys.dashboardInsights(schoolId, academicYear));
+
     return await getStudentDetailService({
       schoolId,
-      studentId,
+      studentId: student.id,
     });
   };
 
@@ -919,6 +947,11 @@ export const getStudentFeeConcessionReceiptPdfService =
     studentId,
     concessionId,
   }) => {
+    const student = await getStudentForSchool({
+      schoolId,
+      studentId,
+    });
+
     const [concession] =
       await db
         .select()
@@ -933,7 +966,7 @@ export const getStudentFeeConcessionReceiptPdfService =
             ),
             eq(
               studentFeeConcessionsTable.studentId,
-              studentId
+              student.id
             ),
             eq(
               studentFeeConcessionsTable.schoolId,
@@ -954,7 +987,7 @@ export const getStudentFeeConcessionReceiptPdfService =
     const detail =
       await getStudentDetailService({
         schoolId,
-        studentId,
+        studentId: student.id,
       });
     const profile =
       await getSchoolProfileService({

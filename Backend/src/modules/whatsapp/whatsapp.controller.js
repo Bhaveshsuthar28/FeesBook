@@ -2,13 +2,17 @@ import { env } from "../../cors/config/env.js";
 import { db } from "../../cors/database/DB.Connect.js";
 import { whatsappMessages, whatsappSettings } from "./whatsapp.schema.js";
 import { studentsTable } from "../../cors/schema/students.schema.js";
+import { enrollmentsTable } from "../../cors/schema/enrollments.schema.js";
+import { classesTable } from "../../cors/schema/classes.schema.js";
 import { eq, and, desc, gt, inArray } from "drizzle-orm";
 import { whatsappQueue } from "../../utils/queue.js";
 import { studentFeesTable } from "../../cors/schema/studentFees.schema.js";
 import { 
   normalizePhone, 
   validatePhone, 
-  queueBroadcastMessages 
+  queueBroadcastMessages,
+  resolvePersonalizedMessage,
+  resolvePersonalizedVariables
 } from "./whatsapp.service.js";
 import { 
   isPrincipalNumber, 
@@ -80,7 +84,7 @@ export async function handleWebhookController(request, reply) {
 
 // 3. POST send-personal API
 export async function sendPersonalController(request, reply) {
-  const { studentId, message, fileData, fileName, fileType } = request.body || {};
+  const { studentId, message, fileData, fileName, fileType, templateName, variables } = request.body || {};
   const schoolId = request.user?.schoolId;
 
   if (!studentId || !message) {
@@ -114,15 +118,21 @@ export async function sendPersonalController(request, reply) {
       })
       .returning();
 
+    // Resolve template variables dynamically for this student
+    const resolvedMessage = await resolvePersonalizedMessage(studentId, message);
+    const resolvedVars = await resolvePersonalizedVariables(studentId, variables);
+
     // Queue job to Bull
     await whatsappQueue.add({
       type: "SEND_PERSONAL",
       messageRecordId: msgRecord.id,
       phone: to,
-      message,
+      message: resolvedMessage,
       fileData,
       fileName,
       fileType,
+      templateName,
+      variables: resolvedVars,
     });
 
     return reply.status(200).send({ success: true, message: "Message queued successfully" });
@@ -134,7 +144,7 @@ export async function sendPersonalController(request, reply) {
 
 // 4. POST broadcast API
 export async function sendBroadcastController(request, reply) {
-  const { targetType, targetId, message, fileData, fileName, fileType, isFeesReminder } = request.body || {};
+  const { targetType, targetId, message, fileData, fileName, fileType, isFeesReminder, templateName, variables } = request.body || {};
   const schoolId = request.user?.schoolId;
 
   if (!targetType || !message) {
@@ -203,6 +213,8 @@ export async function sendBroadcastController(request, reply) {
       fileData,
       fileName,
       fileType,
+      templateName,
+      variables,
     });
 
     const estimatedTime = Math.ceil(result.queued / 5) * 0.5;

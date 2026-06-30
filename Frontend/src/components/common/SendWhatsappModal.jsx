@@ -13,7 +13,7 @@ const DEFAULT_TEMPLATES = [
   },
   {
     name: "overdue_reminder",
-    body: "Dear Parent, {full_name} has pending current class fees of ₹{pending_fees} and overdue fees of ₹{overdue_fees} ({overdue_details}). Please deposit it soon. - School",
+    body: "Dear {parent_name}, your child {full_name} (Class {class_name}) has a pending fee of ₹{pending_fees} and overdue fees of ₹{overdue_fees} ({overdue_details}). Please deposit it soon. Regards, {school_name} school administration.",
   },
   {
     name: "general_notice",
@@ -21,7 +21,7 @@ const DEFAULT_TEMPLATES = [
   },
   {
     name: "fees_receipt",
-    body: "Dear Parent, thank you for the payment of ₹{receipt_amount} for {full_name} ({class_name}). Receipt no: {receipt_no}. Please find the attached PDF receipt. - School",
+    body: "Dear {parent_name}, thank you for the payment of ₹{receipt_amount} for your child {full_name} (Class {class_name}). Receipt no: {receipt_no}. Regards, {school_name} school administration.",
   }
 ];
 
@@ -308,7 +308,7 @@ export default function SendWhatsappModal({ isOpen, onClose, student, onSent }) 
   if (!isOpen || !currentStudent) return null;
 
   const selectedTemplate = templates.find(t => t.name === selectedTemplateName);
-  const requiresMedia = selectedTemplate ? (selectedTemplate.body.includes("{{") || /{{.*}}/.test(selectedTemplate.body)) : false;
+  const requiresMedia = false; // Make media attachments optional for all templates
 
   const handleTemplateChange = (templateName) => {
     setSelectedTemplateName(templateName);
@@ -388,6 +388,7 @@ export default function SendWhatsappModal({ isOpen, onClose, student, onSent }) 
           });
 
           const base64Data = await blobToBase64(res.blob);
+          const className = currentStudent.className || (currentStudent.class?.name) || "";
 
           await sendPersonalWhatsapp({
             studentId: currentStudent.id,
@@ -395,7 +396,16 @@ export default function SendWhatsappModal({ isOpen, onClose, student, onSent }) 
             isFeesReminder: false,
             fileData: base64Data,
             fileName: res.fileName || `fee-receipt-${payment.receiptNo}.pdf`,
-            fileType: "application/pdf"
+            fileType: "application/pdf",
+            templateName: "fees_receipt",
+            variables: [
+              "{parent_name}",
+              String(payment.amount),
+              "{full_name}",
+              "{class_name}",
+              String(payment.receiptNo),
+              "{school_name}"
+            ]
           });
         }
         notify.success(`Successfully queued ${selectedPaymentIds.length} receipt(s)!`);
@@ -403,6 +413,14 @@ export default function SendWhatsappModal({ isOpen, onClose, student, onSent }) 
         const payload = {
           message: message.trim(),
           isFeesReminder,
+          templateName: selectedTemplateName,
+          variables: selectedTemplateName === "fees_reminder" 
+            ? ["{parent_name}", "{pending_fees}", "{full_name}", "{class_name}", "today", "School"]
+            : selectedTemplateName === "overdue_reminder"
+            ? ["{parent_name}", "{full_name}", "{class_name}", "{pending_fees}", "{overdue_fees}", "{overdue_details}", "{school_name}"]
+            : selectedTemplateName === "general_notice"
+            ? ["{full_name}", message.trim(), "School"]
+            : [message.trim()],
           ...(attachment ? {
             fileData: attachment.fileData,
             fileName: attachment.fileName,

@@ -22,6 +22,7 @@ import {
   moveStudentStreamController,
   archiveStudentController,
   unarchiveStudentController,
+  reshuffleRollNumbersController,
 } from "./students.controllers.js";
 
 import idempotencyMiddleware from "../../cors/middlewares/idempotency.middleware.js";
@@ -143,5 +144,10 @@ export default async function (
   fastify.patch(
     "/:studentId/unarchive",
     unarchiveStudentController
+  );
+
+  fastify.post(
+    "/class/:classId/section/:sectionId/reshuffle",
+    reshuffleRollNumbersController
   );
 }

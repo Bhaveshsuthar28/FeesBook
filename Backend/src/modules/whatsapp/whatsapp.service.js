@@ -159,19 +159,26 @@ export async function sendPDFReceiptDirect(phone, pdfBuffer, filename, caption, 
     formData.append("file", blob, filename || "receipt.pdf");
     formData.append("messaging_product", "whatsapp");
 
-    const mediaResponse = await axios.post(
+    const mediaResponse = await fetch(
       `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
-      formData,
       {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        body: formData,
       }
     );
 
-    const mediaId = mediaResponse.data?.id;
+    if (!mediaResponse.ok) {
+      const errText = await mediaResponse.text();
+      return { success: false, error: `Failed to upload PDF media: ${errText}` };
+    }
+
+    const mediaData = await mediaResponse.json();
+    const mediaId = mediaData?.id;
     if (!mediaId) {
-      return { success: false, error: "Failed to upload PDF media to Meta" };
+      return { success: false, error: "Failed to upload PDF media to Meta (no ID returned)" };
     }
 
     // Step 2: Send document message using the media_id
@@ -218,19 +225,26 @@ export async function sendMediaMessageDirect(phone, fileBuffer, mimeType, filena
     formData.append("file", blob, filename || "file");
     formData.append("messaging_product", "whatsapp");
 
-    const mediaResponse = await axios.post(
+    const mediaResponse = await fetch(
       `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
-      formData,
       {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        body: formData,
       }
     );
 
-    const mediaId = mediaResponse.data?.id;
+    if (!mediaResponse.ok) {
+      const errText = await mediaResponse.text();
+      return { success: false, error: `Failed to upload media: ${errText}` };
+    }
+
+    const mediaData = await mediaResponse.json();
+    const mediaId = mediaData?.id;
     if (!mediaId) {
-      return { success: false, error: "Failed to upload media to Meta" };
+      return { success: false, error: "Failed to upload media to Meta (no ID returned)" };
     }
 
     // Determine type (image, document, video, audio)
@@ -286,6 +300,7 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
         fatherName: studentsTable.fatherName,
         phone: studentsTable.phone,
         classId: studentsTable.classId,
+        schoolId: studentsTable.schoolId,
       })
       .from(studentsTable)
       .where(eq(studentsTable.id, studentId));
@@ -303,6 +318,20 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
       if (cls) {
         className = cls.name;
         currentAcademicYear = cls.academicYear;
+      }
+    }
+
+    // Fetch school profile name
+    let schoolName = "School";
+    if (student.schoolId) {
+      try {
+        const { getSchoolProfileService } = await import("../settings/settings.service.js");
+        const profile = await getSchoolProfileService({ schoolId: student.schoolId });
+        if (profile?.schoolName) {
+          schoolName = profile.schoolName;
+        }
+      } catch (err) {
+        console.error("[resolvePersonalizedMessage] Error fetching school profile:", err);
       }
     }
 
@@ -351,7 +380,7 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
       full_name: student.fullName || "",
       parent_name: student.fatherName || "",
       class_name: className,
-      school_name: "School",
+      school_name: schoolName,
       pending_fees: currentYearPending,
       remaining_fees: currentYearPending + overduePending,
       overdue_fees: overduePending,
@@ -377,7 +406,7 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
 }
 
 // 4. sendBroadcast helper to push to queue
-export async function queueBroadcastMessages({ schoolId, studentsList, message, fileData, fileName, fileType }) {
+export async function queueBroadcastMessages({ schoolId, studentsList, message, fileData, fileName, fileType, templateName, variables }) {
   const jobIds = [];
   let queuedCount = 0;
 
@@ -392,6 +421,7 @@ export async function queueBroadcastMessages({ schoolId, studentsList, message, 
 
     // Resolve template variables dynamically for this student
     const resolvedMessage = await resolvePersonalizedMessage(studentId, message);
+    const resolvedVars = await resolvePersonalizedVariables(studentId, variables);
 
     // Insert pending message record
     const [msgRecord] = await db
@@ -414,6 +444,8 @@ export async function queueBroadcastMessages({ schoolId, studentsList, message, 
       fileData,
       fileName,
       fileType,
+      templateName,
+      variables: resolvedVars,
     });
 
     jobIds.push(job.id);
@@ -453,6 +485,16 @@ export async function sendFeeReceipt(paymentId) {
       return;
     }
 
+    // Fetch class name
+    let className = "";
+    if (student.classId) {
+      const [cls] = await db
+        .select({ name: classesTable.name })
+        .from(classesTable)
+        .where(eq(classesTable.id, student.classId));
+      if (cls) className = cls.name;
+    }
+
     // 3. Generate PDF receipt
     const pdfDetails = await getStudentPaymentReceiptPdfService({
       schoolId: payment.schoolId,
@@ -489,7 +531,11 @@ export async function sendFeeReceipt(paymentId) {
         })
         .returning();
 
-      // Add to Bull queue
+      const { getSchoolProfileService } = await import("../settings/settings.service.js");
+      const profile = await getSchoolProfileService({ schoolId: payment.schoolId });
+      const schoolName = profile?.schoolName || "School";
+
+      // Add to Bull queue with templateName and variables to bypass 24h Meta restriction
       await whatsappQueue.add({
         type: "SEND_RECEIPT",
         messageRecordId: msgRecord.id,
@@ -497,6 +543,15 @@ export async function sendFeeReceipt(paymentId) {
         pdfBufferBase64,
         filename,
         caption,
+        templateName: "fees_receipt",
+        variables: [
+          student.fatherName || "Parent",
+          String(payment.amount),
+          student.fullName,
+          className,
+          String(payment.receiptNo),
+          schoolName
+        ]
       });
     }
 
@@ -601,3 +656,118 @@ export async function ensureWhatsappTables() {
     console.error("[DB Setup] Error checking/creating WhatsApp tables:", error);
   }
 }
+
+// 7. sendMediaTemplateMessage (Upload media then send template message with document/image header)
+export async function sendMediaTemplateMessage(phone, templateName, variables = [], fileBuffer, mimeType, filename, phoneNumberId = defaultPhoneId, accessToken = defaultToken) {
+  try {
+    const to = normalizePhone(phone);
+    if (!validatePhone(to)) {
+      return { success: false, error: `Invalid phone number: ${phone}` };
+    }
+
+    // Step 1: Upload media to Meta using fetch
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: mimeType });
+    formData.append("file", blob, filename || "file");
+    formData.append("messaging_product", "whatsapp");
+
+    const mediaResponse = await fetch(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      }
+    );
+
+    if (!mediaResponse.ok) {
+      const errText = await mediaResponse.text();
+      return { success: false, error: `Failed to upload media for template: ${errText}` };
+    }
+
+    const mediaData = await mediaResponse.json();
+    const mediaId = mediaData?.id;
+    if (!mediaId) {
+      return { success: false, error: "Failed to upload media for template (no ID returned)" };
+    }
+
+    // Determine type (image, video or document)
+    let mediaType = "document";
+    const mt = mimeType.toLowerCase();
+    if (mt.startsWith("image/")) mediaType = "image";
+    else if (mt.startsWith("video/")) mediaType = "video";
+
+    // Step 2: Send template message with media header and body variables
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "template",
+      template: {
+        name: templateName,
+        language: {
+          code: "en_US",
+        },
+        components: [
+          {
+            type: "header",
+            parameters: [
+              {
+                type: mediaType,
+                [mediaType]: {
+                  id: mediaId,
+                  ...(mediaType === "document" ? { filename: filename || "file.pdf" } : {}),
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    if (variables && variables.length > 0) {
+      payload.template.components.push({
+        type: "body",
+        parameters: variables.map((val) => ({
+          type: "text",
+          text: String(val),
+        })),
+      });
+    }
+
+    const response = await axios.post(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const waMessageId = response.data?.messages?.[0]?.id;
+    return { success: true, waMessageId };
+  } catch (error) {
+    const errorDetails = error.response?.data?.error?.message || error.message;
+    return { success: false, error: errorDetails };
+  }
+}
+
+// 8. resolvePersonalizedVariables
+export async function resolvePersonalizedVariables(studentId, variables = []) {
+  if (!variables || variables.length === 0) return [];
+  
+  const resolved = [];
+  for (const v of variables) {
+    if (typeof v === "string" && v.includes("{")) {
+      resolved.push(await resolvePersonalizedMessage(studentId, v));
+    } else {
+      resolved.push(v);
+    }
+  }
+  return resolved;
+}
+

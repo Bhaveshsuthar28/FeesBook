@@ -1,14 +1,14 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Navigate } from "react-router-dom";
 import {
-  RouteSkeleton,
+  LandingSkeleton,
 } from "../components/skeleton/PageSkeletons.jsx";
 
 const PublicRoute = ({ children }) => {
   const { isLoaded, userId } = useAuth();
 
   if (!isLoaded) {
-    return <RouteSkeleton />;
+    return <LandingSkeleton />;
   }
 
   if (userId) {

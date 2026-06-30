@@ -1635,24 +1635,58 @@ const findExistingStudent =
     return student;
   };
 
+const findExistingStudentByAadhar =
+  async ({
+    schoolId,
+    aadharNo,
+  }) => {
+    if (!aadharNo) return null;
+    const [student] =
+      await db
+        .select()
+        .from(studentsTable)
+        .where(
+          and(
+            eq(
+              studentsTable.schoolId,
+              schoolId
+            ),
+            eq(
+              studentsTable.aadharNo,
+              aadharNo
+            ),
+            eq(
+              studentsTable.status,
+              "active"
+            )
+          )
+        );
+
+    return student;
+  };
+
 const createStudentRecord =
   async ({
     schoolId,
     data,
+    skipReshuffle = false,
+    skipAssertions = false,
   }) => {
-    await assertActiveSection({
-      schoolId,
-      classId:
-        data.classId,
-      sectionId:
-        data.sectionId,
-    });
+    if (!skipAssertions) {
+      await assertActiveSection({
+        schoolId,
+        classId:
+          data.classId,
+        sectionId:
+          data.sectionId,
+      });
 
-    await assertClassHasFeeStructure({
-      schoolId,
-      classId:
-        data.classId,
-    });
+      await assertClassHasFeeStructure({
+        schoolId,
+        classId:
+          data.classId,
+      });
+    }
 
     const schoolRegisterNo =
       clean(
@@ -1676,6 +1710,28 @@ const createStudentRecord =
             existing.id,
         },
       });
+    }
+
+    const aadharNo = data.aadharNo
+      ? String(data.aadharNo).replace(/[-\s]/g, "")
+      : null;
+
+    if (aadharNo) {
+      const existingAadhar = await findExistingStudentByAadhar({
+        schoolId,
+        aadharNo,
+      });
+
+      if (existingAadhar) {
+        throw createStudentError({
+          statusCode: 409,
+          code: "AADHAR_ALREADY_EXISTS",
+          message: "Aadhaar card number already exists",
+          details: {
+            studentId: existingAadhar.id,
+          },
+        });
+      }
     }
 
     const fullName =
@@ -1719,9 +1775,7 @@ const createStudentRecord =
       gender:
         clean(data.gender),
       aadharNo:
-        normalizeOptional(
-          data.aadharNo
-        ),
+        aadharNo,
       aadharVerificationStatus:
         normalizeOptional(
           data.aadharVerificationStatus
@@ -1790,11 +1844,13 @@ const createStudentRecord =
       student,
     });
 
-    await reshuffleRollNumbers({
-      schoolId,
-      classId: student.classId,
-      sectionId: student.sectionId,
-    });
+    if (!skipReshuffle) {
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: student.classId,
+        sectionId: student.sectionId,
+      });
+    }
 
     const year = targetClass?.academicYear || getCurrentAcademicYear();
     await deleteCache(keys.dashboard(schoolId, year));
@@ -3330,29 +3386,56 @@ const getStudentFeeRows =
     if (rows.length === 0) return [];
 
     const feeTypeIds = [...new Set(rows.map(row => row.feeTypeId).filter(Boolean))];
+    const classIds = [...new Set(rows.map(row => row.classId).filter(Boolean))];
     const feeTypesMap = new Map();
-    if (feeTypeIds.length > 0) {
-      const feeTypes = await db
-        .select()
-        .from(feeTypesTable)
-        .where(
-          and(
-            inArray(feeTypesTable.id, feeTypeIds),
-            eq(feeTypesTable.schoolId, schoolId)
-          )
-        );
-      for (const ft of feeTypes) {
-        feeTypesMap.set(ft.id, ft);
-      }
-    }
+    const classesMap = new Map();
+
+    await Promise.all([
+      feeTypeIds.length > 0
+        ? db
+            .select()
+            .from(feeTypesTable)
+            .where(
+              and(
+                inArray(feeTypesTable.id, feeTypeIds),
+                eq(feeTypesTable.schoolId, schoolId)
+              )
+            )
+            .then((feeTypes) => {
+              for (const ft of feeTypes) {
+                feeTypesMap.set(ft.id, ft);
+              }
+            })
+        : Promise.resolve(),
+      classIds.length > 0
+        ? db
+            .select()
+            .from(classesTable)
+            .where(
+              and(
+                inArray(classesTable.id, classIds),
+                eq(classesTable.schoolId, schoolId)
+              )
+            )
+            .then((classes) => {
+              for (const cls of classes) {
+                classesMap.set(cls.id, cls);
+              }
+            })
+        : Promise.resolve(),
+    ]);
 
     return rows.map((fee) => {
       const feeType = feeTypesMap.get(fee.feeTypeId);
+      const cls = classesMap.get(fee.classId);
       return {
         ...fee,
         feeTypeName:
           feeType?.name ||
           "Fee",
+        className:
+          cls?.name ||
+          null,
         isOptional:
           Boolean(
             feeType?.isOptional
@@ -3574,11 +3657,11 @@ export const getStudentDetailService =
           ),
         getStudentFeeRows({
           schoolId,
-          studentId,
+          studentId: student.id,
         }),
         getStudentPaymentRows({
           schoolId,
-          studentId,
+          studentId: student.id,
         }),
       ]);
 
@@ -3624,7 +3707,7 @@ export const getStudentDetailService =
             ),
             eq(
               studentFeeConcessionsTable.studentId,
-              studentId
+              student.id
             ),
             eq(
               studentFeeConcessionsTable.academicYear,
@@ -3773,7 +3856,7 @@ export const updateStudentService =
 
       if (
         existing &&
-        existing.id !== studentId
+        existing.id !== current.id
       ) {
         throw createStudentError({
           statusCode: 409,
@@ -3781,6 +3864,28 @@ export const updateStudentService =
             "STUDENT_ALREADY_EXISTS",
           message:
             "Student register number already exists",
+        });
+      }
+    }
+
+    const aadharNo = parsed.aadharNo !== undefined
+      ? (parsed.aadharNo ? String(parsed.aadharNo).replace(/[-\s]/g, "") : null)
+      : current.aadharNo;
+
+    if (aadharNo && aadharNo !== current.aadharNo) {
+      const existingAadhar = await findExistingStudentByAadhar({
+        schoolId,
+        aadharNo,
+      });
+
+      if (existingAadhar && existingAadhar.id !== current.id) {
+        throw createStudentError({
+          statusCode: 409,
+          code: "AADHAR_ALREADY_EXISTS",
+          message: "Aadhaar card number already exists",
+          details: {
+            studentId: existingAadhar.id,
+          },
         });
       }
     }
@@ -3799,6 +3904,7 @@ export const updateStudentService =
     const updateData = {
       ...parsed,
       schoolRegisterNo,
+      aadharNo,
       firstName:
         nextFirstName,
       lastName:
@@ -3819,7 +3925,7 @@ export const updateStudentService =
         and(
           eq(
             studentsTable.id,
-            studentId
+            current.id
           ),
           eq(
             studentsTable.schoolId,
@@ -3895,7 +4001,7 @@ export const markStudentLeftService =
         and(
           eq(
             studentsTable.id,
-            studentId
+            student.id
           ),
           eq(
             studentsTable.schoolId,
@@ -3909,7 +4015,7 @@ export const markStudentLeftService =
       .from(enrollmentsTable)
       .where(
         and(
-          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.studentId, student.id),
           eq(enrollmentsTable.schoolId, schoolId),
           eq(enrollmentsTable.status, "active")
         )
@@ -3924,7 +4030,7 @@ export const markStudentLeftService =
 
     return await getStudentDetailService({
       schoolId,
-      studentId,
+      studentId: student.id,
     });
   };
 
@@ -3975,7 +4081,7 @@ export const markStudentAlumniService =
         and(
           eq(
             studentsTable.id,
-            studentId
+            student.id
           ),
           eq(
             studentsTable.schoolId,
@@ -3989,7 +4095,7 @@ export const markStudentAlumniService =
       .from(enrollmentsTable)
       .where(
         and(
-          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.studentId, student.id),
           eq(enrollmentsTable.schoolId, schoolId),
           eq(enrollmentsTable.status, "active")
         )
@@ -4004,7 +4110,7 @@ export const markStudentAlumniService =
 
     return await getStudentDetailService({
       schoolId,
-      studentId,
+      studentId: student.id,
     });
   };
 
@@ -4087,7 +4193,7 @@ export const promoteStudentService =
       .from(enrollmentsTable)
       .where(
         and(
-          eq(enrollmentsTable.studentId, studentId),
+          eq(enrollmentsTable.studentId, student.id),
           eq(enrollmentsTable.schoolId, schoolId),
           eq(enrollmentsTable.status, "active")
         )
@@ -4098,7 +4204,7 @@ export const promoteStudentService =
     const newEnrollment = {
       id: newEnrollmentId,
       schoolId,
-      studentId,
+      studentId: student.id,
       academicYear: getNextAcademicYear(
         currentEnrollment?.academicYear || singleClass.academicYear
       ),
@@ -4138,7 +4244,7 @@ export const promoteStudentService =
       })
       .where(
         and(
-          eq(studentsTable.id, studentId),
+          eq(studentsTable.id, student.id),
           eq(studentsTable.schoolId, schoolId)
         )
       );
@@ -4148,7 +4254,7 @@ export const promoteStudentService =
       schoolId,
       student: {
         ...student,
-        id: studentId,
+        id: student.id,
         classId: parsed.targetClassId,
       },
     });
@@ -4169,7 +4275,7 @@ export const promoteStudentService =
 
     return await getStudentDetailService({
       schoolId,
-      studentId,
+      studentId: student.id,
     });
   };
 
@@ -4422,6 +4528,8 @@ export const bulkPromoteStudentsService =
       });
     }
 
+    await deleteCachePattern(`school:${schoolId}:*`);
+
     return result;
   };
 
@@ -4611,7 +4719,7 @@ export const recordStudentPaymentService =
         data
       );
 
-    await getStudentForSchool({
+    const student = await getStudentForSchool({
       schoolId,
       studentId,
     });
@@ -4628,7 +4736,7 @@ export const recordStudentPaymentService =
             ),
             eq(
               studentFeesTable.studentId,
-              studentId
+              student.id
             ),
             eq(
               studentFeesTable.schoolId,
@@ -4694,7 +4802,7 @@ export const recordStudentPaymentService =
         id:
           paymentId,
         schoolId,
-        studentId,
+        studentId: student.id,
         studentFeeId:
           fee.id,
         feeTypeId:
@@ -4790,7 +4898,7 @@ export const recordStudentPaymentService =
     const detail =
       await getStudentDetailService({
         schoolId,
-        studentId,
+        studentId: student.id,
       });
 
     return {
@@ -4847,16 +4955,20 @@ export const getStudentPaymentReceiptPdfService =
     studentId,
     paymentId,
   }) => {
+    const student = await getStudentForSchool({
+      schoolId,
+      studentId,
+    });
     const payment =
       await getReceiptPayment({
         schoolId,
-        studentId,
+        studentId: student.id,
         paymentId,
       });
     const detail =
       await getStudentDetailService({
         schoolId,
-        studentId,
+        studentId: student.id,
       });
     const profile =
       await getSchoolProfileService({
@@ -4898,15 +5010,51 @@ const normalizeImportRow =
     classId,
     sectionId,
   }) => {
-    const fullName =
+    let fullName =
       clean(
         getRowValue(row, [
+          "nameofstudent",
           "nameofstudents",
           "studentname",
           "name",
           "fullname",
+          "studentsname",
+          "studentfullname",
+          "nameof student",
         ])
       );
+
+    // Fallback: search for any column key that contains both "name" and "student"
+    if (!fullName) {
+      for (const [key, value] of Object.entries(row)) {
+        const lower = key.toLowerCase();
+        if (
+          lower.includes("name") &&
+          lower.includes("student") &&
+          String(value || "").trim()
+        ) {
+          fullName = clean(value);
+          break;
+        }
+      }
+    }
+
+    // Fallback 2: If still empty, try any column with "name" that is NOT fathername/mothername
+    if (!fullName) {
+      for (const [key, value] of Object.entries(row)) {
+        const lower = key.toLowerCase();
+        if (
+          lower.includes("name") &&
+          !lower.includes("father") &&
+          !lower.includes("mother") &&
+          !lower.includes("file") &&
+          String(value || "").trim()
+        ) {
+          fullName = clean(value);
+          break;
+        }
+      }
+    }
 
     const split =
       splitName(fullName);
@@ -5002,6 +5150,12 @@ export const importStudentsService =
         data.sectionId,
     });
 
+    await assertClassHasFeeStructure({
+      schoolId,
+      classId:
+        data.classId,
+    });
+
     const workbook =
       XLSX.read(
         Buffer.from(
@@ -5064,12 +5218,16 @@ export const importStudentsService =
 
       if (!parsed.success) {
         result.skipped += 1;
+        const firstErr = parsed.error.errors[0];
+        const fieldPath = firstErr?.path?.length
+          ? firstErr.path.join(".") + ": "
+          : "";
         result.errors.push({
           rowNumber,
           message:
-            parsed.error.errors[0]
-              ?.message ||
-            "Invalid student row",
+            fieldPath +
+            (firstErr?.message ||
+            "Invalid student row"),
         });
         continue;
       }
@@ -5093,6 +5251,8 @@ export const importStudentsService =
           schoolId,
           data:
             parsed.data,
+          skipReshuffle: true,
+          skipAssertions: true,
         });
         result.created += 1;
       } catch (error) {
@@ -5103,6 +5263,14 @@ export const importStudentsService =
             error.message,
         });
       }
+    }
+
+    if (result.created > 0) {
+      await reshuffleRollNumbers({
+        schoolId,
+        classId: data.classId,
+        sectionId: data.sectionId,
+      });
     }
 
     return result;
@@ -5360,7 +5528,7 @@ export const moveStudentStreamService = async ({ schoolId, studentId, data }) =>
     .from(enrollmentsTable)
     .where(
       and(
-        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.studentId, student.id),
         eq(enrollmentsTable.schoolId, schoolId),
         eq(enrollmentsTable.status, "active")
       )
@@ -5387,7 +5555,7 @@ export const moveStudentStreamService = async ({ schoolId, studentId, data }) =>
       previousClassId: student.classId,
       previousSectionId: student.sectionId,
     })
-    .where(eq(studentsTable.id, studentId));
+    .where(eq(studentsTable.id, student.id));
 
   // 7. Reallocate fees:
   // Fetch existing fees for this student in the OLD class
@@ -5396,7 +5564,7 @@ export const moveStudentStreamService = async ({ schoolId, studentId, data }) =>
     .from(studentFeesTable)
     .where(
       and(
-        eq(studentFeesTable.studentId, studentId),
+        eq(studentFeesTable.studentId, student.id),
         eq(studentFeesTable.classId, student.classId),
         eq(studentFeesTable.schoolId, schoolId)
       )
@@ -5447,7 +5615,7 @@ export const moveStudentStreamService = async ({ schoolId, studentId, data }) =>
         .values({
           id: crypto.randomUUID(),
           schoolId,
-          studentId,
+          studentId: student.id,
           feeTypeId: targetFee.feeTypeId,
           amount: targetFee.amount,
           paidAmount: 0,
@@ -5495,7 +5663,7 @@ export const moveStudentStreamService = async ({ schoolId, studentId, data }) =>
 
   return await getStudentDetailService({
     schoolId,
-    studentId,
+    studentId: student.id,
   });
 };
 
@@ -5517,7 +5685,7 @@ export const archiveStudentService = async ({ schoolId, studentId }) => {
     })
     .where(
       and(
-        eq(studentsTable.id, studentId),
+        eq(studentsTable.id, student.id),
         eq(studentsTable.schoolId, schoolId)
       )
     );
@@ -5527,7 +5695,7 @@ export const archiveStudentService = async ({ schoolId, studentId }) => {
     .from(enrollmentsTable)
     .where(
       and(
-        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.studentId, student.id),
         eq(enrollmentsTable.schoolId, schoolId),
         eq(enrollmentsTable.status, "active")
       )
@@ -5551,7 +5719,7 @@ export const archiveStudentService = async ({ schoolId, studentId }) => {
 
   return await getStudentDetailService({
     schoolId,
-    studentId,
+    studentId: student.id,
   });
 };
 
@@ -5573,7 +5741,7 @@ export const unarchiveStudentService = async ({ schoolId, studentId }) => {
     })
     .where(
       and(
-        eq(studentsTable.id, studentId),
+        eq(studentsTable.id, student.id),
         eq(studentsTable.schoolId, schoolId)
       )
     );
@@ -5584,7 +5752,7 @@ export const unarchiveStudentService = async ({ schoolId, studentId }) => {
     .from(enrollmentsTable)
     .where(
       and(
-        eq(enrollmentsTable.studentId, studentId),
+        eq(enrollmentsTable.studentId, student.id),
         eq(enrollmentsTable.schoolId, schoolId),
         eq(enrollmentsTable.status, "left")
       )
@@ -5598,7 +5766,7 @@ export const unarchiveStudentService = async ({ schoolId, studentId }) => {
         status: "active",
         note: "Student unarchived",
       })
-      .where(eq(enrollmentsTable.id, leftEnrollment.id));
+      .where(eq(leftEnrollment.id, leftEnrollment.id));
   }
 
   await reshuffleRollNumbers({
@@ -5609,7 +5777,7 @@ export const unarchiveStudentService = async ({ schoolId, studentId }) => {
 
   return await getStudentDetailService({
     schoolId,
-    studentId,
+    studentId: student.id,
   });
 };
 

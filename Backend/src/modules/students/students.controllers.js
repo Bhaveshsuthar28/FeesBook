@@ -27,6 +27,7 @@ import {
   moveStudentStreamService,
   archiveStudentService,
   unarchiveStudentService,
+  reshuffleRollNumbers,
 } from "./students.service.js";
 
 import {
@@ -454,4 +455,17 @@ export const unarchiveStudentController = async (request, reply) => {
     studentId: request.params.studentId,
   });
   return reply.send({ success: true, data: result });
+};
+
+export const reshuffleRollNumbersController = async (request, reply) => {
+  const { classId, sectionId } = request.params;
+  const schoolId = request.user?.schoolId;
+
+  await reshuffleRollNumbers({
+    schoolId,
+    classId,
+    sectionId,
+  });
+
+  return reply.send({ success: true, message: "Roll numbers reshuffled successfully" });
 };

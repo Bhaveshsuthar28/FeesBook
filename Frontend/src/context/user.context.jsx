@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { getSchoolProfile } from "../lib/api/settingsapi.js";
 
@@ -21,10 +21,20 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (isSignedIn) {
       refreshSchoolProfile();
+      if (user) {
+        const email = user.primaryEmailAddress?.emailAddress;
+        const isGoogle = user.externalAccounts?.some(acc => acc.provider === "google") || false;
+        localStorage.setItem("feesbook_last_login", JSON.stringify({
+          email,
+          method: isGoogle ? "Google" : "Email",
+          avatarUrl: user.imageUrl,
+          name: user.fullName
+        }));
+      }
     } else {
       setSchoolProfile(null);
     }
-  }, [isSignedIn, refreshSchoolProfile]);
+  }, [isSignedIn, user, refreshSchoolProfile]);
 
   // Dynamic title
   useEffect(() => {
@@ -59,15 +69,18 @@ export const AppProvider = ({ children }) => {
     }
   }, [schoolProfile?.logoUrl]);
 
+  const value = useMemo(
+    () => ({
+      sidebarOpen,
+      setSidebarOpen,
+      schoolProfile,
+      refreshSchoolProfile,
+    }),
+    [sidebarOpen, schoolProfile, refreshSchoolProfile]
+  );
+
   return (
-    <AppContext.Provider
-      value={{
-        sidebarOpen,
-        setSidebarOpen,
-        schoolProfile,
-        refreshSchoolProfile,
-      }}
-    >
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

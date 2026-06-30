@@ -37,6 +37,10 @@ import {
   SECTION_CATALOG,
 } from "./sections.catalog.js";
 
+import { deleteCache, deleteCachePattern } from "../../cors/cache/cache.service.js";
+import { keys } from "../../cors/cache/cache.keys.js";
+import { getActiveAcademicYearService } from "../settings/settings.service.js";
+
 const createSectionError =
   ({
     statusCode,
@@ -193,8 +197,9 @@ export const createSectionService =
       throw createSectionError({
         statusCode: 400,
         code: "INVALID_SECTION_NAME",
-        message:
-          "Section name must be A, B, C, or D",
+        message: `Section name must be one of: ${SECTION_CATALOG.join(
+          ", "
+        )}`,
       });
     }
 
@@ -243,6 +248,10 @@ export const createSectionService =
       await db
         .insert(sectionsTable)
         .values(section);
+
+      const activeYear = await getActiveAcademicYearService({ schoolId });
+      await deleteCache(keys.dashboard(schoolId, activeYear));
+      await deleteCache(keys.dashboardInsights(schoolId, activeYear));
 
       return section;
 
@@ -407,10 +416,13 @@ export const getSectionsByClassService =
       );
     }
 
+    const academicYear =
+      singleClass?.academicYear || "";
+
     const results = await db
       .select({
         section: sectionsTable,
-        studentsCount: sql`coalesce((select count(*) from students where students.section_id = ${sectionsTable.id} and students.status = 'active'), 0)`
+        studentsCount: sql`coalesce((select count(*) from enrollments where enrollments.section_id = sections.id and enrollments.school_id = ${schoolId} and enrollments.academic_year = ${academicYear} and enrollments.status in ('active','promoted')), 0)`
       })
       .from(sectionsTable)
       .where(
@@ -708,6 +720,11 @@ export const archiveSectionService =
         )
       );
 
+    const activeYear = await getActiveAcademicYearService({ schoolId });
+    await deleteCache(keys.dashboard(schoolId, activeYear));
+    await deleteCache(keys.dashboardInsights(schoolId, activeYear));
+    await deleteCachePattern(`section:${sectionId}:students:*`);
+
     return true;
   };
 
@@ -763,6 +780,10 @@ export const unarchiveSectionService =
           )
         )
       );
+
+    const activeYear = await getActiveAcademicYearService({ schoolId });
+    await deleteCache(keys.dashboard(schoolId, activeYear));
+    await deleteCache(keys.dashboardInsights(schoolId, activeYear));
 
     return {
       ...existingSection,

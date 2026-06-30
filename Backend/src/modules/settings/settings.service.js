@@ -397,7 +397,21 @@ export const updateSchoolProfileService =
 
     await deleteCache(keys.schoolProfile(schoolId));
 
-    return normalizeProfile({ ...profile, ...updates });
+    if (Object.prototype.hasOwnProperty.call(updates, "activeAcademicYear")) {
+      await deleteCache(keys.academicYear(schoolId));
+    }
+
+    const normalized = normalizeProfile({ ...profile, ...updates });
+
+    // Persist the computed isProfileComplete flag to the DB
+    if (normalized.isProfileComplete !== profile.isProfileComplete) {
+      await db
+        .update(principals)
+        .set({ isProfileComplete: normalized.isProfileComplete })
+        .where(eq(principals.id, profile.id));
+    }
+
+    return normalized;
   };
 
 const parsePaymentModes =
@@ -521,6 +535,20 @@ export const updateSettingsPreferencesService =
             profile.id
           )
         );
+
+      // Receipt fields (receiptPrefix, receiptFooter) affect profile completeness,
+      // so clear the school profile cache to re-compute isProfileComplete
+      await deleteCache(keys.schoolProfile(schoolId));
+
+      // Persist isProfileComplete to the DB so it stays in sync
+      const merged = { ...profile, ...updates };
+      const nowComplete = checkProfileCompletion(merged);
+      if (nowComplete !== profile.isProfileComplete) {
+        await db
+          .update(principals)
+          .set({ isProfileComplete: nowComplete })
+          .where(eq(principals.id, profile.id));
+      }
     }
 
     return getSettingsPreferencesService({

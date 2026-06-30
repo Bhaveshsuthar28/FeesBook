@@ -13,6 +13,8 @@ async function corsPlugin(app) {
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowed.includes(origin)) return cb(null, true);
+      // Dynamically allow Cloudflare Quick Tunnel origins
+      if (origin.endsWith(".trycloudflare.com")) return cb(null, true);
       return cb(new Error(`CORS blocked origin: ${origin}`), false);
     },
     credentials: true,

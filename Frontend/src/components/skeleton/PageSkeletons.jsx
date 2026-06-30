@@ -1,4 +1,5 @@
 import Skeleton from "react-loading-skeleton";
+import { FaBook } from "react-icons/fa";
 
 export function RouteSkeleton() {
   return (
@@ -409,6 +410,56 @@ export function FormPanelSkeleton() {
         ))}
       </div>
       <Skeleton className="mt-5" height={44} width={140} borderRadius={12} />
+    </div>
+  );
+}
+
+export function LandingSkeleton() {
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header Skeleton */}
+      <header className="sticky top-0 z-50 bg-white border-b">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          {/* Logo Placeholder with FaBook icon */}
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
+              <FaBook className="h-5 w-5 text-blue-600 animate-pulse" />
+            </div>
+            <div className="w-24 h-6 bg-slate-100 rounded-lg animate-pulse" />
+          </div>
+          <div className="hidden lg:flex items-center gap-10">
+            <div className="w-16 h-4 bg-slate-100 rounded-md animate-pulse" />
+            <div className="w-16 h-4 bg-slate-100 rounded-md animate-pulse" />
+            <div className="w-16 h-4 bg-slate-100 rounded-md animate-pulse" />
+            <div className="w-16 h-4 bg-slate-100 rounded-md animate-pulse" />
+          </div>
+          <div className="w-28 h-10 bg-slate-100 rounded-xl animate-pulse" />
+        </div>
+      </header>
+
+      {/* Hero Skeleton */}
+      <div className="max-w-7xl mx-auto px-6 py-16 lg:py-24 grid lg:grid-cols-2 gap-14 items-center">
+        {/* Left Side */}
+        <div className="space-y-6">
+          <div className="w-48 h-8 bg-slate-100 rounded-full animate-pulse" />
+          <div className="space-y-3">
+            <div className="w-full max-w-lg h-12 bg-slate-100 rounded-2xl animate-pulse" />
+            <div className="w-3/4 max-w-sm h-12 bg-slate-100 rounded-2xl animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <div className="w-full max-w-xl h-5 bg-slate-100 rounded-md animate-pulse" />
+            <div className="w-5/6 max-w-lg h-5 bg-slate-100 rounded-md animate-pulse" />
+            <div className="w-4/5 max-w-md h-5 bg-slate-100 rounded-md animate-pulse" />
+          </div>
+          <div className="flex gap-4 pt-4">
+            <div className="w-36 h-12 bg-slate-100 rounded-xl animate-pulse" />
+            <div className="w-28 h-12 bg-slate-100 rounded-xl animate-pulse" />
+          </div>
+        </div>
+
+        {/* Right Side */}
+        <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl animate-pulse shadow-sm" />
+      </div>
     </div>
   );
 }

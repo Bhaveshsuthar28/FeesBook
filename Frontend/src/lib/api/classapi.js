@@ -17,11 +17,12 @@ export const getClassesDashboard =
   };
 
 export const getDashboardInsights =
-  async () => {
+  async (params = {}) => {
 
     const response =
       await axios.get(
-        `${API}/classes/dashboard/insights`
+        `${API}/classes/dashboard/insights`,
+        { params }
       );
 
     return response.data.data;

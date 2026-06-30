@@ -675,18 +675,27 @@ function FeeEditRow({
   return (
     <tr className="border-b border-slate-100 last:border-0">
       <td className="px-4 py-3 text-sm font-bold text-slate-800">
-        <span>{fee.feeTypeName}</span>
+        <div>
+          <span>{fee.feeTypeName}</span>
+          {
+            fee.academicYear && fee.academicYear !== activeAcademicYear && fee.status !== "paid" && (
+              <span className="ml-2 rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-700">
+                {fee.academicYear} Due
+              </span>
+            )
+          }
+          {
+            fee.isOptional && (
+              <span className="ml-2 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-700">
+                Optional
+              </span>
+            )
+          }
+        </div>
         {
-          fee.academicYear && fee.academicYear !== activeAcademicYear && fee.status !== "paid" && (
-            <span className="ml-2 rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-700">
-              {fee.academicYear} Due
-            </span>
-          )
-        }
-        {
-          fee.isOptional && (
-            <span className="ml-2 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-700">
-              Optional
+          fee.className && (
+            <span className="text-slate-500 text-[11px] block font-semibold mt-0.5">
+              Class: {fee.className}
             </span>
           )
         }
@@ -805,6 +814,25 @@ export default function StudentDetailsPage() {
     onChange: setReminderMessage,
     enabled: activeTab === "reminders",
   });
+
+  const filteredTabItems = useMemo(() => {
+    if (!detail?.stats) return tabItems;
+    return tabItems.filter((tab) => {
+      if (tab.id === "reminders") {
+        return Number(detail.stats.pendingFees || 0) > 0 || Number(detail.stats.overdueFees || 0) > 0;
+      }
+      return true;
+    });
+  }, [detail?.stats]);
+
+  useEffect(() => {
+    if (activeTab === "reminders" && detail?.stats) {
+      const hasFees = Number(detail.stats.pendingFees || 0) > 0 || Number(detail.stats.overdueFees || 0) > 0;
+      if (!hasFees) {
+        setActiveTab("overview");
+      }
+    }
+  }, [detail?.stats, activeTab]);
 
   const [
     enrollmentHistory,
@@ -1112,7 +1140,7 @@ export default function StudentDetailsPage() {
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="flex overflow-x-auto border-b border-slate-200 px-2">
           {
-            tabItems.map((tab) => {
+            filteredTabItems.map((tab) => {
               const Icon = tab.icon;
 
               return (

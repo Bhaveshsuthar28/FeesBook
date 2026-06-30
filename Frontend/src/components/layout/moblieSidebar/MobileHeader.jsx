@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 
+import { useNavigate } from "react-router-dom";
+
 import {
   motion,
   AnimatePresence,
@@ -30,6 +32,8 @@ export default function MobileHeader() {
   const {
     openUserProfile,
   } = useClerk();
+
+  const navigate = useNavigate();
 
   const [
     showProfileMenu,
@@ -157,12 +161,8 @@ export default function MobileHeader() {
                     type="button"
 
                     onClick={() => {
-
-                      openUserProfile();
-
-                      setShowProfileMenu(
-                        false
-                      );
+                      navigate("/profile");
+                      setShowProfileMenu(false);
                     }}
 
                     className="

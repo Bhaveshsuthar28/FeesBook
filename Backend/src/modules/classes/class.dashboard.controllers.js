@@ -13,13 +13,15 @@ export const getClassesDashboardInsightsController =
     request,
     reply
   ) => {
-    const { academicYear } = request.query || {};
+    const { academicYear, startDate, endDate } = request.query || {};
 
     const result =
       await getDashboardInsightsService({
         schoolId:
           request.user.schoolId,
         academicYear,
+        startDate: startDate ? Number(startDate) : undefined,
+        endDate: endDate ? Number(endDate) : undefined,
       });
 
     return reply.send({

@@ -7,7 +7,8 @@ import {
   sendTextMessage, 
   sendTemplateMessage, 
   sendPDFReceiptDirect,
-  sendMediaMessageDirect
+  sendMediaMessageDirect,
+  sendMediaTemplateMessage
 } from "../modules/whatsapp/whatsapp.service.js";
 
 import { URL } from "url";
@@ -68,18 +69,56 @@ whatsappQueue.process(5, async (job) => {
     let result;
 
     if (type === "SEND_PERSONAL" || type === "SEND_BROADCAST") {
-      if (fileData) {
-        const fileBuffer = Buffer.from(fileData, "base64");
-        result = await sendMediaMessageDirect(phone, fileBuffer, fileType, fileName, message);
+      if (templateName) {
+        if (fileData) {
+          const fileBuffer = Buffer.from(fileData, "base64");
+          result = await sendMediaTemplateMessage(phone, templateName, variables || [], fileBuffer, fileType, fileName);
+          if (!result.success && (
+            result.error?.includes("132012") || 
+            result.error?.toLowerCase().includes("parameter") || 
+            result.error?.toLowerCase().includes("mismatch") || 
+            result.error?.toLowerCase().includes("header")
+          )) {
+            console.warn(`[Queue Processor] Media template send failed (${result.error}), falling back to text template + direct media message`);
+            const textResult = await sendTemplateMessage(phone, templateName, variables || []);
+            if (textResult.success) {
+              await sendMediaMessageDirect(phone, fileBuffer, fileType, fileName, "Attachment");
+              result = textResult;
+            }
+          }
+        } else {
+          result = await sendTemplateMessage(phone, templateName, variables || []);
+        }
       } else {
-        result = await sendTextMessage(phone, message);
+        if (fileData) {
+          const fileBuffer = Buffer.from(fileData, "base64");
+          result = await sendMediaMessageDirect(phone, fileBuffer, fileType, fileName, message);
+        } else {
+          result = await sendTextMessage(phone, message);
+        }
       }
     } else if (type === "SEND_REMINDER") {
       result = await sendTemplateMessage(phone, templateName, variables);
     } else if (type === "SEND_RECEIPT") {
-      // Decode the base64 pdfBuffer
       const pdfBuffer = Buffer.from(pdfBufferBase64, "base64");
-      result = await sendPDFReceiptDirect(phone, pdfBuffer, filename, caption);
+      if (templateName) {
+        result = await sendMediaTemplateMessage(phone, templateName, variables || [], pdfBuffer, "application/pdf", filename);
+        if (!result.success && (
+          result.error?.includes("132012") || 
+          result.error?.toLowerCase().includes("parameter") || 
+          result.error?.toLowerCase().includes("mismatch") || 
+          result.error?.toLowerCase().includes("header")
+        )) {
+          console.warn(`[Queue Processor] Receipt media template send failed (${result.error}), falling back to text template + direct PDF receipt`);
+          const textResult = await sendTemplateMessage(phone, templateName, variables || []);
+          if (textResult.success) {
+            await sendPDFReceiptDirect(phone, pdfBuffer, filename, caption);
+            result = textResult;
+          }
+        }
+      } else {
+        result = await sendPDFReceiptDirect(phone, pdfBuffer, filename, caption);
+      }
     } else {
       throw new Error(`Unknown job type: ${type}`);
     }

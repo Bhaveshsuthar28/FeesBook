@@ -444,7 +444,7 @@ export const getClassesService =
         status: classesTable.status,
         isArchived: classesTable.isArchived,
         createdAt: classesTable.createdAt,
-        studentsCount: sql`coalesce((select count(*) from students join sections on students.section_id = sections.id where sections.class_id = classes.id and students.status = 'active'), 0)`
+        studentsCount: sql`coalesce((select count(*) from enrollments where enrollments.class_id = classes.id and enrollments.school_id = classes.school_id and enrollments.academic_year = classes.academic_year and enrollments.status in ('active','promoted')), 0)`
       })
       .from(classesTable)
       .where(

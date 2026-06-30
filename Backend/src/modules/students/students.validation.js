@@ -8,8 +8,10 @@ const requiredString =
 const optionalString =
   z.string()
     .trim()
+    .nullable()
     .optional()
-    .or(z.literal(""));
+    .or(z.literal(""))
+    .or(z.null());
 
 const statusSchema =
   z.enum([
@@ -47,6 +49,22 @@ export const bulkPromoteStudentsSchema =
       optionalString,
   });
 
+const nameRegex = /^[a-zA-Z\s]+$/;
+
+const nameSchema = requiredString.regex(nameRegex, {
+  message: "Name can only contain alphabets (a-z, A-Z) and spaces"
+});
+
+const optionalNameSchema = z.string()
+  .trim()
+  .nullable()
+  .optional()
+  .or(z.literal(""))
+  .or(z.null())
+  .refine(val => !val || nameRegex.test(val), {
+    message: "Name can only contain alphabets (a-z, A-Z) and spaces"
+  });
+
 export const dobRegex =
   /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
 
@@ -59,11 +77,11 @@ export const createStudentSchema =
     schoolRegisterNo:
       requiredString,
     firstName:
-      requiredString,
+      nameSchema,
     lastName:
-      optionalString,
+      optionalNameSchema,
     fatherName:
-      requiredString,
+      nameSchema,
     dob:
       requiredString.regex(
         dobRegex,
@@ -74,7 +92,15 @@ export const createStudentSchema =
     gender:
       requiredString,
     aadharNo:
-      optionalString,
+      z.string()
+        .trim()
+        .nullable()
+        .optional()
+        .or(z.literal(""))
+        .or(z.null())
+        .refine(val => !val || /^\d{12}$/.test(val.replace(/[-\s]/g, "")), {
+          message: "Aadhaar number must be exactly 12 digits"
+        }),
     aadharVerificationStatus:
       optionalString,
     admissionDate:

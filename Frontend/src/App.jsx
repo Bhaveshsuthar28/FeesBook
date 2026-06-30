@@ -40,6 +40,9 @@ import SettingsPage
 import RemindersPage
   from "./pages/reminderspage.jsx";
 
+import ProfilePage
+  from "./pages/profilepage.jsx";
+
 import {
   AppProvider,
 } from "./context/user.context.jsx";
@@ -120,6 +123,11 @@ const App = () => {
           <Route
             path="reminders"
             element={<RemindersPage />}
+          />
+
+          <Route
+            path="profile"
+            element={<ProfilePage />}
           />
 
         </Route>

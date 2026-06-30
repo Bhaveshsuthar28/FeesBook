@@ -2,10 +2,13 @@
 
 import {
   Outlet,
+  useNavigate,
+  useLocation,
 } from "react-router-dom";
 
 import {
   useState,
+  useEffect,
 } from "react";
 
 import {
@@ -21,7 +24,20 @@ import MobileHeader
 import MobileBottomBar
   from "../components/layout/moblieSidebar/mobileBottomBar.jsx";
 
+import { useAppContext } from "../context/user.context.jsx";
+
 export default function DashboardLayout() {
+  const { schoolProfile } = useAppContext();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (schoolProfile && !schoolProfile.isProfileComplete) {
+      if (location.pathname !== "/settings") {
+        navigate("/settings", { replace: true });
+      }
+    }
+  }, [schoolProfile, location.pathname, navigate]);
 
   const [
     isCollapsed,

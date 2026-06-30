@@ -1,18 +1,26 @@
 import {
   NavLink,
 } from "react-router-dom";
+import { useAppContext } from "../../../context/user.context.jsx";
+import { memo } from "react";
 
-export default function SidebarItem({
+function SidebarItem({
   item,
   expanded,
 }) {
-
+  const { schoolProfile } = useAppContext();
   const Icon = item.icon;
+  const isProfileComplete = schoolProfile ? schoolProfile.isProfileComplete : true;
+  const isDisabled = !isProfileComplete && item.path !== "/settings";
 
   return (
     <NavLink
-      to={item.path}
-
+      to={isDisabled ? "#" : item.path}
+      onClick={(e) => {
+        if (isDisabled) {
+          e.preventDefault();
+        }
+      }}
       className={({ isActive }) =>
         `
           flex
@@ -20,8 +28,8 @@ export default function SidebarItem({
 
           ${
             expanded
-              ? "justify-start px-4"
-              : "justify-center px-0"
+              ? "justify-start px-3"
+              : "justify-start pl-3 pr-0"
           }
 
           h-[56px]
@@ -34,9 +42,11 @@ export default function SidebarItem({
           ease-out
 
           ${
-            isActive
-              ? "bg-blue-600 text-white"
-              : "text-slate-200 hover:bg-slate-800"
+            isDisabled
+              ? "opacity-40 cursor-not-allowed pointer-events-none"
+              : isActive
+                ? "bg-blue-600 text-white"
+                : "text-slate-200 hover:bg-slate-800"
           }
         `
       }
@@ -85,3 +95,5 @@ export default function SidebarItem({
     </NavLink>
   );
 }
+
+export default memo(SidebarItem);

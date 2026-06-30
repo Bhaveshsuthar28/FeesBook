@@ -532,3 +532,13 @@ export const triggerFeesReminders =
 
     return response.data;
   };
+
+export const reshuffleRollNumbersApi =
+  async ({ classId, sectionId }) => {
+    const response =
+      await axios.post(
+        `${API}/students/class/${classId}/section/${sectionId}/reshuffle`
+      );
+
+    return response.data;
+  };

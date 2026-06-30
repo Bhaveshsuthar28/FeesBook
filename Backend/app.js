@@ -9,30 +9,22 @@ import { env } from "./src/cors/config/env.js";
 import authRoutes from "./src/modules/auth/auth.routes.js";
 import classRoutes from "./src/modules/classes/class.routes.js";
 import feesRouter from "./src/modules/fees/fees.router.js";
-import {
-  ensureFeeColumns,
-} from "./src/modules/fees/fees.service.js";
 import settingsRoutes from "./src/modules/settings/settings.routes.js";
 import sectionRoutes from "./src/modules/sections/section.routes.js";
 import studentRoutes from "./src/modules/students/students.routes.js";
 import enrollmentRoutes from "./src/modules/enrollments/enrollments.routes.js";
 import promotionRoutes from "./src/modules/promotion/promotion.routes.js";
 import whatsappRoutes from "./src/modules/whatsapp/whatsapp.routes.js";
-import { ensureWhatsappTables } from "./src/modules/whatsapp/whatsapp.service.js";
 import "./src/utils/reminder.cron.js";
 import {
   requireAuthenticatedUser,
 } from "./src/modules/auth/auth.middleware.js";
 import cron from "node-cron";
 import {
-  ensureStudentLifecycleColumns,
   runMayAcademicYearAutomationService,
 } from "./src/modules/students/students.service.js";
 import {
-  ensureFeeConcessionColumns,
-} from "./src/modules/students/studentConcessions.service.js";
-import {
-  ensureSettingsColumns,
+  getSchoolProfileService,
 } from "./src/modules/settings/settings.service.js";
 import { db } from "./src/cors/database/DB.Connect.js";
 import { principals } from "./src/modules/auth/auth.schema.js";
@@ -105,6 +97,32 @@ app.addHook(
 
     if (!authenticated) {
       return reply;
+    }
+
+    const schoolId = request.userId;
+    if (schoolId) {
+      try {
+        const profile = await getSchoolProfileService({ schoolId });
+        if (profile && !profile.isProfileComplete) {
+          const isWhitelisted =
+            path.startsWith("/api/v1/settings") ||
+            path.startsWith("/api/v1/auth") ||
+            path.startsWith("/api/v1/health") ||
+            path.startsWith("/api/whatsapp/webhook");
+
+          if (!isWhitelisted) {
+            reply.status(403).send({
+              success: false,
+              error: "PROFILE_INCOMPLETE",
+              message: "Please complete your school profile and fee receipt settings first to access other features."
+            });
+            return reply;
+          }
+        }
+      } catch (profileErr) {
+        // If profile check fails, allow the request through rather than blocking everything
+        request.log.warn({ err: profileErr }, "Profile completeness check failed, allowing request");
+      }
     }
   }
 );
@@ -193,15 +211,8 @@ await app.register(healthRoutes, {
 
 app.log.info({ BASE_URL: env.BASE_URL, PORT: env.PORT }, "Loaded env");
 
-await ensureStudentLifecycleColumns();
-
-await ensureFeeConcessionColumns();
-
-// ensureSettingsColumns() removed because it executed PRAGMA table_info on every boot, which was a development workaround. Proper database migrations now handle schema updates.
-
-await ensureFeeColumns();
-
-await ensureWhatsappTables();
+// Schema is managed via Drizzle migrations in /drizzle/*.sql
+// ensure*() boot-time PRAGMA checks have been removed — run: npm run db:push
 
 cron.schedule(
   "0 0 1 5 *",

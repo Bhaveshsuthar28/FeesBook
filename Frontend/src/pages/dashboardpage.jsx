@@ -729,6 +729,75 @@ export default function DashboardPage() {
     "thisMonth"
   );
 
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthIndex = now.getMonth();
+
+    if (chartMonth === "thisWeek") {
+      const start = new Date(now);
+      const day = start.getDay();
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      return { start: start.getTime(), end: end.getTime() };
+    }
+
+    if (chartMonth === "thisMonth") {
+      const start = new Date(currentYear, currentMonthIndex, 1);
+      const end = new Date(currentYear, currentMonthIndex + 1, 1);
+      return { start: start.getTime(), end: end.getTime() };
+    }
+
+    if (chartMonth === "lastMonth") {
+      const start = new Date(currentYear, currentMonthIndex - 1, 1);
+      const end = new Date(currentYear, currentMonthIndex, 1);
+      return { start: start.getTime(), end: end.getTime() };
+    }
+
+    const monthMap = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    };
+
+    if (monthMap[chartMonth] !== undefined) {
+      const targetMonthIndex = monthMap[chartMonth];
+      const start = new Date(currentYear, targetMonthIndex, 1);
+      const end = new Date(currentYear, targetMonthIndex + 1, 1);
+      return { start: start.getTime(), end: end.getTime() };
+    }
+
+    const start = new Date(currentYear, currentMonthIndex, 1);
+    const end = new Date(currentYear, currentMonthIndex + 1, 1);
+    return { start: start.getTime(), end: end.getTime() };
+  }, [chartMonth]);
+
+  const [chartLoading, setChartLoading] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const fetchChartData = async () => {
+      try {
+        setChartLoading(true);
+        const ins = await getDashboardInsights({
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+        });
+        setInsights(ins);
+      } catch (error) {
+        notify.error(error, "Failed to load chart data");
+      } finally {
+        setChartLoading(false);
+      }
+    };
+
+    fetchChartData();
+  }, [dateRange, loading]);
+
   const [
     addStudentOpen,
 
@@ -842,7 +911,7 @@ export default function DashboardPage() {
           ] =
             await Promise.all([
               getClassesDashboard(),
-              getDashboardInsights(),
+              getDashboardInsights({ startDate: dateRange.start, endDate: dateRange.end }),
               getStudentDirectory({
                 status: "active",
                 page: 1,
@@ -1116,13 +1185,18 @@ export default function DashboardPage() {
     };
   });
 
-  const xAxisTicks = lineData
-    .filter((item) => {
-      if (!item.date) return false;
-      const day = new Date(item.date).getDate();
-      return [1, 7, 14, 21, 28].includes(day);
-    })
-    .map((item) => item.date);
+  const xAxisTicks = useMemo(() => {
+    if (lineData.length <= 10) {
+      return lineData.map((item) => item.date);
+    }
+    return lineData
+      .filter((item) => {
+        if (!item.date) return false;
+        const day = new Date(item.date).getDate();
+        return [1, 7, 14, 21, 28].includes(day);
+      })
+      .map((item) => item.date);
+  }, [lineData]);
 
   const formatXAxisDate = (dateStr) => {
     if (!dateStr) return "";
@@ -1471,9 +1545,22 @@ export default function DashboardPage() {
                 text-slate-700
               "
             >
-              <option value="thisMonth">
-                This Month
-              </option>
+              <option value="thisWeek">This Week</option>
+              <option value="thisMonth">This Month</option>
+              <option value="lastMonth">Last Month</option>
+              <hr className="my-1 border-slate-200" />
+              <option value="jan">January</option>
+              <option value="feb">February</option>
+              <option value="mar">March</option>
+              <option value="apr">April</option>
+              <option value="may">May</option>
+              <option value="jun">June</option>
+              <option value="jul">July</option>
+              <option value="aug">August</option>
+              <option value="sep">September</option>
+              <option value="oct">October</option>
+              <option value="nov">November</option>
+              <option value="dec">December</option>
             </select>
 
           </div>
@@ -1489,6 +1576,7 @@ export default function DashboardPage() {
             <ResponsiveContainer
               width="100%"
               height="100%"
+              debounce={150}
             >
 
               <AreaChart
@@ -1657,6 +1745,7 @@ export default function DashboardPage() {
               <ResponsiveContainer
                 width="100%"
                 height="100%"
+                debounce={150}
               >
 
                 <PieChart>
