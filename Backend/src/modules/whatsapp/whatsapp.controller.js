@@ -152,15 +152,38 @@ export async function sendBroadcastController(request, reply) {
   }
 
   try {
-    let queryConditions = [eq(studentsTable.schoolId, schoolId), eq(studentsTable.status, "active")];
+    const baseQuery = db
+      .select({
+        id: studentsTable.id,
+        phone: studentsTable.phone,
+      })
+      .from(studentsTable)
+      .innerJoin(
+        enrollmentsTable,
+        eq(enrollmentsTable.studentId, studentsTable.id)
+      )
+      .innerJoin(
+        classesTable,
+        eq(classesTable.id, enrollmentsTable.classId)
+      );
+
+    const queryConditions = [
+      eq(studentsTable.schoolId, schoolId),
+      eq(studentsTable.status, "active"),
+      eq(enrollmentsTable.schoolId, schoolId),
+      inArray(enrollmentsTable.status, ["active", "promoted"]),
+      eq(enrollmentsTable.academicYear, classesTable.academicYear),
+    ];
 
     if (targetType === "CLASS") {
       if (!targetId) return reply.status(400).send({ success: false, message: "targetId is required for CLASS type" });
-      queryConditions.push(eq(studentsTable.classId, targetId));
+      queryConditions.push(eq(enrollmentsTable.classId, targetId));
     } else if (targetType === "SECTION") {
       if (!targetId) return reply.status(400).send({ success: false, message: "targetId is required for SECTION type" });
-      queryConditions.push(eq(studentsTable.sectionId, targetId));
-    } else if (targetType !== "SCHOOL") {
+      queryConditions.push(eq(enrollmentsTable.sectionId, targetId));
+    } else if (targetType === "SCHOOL") {
+      queryConditions.push(eq(classesTable.status, "active"));
+    } else {
       return reply.status(400).send({ success: false, message: "Invalid targetType. Must be SCHOOL, CLASS, or SECTION" });
     }
 
@@ -178,13 +201,7 @@ export async function sendBroadcastController(request, reply) {
       queryConditions.push(inArray(studentsTable.id, pendingIds));
     }
 
-    const students = await db
-      .select({
-        id: studentsTable.id,
-        phone: studentsTable.phone,
-      })
-      .from(studentsTable)
-      .where(and(...queryConditions));
+    const students = await baseQuery.where(and(...queryConditions));
 
     if (students.length === 0) {
       return reply.status(200).send({ success: true, queued: 0, estimatedTime: "0 seconds" });
