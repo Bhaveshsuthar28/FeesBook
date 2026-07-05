@@ -23,8 +23,8 @@ import {
   handleIncomingMessage,
   logoutCommand,
 } from "./principalBot/principalBot.auth.middleware.js";
-import { sendTextMessage } from "./whatsapp.service.js";
-import { handleParentIncomingMessage } from "./parentBot.service.js";
+import { sendTextMessage, sendPDFReceiptDirect } from "./whatsapp.service.js";
+import { handleParentMessage } from "./parentBot/parentBot.handler.service.js";
 import nodemailer from "nodemailer";
 
 // 1. GET Verification Handshake for Meta API Webhook
@@ -105,9 +105,19 @@ export async function handleWebhookController(request, reply) {
         }
 
         // Run through the Parent Bot flow next
-        const parentResult = await handleParentIncomingMessage(from, text);
+        const parentResult = await handleParentMessage({ phoneNumber: from, messageText: text });
         if (parentResult.reply) {
-          await sendTextMessage(from, parentResult.reply);
+          if (parentResult.pdfUrl) {
+            await sendTextMessage(from, parentResult.reply);
+            await sendPDFReceiptDirect(
+              from, 
+              parentResult.pdfUrl, 
+              parentResult.fileName || "receipt.pdf", 
+              "Receipt Attachment"
+            );
+          } else {
+            await sendTextMessage(from, parentResult.reply);
+          }
           return;
         }
 

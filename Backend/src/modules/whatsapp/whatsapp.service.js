@@ -7,6 +7,7 @@ import { eq, sql } from "drizzle-orm";
 import { studentsTable } from "../../cors/schema/students.schema.js";
 import { studentFeesTable } from "../../cors/schema/studentFees.schema.js";
 import { classesTable } from "../../cors/schema/classes.schema.js";
+import { formatPaymentConfirmation } from "./whatsapp.messageFormatter.js";
 
 const apiVersion = env.WHATSAPP_API_VERSION;
 const defaultPhoneId = env.WHATSAPP_PHONE_NUMBER_ID;
@@ -326,14 +327,18 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
       }
     }
 
-    // Fetch school profile name
+    // Fetch school profile name and city
     let schoolName = "School";
+    let schoolCity = "";
     if (student.schoolId) {
       try {
         const { getSchoolProfileService } = await import("../settings/settings.service.js");
         const profile = await getSchoolProfileService({ schoolId: student.schoolId });
         if (profile?.schoolName) {
           schoolName = profile.schoolName;
+        }
+        if (profile?.city) {
+          schoolCity = profile.city;
         }
       } catch (err) {
         console.error("[resolvePersonalizedMessage] Error fetching school profile:", err);
@@ -402,6 +407,11 @@ export async function resolvePersonalizedMessage(studentId, templateText) {
       const regex = new RegExp(`{${key}}`, "g");
       resolvedText = resolvedText.replace(regex, val);
     });
+
+    const header = `🏫 *${schoolName.toUpperCase()}, ${schoolCity}*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    if (resolvedText && !resolvedText.startsWith("🏫 *")) {
+      resolvedText = header + resolvedText;
+    }
 
     return resolvedText;
   } catch (err) {
@@ -507,10 +517,34 @@ export async function sendFeeReceipt(paymentId) {
       paymentId: payment.id,
     });
 
+    const { getSchoolProfileService } = await import("../settings/settings.service.js");
+    const profile = await getSchoolProfileService({ schoolId: payment.schoolId });
+    const schoolName = profile?.schoolName || "School";
+    const schoolCity = profile?.city || "";
+
+    let sectionName = "";
+    if (student.sectionId) {
+      const { sectionsTable } = await import("../../cors/schema/sections.schema.js");
+      const [sec] = await db
+        .select({ name: sectionsTable.name })
+        .from(sectionsTable)
+        .where(eq(sectionsTable.id, student.sectionId));
+      if (sec) sectionName = sec.name;
+    }
+
     // Convert PDF buffer to Base64 to safely pass through Bull queue
     const pdfBufferBase64 = pdfDetails.buffer.toString("base64");
     const filename = pdfDetails.fileName || `receipt-${payment.receiptNo}.pdf`;
-    const caption = `Dear Parent, please find the fee receipt for ₹${payment.amount} paid on ${new Date(payment.paidAt).toLocaleDateString("en-IN")}.`;
+    const caption = formatPaymentConfirmation({
+      schoolName,
+      schoolCity,
+      studentName: student.fullName,
+      className,
+      sectionName,
+      paidAmount: payment.amount,
+      paymentDate: new Date(payment.paidAt).toLocaleDateString("en-IN"),
+      receiptNumber: payment.receiptNo
+    });
 
     // 4. Split parent phone numbers by comma/semicolon and queue document send jobs
     const phones = student.phone
@@ -535,10 +569,6 @@ export async function sendFeeReceipt(paymentId) {
           status: "PENDING",
         })
         .returning();
-
-      const { getSchoolProfileService } = await import("../settings/settings.service.js");
-      const profile = await getSchoolProfileService({ schoolId: payment.schoolId });
-      const schoolName = profile?.schoolName || "School";
 
       // Add to Bull queue with templateName and variables to bypass 24h Meta restriction
       await whatsappQueue.add({
