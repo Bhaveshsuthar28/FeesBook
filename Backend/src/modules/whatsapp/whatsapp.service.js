@@ -8,10 +8,39 @@ import { studentsTable } from "../../cors/schema/students.schema.js";
 import { studentFeesTable } from "../../cors/schema/studentFees.schema.js";
 import { classesTable } from "../../cors/schema/classes.schema.js";
 import { formatPaymentConfirmation } from "./whatsapp.messageFormatter.js";
+import { getCache, setCache } from "../../cors/cache/cache.service.js";
+import { keys, TTL } from "../../cors/cache/cache.keys.js";
+import { principals } from "../auth/auth.schema.js";
 
 const apiVersion = env.WHATSAPP_API_VERSION;
 const defaultPhoneId = env.WHATSAPP_PHONE_NUMBER_ID;
 const defaultToken = env.WHATSAPP_ACCESS_TOKEN;
+
+// Cache utility to get school language
+export async function getSchoolLanguage(schoolId) {
+  if (!schoolId) return "en";
+  try {
+    const cacheKey = keys.schoolProfile(schoolId);
+    let profile = await getCache(cacheKey);
+
+    if (!profile) {
+      const [dbProfile] = await db
+        .select()
+        .from(principals)
+        .where(eq(principals.clerkId, schoolId));
+
+      if (dbProfile) {
+        profile = dbProfile;
+        await setCache(cacheKey, dbProfile, TTL.PROFILE);
+      }
+    }
+
+    return profile?.language === "hi" ? "hi" : "en";
+  } catch (err) {
+    console.error(`[WhatsApp Service] getSchoolLanguage error for school ${schoolId}:`, err);
+    return "en";
+  }
+}
 
 // Phone number validation (Indian numbers, 10 digits prefixed with 91)
 export function validatePhone(phone) {
@@ -72,16 +101,21 @@ export async function sendTextMessage(phone, message, phoneNumberId = defaultPho
 }
 
 // 2. sendTemplateMessage
-export async function sendTemplateMessage(phone, templateName, variables = [], phoneNumberId = defaultPhoneId, accessToken = defaultToken) {
+export async function sendTemplateMessage(phone, templateName, variables = [], schoolId = null, phoneNumberId = defaultPhoneId, accessToken = defaultToken) {
   try {
     const to = normalizePhone(phone);
     if (!validatePhone(to)) {
       return { success: false, error: `Invalid phone number: ${phone}` };
     }
 
-    // Standard Meta test templates (hello_world, jaspers_market) are registered under en_US.
-    // Custom templates could be en_US or en. We will default to en_US.
+    // Determine language code based on school settings (from DB/Redis cache)
     let langCode = "en_US";
+    if (schoolId) {
+      const schoolLang = await getSchoolLanguage(schoolId);
+      if (schoolLang === "hi") {
+        langCode = "hi";
+      }
+    }
 
     const makeRequest = async (template, lang, vars) => {
       const payload = {
@@ -570,15 +604,20 @@ export async function sendFeeReceipt(paymentId) {
         })
         .returning();
 
+      // Check school language to determine template name
+      const schoolLang = await getSchoolLanguage(payment.schoolId);
+      const activeTemplateName = schoolLang === "hi" ? "fees_receipt_hi" : "fees_receipt";
+
       // Add to Bull queue with templateName and variables to bypass 24h Meta restriction
       await whatsappQueue.add({
         type: "SEND_RECEIPT",
+        schoolId: payment.schoolId,
         messageRecordId: msgRecord.id,
         phone: to,
         pdfBufferBase64,
         filename,
         caption,
-        templateName: "fees_receipt",
+        templateName: activeTemplateName,
         variables: [
           student.fatherName || "Parent",
           String(payment.amount),
@@ -693,11 +732,20 @@ export async function ensureWhatsappTables() {
 }
 
 // 7. sendMediaTemplateMessage (Upload media then send template message with document/image header)
-export async function sendMediaTemplateMessage(phone, templateName, variables = [], fileBuffer, mimeType, filename, phoneNumberId = defaultPhoneId, accessToken = defaultToken) {
+export async function sendMediaTemplateMessage(phone, templateName, variables = [], fileBuffer, mimeType, filename, schoolId = null, phoneNumberId = defaultPhoneId, accessToken = defaultToken) {
   try {
     const to = normalizePhone(phone);
     if (!validatePhone(to)) {
       return { success: false, error: `Invalid phone number: ${phone}` };
+    }
+
+    // Determine language code based on school settings (from DB/Redis cache)
+    let langCode = "en_US";
+    if (schoolId) {
+      const schoolLang = await getSchoolLanguage(schoolId);
+      if (schoolLang === "hi") {
+        langCode = "hi";
+      }
     }
 
     // Step 1: Upload media to Meta using fetch
@@ -743,7 +791,7 @@ export async function sendMediaTemplateMessage(phone, templateName, variables = 
       template: {
         name: templateName,
         language: {
-          code: "en_US",
+          code: langCode,
         },
         components: [
           {

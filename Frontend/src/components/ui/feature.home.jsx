@@ -22,8 +22,8 @@ const features = [
       "Track payments easily.",
 
     icon: Receipt,
-    iconColor: "text-blue-600",
-    bgColor: "bg-blue-50",
+    iconColor: "text-[#4F46E5]",
+    bgColor: "bg-indigo-50",
   },
 
   {
@@ -36,8 +36,8 @@ const features = [
       "Send reminders fast.",
 
     icon: MessageCircle,
-    iconColor: "text-orange-500",
-    bgColor: "bg-orange-50",
+    iconColor: "text-[#4F46E5]",
+    bgColor: "bg-indigo-50",
   },
 
   {
@@ -78,8 +78,8 @@ const features = [
       "Promote students fast.",
 
     icon: Users,
-    iconColor: "text-blue-600",
-    bgColor: "bg-blue-50",
+    iconColor: "text-[#4F46E5]",
+    bgColor: "bg-indigo-50",
   },
 
   {
@@ -92,8 +92,8 @@ const features = [
       "Manage alumni easily.",
 
     icon: GraduationCap,
-    iconColor: "text-orange-500",
-    bgColor: "bg-orange-50",
+    iconColor: "text-[#4F46E5]",
+    bgColor: "bg-indigo-50",
   },
 
   {

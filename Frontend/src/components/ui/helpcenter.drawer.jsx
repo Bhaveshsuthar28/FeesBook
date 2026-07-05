@@ -27,7 +27,7 @@ export default function HelpCenterDrawer({ isOpen, onClose }) {
       id: "fees",
       title: "Tracking School Fees",
       question: "How do I track paid and pending fees?",
-      answer: "In the Fees tab, click 'Record Payment' to enter manual cash/cheque payments. FeesBook automatically calculates pending balances and updates status dashboards.",
+      answer: "In the Fees tab, click 'Record Payment' to enter manual cash/cheque payments. FeeGo automatically calculates pending balances and updates status dashboards.",
     },
   ];
 

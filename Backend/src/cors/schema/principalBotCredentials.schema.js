@@ -15,12 +15,10 @@ export const principalBotCredentialsTable = sqliteTable(
       .$defaultFn(() => randomUUID()),
 
     schoolId: text("school_id")
-      .notNull()
-      .unique(),
+      .notNull(),
 
     activationCommand: text("activation_command")
-      .notNull()
-      .unique(),
+      .notNull(),
 
     passwordHash: text("password_hash")
       .notNull(),

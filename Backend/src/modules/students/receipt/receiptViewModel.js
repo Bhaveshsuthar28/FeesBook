@@ -26,7 +26,7 @@ const resolvePrincipalEmail = async ({
 }) => {
   const stored = clean(profile?.email);
 
-  if (stored && !stored.endsWith("@feesbook.local")) {
+  if (stored && !stored.endsWith("@feego.local")) {
     return stored;
   }
 

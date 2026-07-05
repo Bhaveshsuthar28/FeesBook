@@ -41,6 +41,8 @@ import {
 import {
   notify,
 } from "../lib/toast.js";
+import { useTranslation } from "react-i18next";
+import { useAppContext } from "../context/user.context.jsx";
 
 import {
   CardListSkeleton,
@@ -230,6 +232,8 @@ function StatCard({
 
 
 export default function FeesPage() {
+  const { t } = useTranslation();
+  const { tDb } = useAppContext();
   const navigate =
     useNavigate();
   const [
@@ -381,12 +385,12 @@ export default function FeesPage() {
     useMemo(
       () => [
         {
-          title: "Total Collected",
+          title: t("totalCollected") || "Total Collected",
           value:
             formatCurrency(
               ledger.stats.totalCollected
             ),
-          note: "Live fee collection",
+          note: t("liveFeeCollection") || "Live fee collection",
           icon: Wallet,
           accent: {
             bg: "bg-[#ebfaf0]",
@@ -397,12 +401,12 @@ export default function FeesPage() {
           },
         },
         {
-          title: "Pending Fees",
+          title: t("pendingFees") || "Pending Fees",
           value:
             formatCurrency(
               ledger.stats.pendingFees
             ),
-          note: "Remaining balance",
+          note: t("remainingBalance") || "Remaining balance",
           icon: ReceiptText,
           accent: {
             bg: "bg-[#fff8ed]",
@@ -413,12 +417,12 @@ export default function FeesPage() {
           },
         },
         {
-          title: "Partial Payments",
+          title: t("partialPayments") || "Partial Payments",
           value:
             formatCurrency(
               ledger.stats.partialPayments
             ),
-          note: "Collected from partial rows",
+          note: t("collectedFromPartialRows") || "Collected from partial rows",
           icon: WalletCards,
           accent: {
             bg: "bg-[#eef5fc]",
@@ -429,13 +433,13 @@ export default function FeesPage() {
           },
         },
         {
-          title: "Overdue Students",
+          title: t("overdueStudents") || "Overdue Students",
           value:
             Number(
               ledger.stats.overdueStudents ||
                 0
             ).toLocaleString("en-IN"),
-          note: "No payment this month",
+          note: t("noPaymentThisMonth") || "No payment this month",
           icon: AlertTriangle,
           accent: {
             bg: "bg-[#fdf2f2]",
@@ -446,7 +450,7 @@ export default function FeesPage() {
           },
         },
       ],
-      [ledger.stats]
+      [ledger.stats, t]
     );
 
   const paginationItems =
@@ -667,10 +671,10 @@ export default function FeesPage() {
       <div className="flex items-center justify-between md:hidden">
         <div>
           <h1 className="text-2xl font-extrabold tracking-normal text-slate-950">
-            Fees
+            {t("fees") || "Fees"}
           </h1>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            Track and manage all student fee payments
+            {t("trackManagePaymentsDesc") || "Track and manage all student fee payments"}
           </p>
         </div>
       </div>
@@ -678,10 +682,10 @@ export default function FeesPage() {
       <div className="hidden items-center justify-between md:flex">
         <div>
           <h1 className="text-3xl font-extrabold tracking-normal text-slate-950">
-            Fees
+            {t("fees") || "Fees"}
           </h1>
           <p className="mt-2 text-sm font-semibold text-slate-500">
-            Track and manage all student fee payments
+            {t("trackManagePaymentsDesc") || "Track and manage all student fee payments"}
           </p>
         </div>
       </div>
@@ -1082,15 +1086,15 @@ export default function FeesPage() {
           <table className="w-full min-w-[980px] text-left">
             <thead className="bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
               <tr>
-                <th className="px-4 py-4">Student</th>
-                <th className="px-4 py-4">Class & Section</th>
-                <th className="px-4 py-4">Total Fee</th>
-                <th className="px-4 py-4">Paid Amount</th>
-                <th className="px-4 py-4">Due Amount</th>
-                <th className="px-4 py-4">Last Payment</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4">Receipt</th>
-                <th className="px-4 py-4">Actions</th>
+                <th className="px-4 py-4">{t("student") || "Student"}</th>
+                <th className="px-4 py-4">{t("classSection") || "Class & Section"}</th>
+                <th className="px-4 py-4">{t("totalFee") || "Total Fee"}</th>
+                <th className="px-4 py-4">{t("paidAmount") || "Paid Amount"}</th>
+                <th className="px-4 py-4">{t("dueAmount") || "Due Amount"}</th>
+                <th className="px-4 py-4">{t("lastPayment") || "Last Payment"}</th>
+                <th className="px-4 py-4">{t("status") || "Status"}</th>
+                <th className="px-4 py-4">{t("receipt") || "Receipt"}</th>
+                <th className="px-4 py-4">{t("actions") || "Actions"}</th>
               </tr>
             </thead>
             <tbody className={loading ? "opacity-60" : ""}>
@@ -1130,7 +1134,7 @@ export default function FeesPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-sm font-bold text-slate-700">
-                          {student.className} {student.sectionName}
+                          {tDb(student.className)} {tDb(student.sectionName)}
                         </td>
                         <td className="px-4 py-4 text-sm font-extrabold text-slate-800">
                           {formatCurrency(student.totalFees)}
@@ -1142,7 +1146,7 @@ export default function FeesPage() {
                           {formatCurrency(student.dueAmount)}
                           {Number(student.overdueFees || 0) > 0 && (
                             <span className="text-[10px] text-amber-600 block font-bold">
-                              Overdue {formatCurrency(student.overdueFees)}
+                              {t("overdue") || "Overdue"} {formatCurrency(student.overdueFees)}
                             </span>
                           )}
                         </td>
@@ -1151,7 +1155,7 @@ export default function FeesPage() {
                         </td>
                         <td className="px-4 py-4">
                           <span className={`${statusClass[student.status] || statusClass.Unpaid} rounded-full px-3 py-1 text-xs font-extrabold`}>
-                            {student.status === "Unpaid" ? "Pending" : student.status}
+                            {tDb(student.status === "Unpaid" ? "Pending" : student.status)}
                           </span>
                         </td>
                         <td className="px-4 py-4">
@@ -1210,30 +1214,30 @@ export default function FeesPage() {
                             {student.fullName}
                           </p>
                           <p className="mt-1 text-xs font-semibold text-slate-500">
-                            {student.className} {student.sectionName} · {student.admissionNo}
+                            {tDb(student.className)} {tDb(student.sectionName)} · {student.admissionNo}
                           </p>
                         </div>
                       </div>
                       <span className={`${statusClass[student.status] || statusClass.Unpaid} shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold`}>
-                        {student.status === "Unpaid" ? "Pending" : student.status}
+                        {tDb(student.status === "Unpaid" ? "Pending" : student.status)}
                       </span>
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold">
                       <p className="text-emerald-600">
-                        Paid {formatCurrency(student.paidAmount)}
+                        {t("paid") || "Paid"} {formatCurrency(student.paidAmount)}
                         <span className="text-slate-400"> / </span>
                         <span className="text-slate-600">
-                          Total {formatCurrency(student.totalFees)}
+                          {t("total") || "Total"} {formatCurrency(student.totalFees)}
                         </span>
                       </p>
                       <div className="text-right">
                         <p className="text-red-600 font-extrabold">
-                          Due {formatCurrency(student.dueAmount)}
+                          {t("due") || "Due"} {formatCurrency(student.dueAmount)}
                         </p>
                         {Number(student.overdueFees || 0) > 0 && (
                           <span className="text-[10px] text-amber-600 block font-bold mt-0.5">
-                            Overdue {formatCurrency(student.overdueFees)}
+                            {t("overdue") || "Overdue"} {formatCurrency(student.overdueFees)}
                           </span>
                         )}
                       </div>

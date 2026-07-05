@@ -16,6 +16,7 @@ import {
   toggleBotActiveStatus,
 } from "../../lib/api/settingsapi.js";
 import { notify } from "../../lib/toast.js";
+import { SchoolProfileIllustration } from "../common/SchoolIllustrations.jsx";
 
 // Reusable styling helpers matching parent settingspage patterns
 const inputClassName =
@@ -32,21 +33,28 @@ export function Field({ label, children }) {
   );
 }
 
-export function SectionCard({ eyebrow, title, action, children }) {
+export function SectionCard({ eyebrow, title, action, illustration, children }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          {eyebrow && (
-            <p className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">
-              {eyebrow}
-            </p>
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex items-start gap-4">
+          {illustration && (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              {illustration}
+            </div>
           )}
-          <h2 className="text-base font-extrabold text-slate-950">
-            {title}
-          </h2>
+          <div>
+            {eyebrow && (
+              <p className="text-[10px] font-extrabold uppercase text-indigo-600 tracking-wider">
+                {eyebrow}
+              </p>
+            )}
+            <h2 className="text-base font-extrabold text-slate-950">
+              {title}
+            </h2>
+          </div>
         </div>
-        {action}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       {children}
     </section>
@@ -212,6 +220,7 @@ export default function WhatsAppBotSettings() {
       <SectionCard
         eyebrow="WhatsApp Authentication"
         title="Principal Bot Settings"
+        illustration={<SchoolProfileIllustration className="h-6 w-6" />}
         action={
           isConfigured ? (
             <div className="flex items-center gap-2">
@@ -246,7 +255,7 @@ export default function WhatsAppBotSettings() {
             </p>
 
             {validationError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-50 p-2.5 text-xs font-semibold text-red-700">
+              <div className="flex items-center gap-2 rounded-xl bg-[#FEE2E2] border border-red-200 p-2.5 text-xs font-semibold text-[#DC2626]">
                 <AlertCircle size={16} className="shrink-0" />
                 <span>{validationError}</span>
               </div>
@@ -341,8 +350,8 @@ export default function WhatsAppBotSettings() {
                 <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
                   {hasPhoneBound ? (
                     <>
-                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-600">
+                      <CheckCircle2 size={16} className="text-[#16A34A] shrink-0" />
+                      <span className="text-[11px] font-bold text-green-700">
                         Linked & bound to verified number
                       </span>
                     </>
@@ -375,7 +384,7 @@ export default function WhatsAppBotSettings() {
                 className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 space-y-3"
               >
                 {validationError && (
-                  <div className="flex items-center gap-2 rounded-xl bg-red-50 p-2 text-xs font-semibold text-red-700">
+                  <div className="flex items-center gap-2 rounded-xl bg-[#FEE2E2] border border-red-250 p-2 text-xs font-semibold text-[#DC2626]">
                     <AlertCircle size={14} className="shrink-0" />
                     <span>{validationError}</span>
                   </div>

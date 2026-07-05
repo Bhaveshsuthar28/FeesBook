@@ -6,13 +6,13 @@ const Logo = ({ size = "default" }) => {
   return (
     <div className="flex items-center gap-2">
       <div className="rounded-xl">
-        <FaBook className={`text-blue-600 ${sizeClass}`} />
+        <FaBook className={`text-[#4F46E5] ${sizeClass}`} />
       </div>
       {size !== "small" && (
         <div className="leading-tight">
           <h1 className="font-bold text-lg">
-            <span className="text-blue-600">Fees</span>
-            <span className="text-orange-500">Book</span>
+            <span className="text-[#4F46E5]">Fee</span>
+            <span className="text-orange-500">Go</span>
           </h1>
         </div>
       )}

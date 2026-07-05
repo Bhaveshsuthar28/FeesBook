@@ -68,6 +68,9 @@ export const updateSchoolProfileSchema =
 
     longitude:
       z.number().nullable().optional(),
+
+    language:
+      z.enum(["en", "hi"]).optional(),
   });
 
 export const academicYearSchema =

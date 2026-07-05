@@ -1,0 +1,41 @@
+[
+  {
+    "id": "guide-profile",
+    "title": "Setting Up Your School Identity",
+    "url": "https://www.youtube.com/watch?v=uV8VvFmG7m0",
+    "embedId": "uV8VvFmG7m0",
+    "duration": "2:45 Mins",
+    "description": "Learn how to configure your school profile, upload logos, set up official stamps and signatures, and activate academic cycles.",
+    "steps": [
+      "1. Go to Settings -> School Profile and fill out school identity details.",
+      "2. Upload PNG images of your school logo, principal signature, and school stamp.",
+      "3. Click Save Profile to apply the configuration globally across all PDF receipts."
+    ]
+  },
+  {
+    "id": "guide-fees",
+    "title": "Managing Classes & Creating Fee Structures",
+    "url": "https://www.youtube.com/watch?v=0kF_3b6-Ysc",
+    "embedId": "0kF_3b6-Ysc",
+    "duration": "3:20 Mins",
+    "description": "Step-by-step video guide to enrolling classes, allocating sections, and building default fee templates for academic terms.",
+    "steps": [
+      "1. Click Classes in the sidebar to add class rooms and section mappings.",
+      "2. Go to Settings -> Fee Structure and select the class to configure.",
+      "3. Add default fee items (Tuition Fee, Exam Fee) and save the templates to distribute dues automatically."
+    ]
+  },
+  {
+    "id": "guide-broadcast",
+    "title": "Broadcasting WhatsApp Reminders & Bot Login",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "embedId": "dQw4w9WgXcQ",
+    "duration": "4:05 Mins",
+    "description": "Mastering parent notifications: setting automated schedulers, reviewing logs, and linking your mobile Principal Bot.",
+    "steps": [
+      "1. Open WhatsApp Reminders page to view current pending stats.",
+      "2. Configure reminder schedules (IST time and frequency) and turn on automated dispatch.",
+      "3. Connect WhatsApp Bot by creating an activation command and password under settings."
+    ]
+  }
+]

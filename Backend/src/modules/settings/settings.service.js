@@ -117,6 +117,10 @@ const settingsColumns = [
     name: "payment_modes",
     definition: "text",
   },
+  {
+    name: "language",
+    definition: "text DEFAULT 'en'",
+  },
 ];
 
 const defaultReceiptSettings = {
@@ -195,7 +199,7 @@ const emptyProfile =
     clerkId:
       schoolId,
     email:
-      `${schoolId}@feesbook.local`,
+      `${schoolId}@feego.local`,
     name:
       "Principal",
     photo:

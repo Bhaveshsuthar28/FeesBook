@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     {
       icon: <Shield className="w-6 h-6 text-blue-500" />,
       title: "Data Protection & Privacy First",
-      text: "At FeesBook, we prioritize student and parent data protection. We implement industry-standard database encryption and secure JWT access tokens. We do not store plain-text passwords or credentials.",
+      text: "At FeeGo, we prioritize student and parent data protection. We implement industry-standard database encryption and secure JWT access tokens. We do not store plain-text passwords or credentials.",
     },
     {
       icon: <Eye className="w-6 h-6 text-blue-500" />,

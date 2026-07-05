@@ -72,6 +72,8 @@ export const principals = sqliteTable("principals", {
 
     mobile: text("mobile"),
 
+    language: text("language").default("en"),
+
     isProfileComplete: integer(
         "is_profile_complete",
         {

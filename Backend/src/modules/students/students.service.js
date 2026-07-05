@@ -1989,63 +1989,71 @@ export const getStudentsBySectionService =
         )
       );
 
-    const enrichedStudents =
-      await Promise.all(
-      students.map(
-        async (student) => {
-          const fees = await db
-            .select()
-            .from(studentFeesTable)
-            .where(
-              and(
-                eq(studentFeesTable.schoolId, schoolId),
-                eq(studentFeesTable.studentId, student.id)
-              )
-            );
+    const studentIds = students.map((s) => s.id);
+    let studentFees = [];
+    if (studentIds.length > 0) {
+      studentFees = await db
+        .select()
+        .from(studentFeesTable)
+        .where(
+          and(
+            eq(studentFeesTable.schoolId, schoolId),
+            inArray(studentFeesTable.studentId, studentIds)
+          )
+        );
+    }
 
-          const currentYearFees = fees.filter(
-            (fee) => !classYear || fee.academicYear === classYear
-          );
+    const feesMap = new Map();
+    for (const fee of studentFees) {
+      if (!feesMap.has(fee.studentId)) {
+        feesMap.set(fee.studentId, []);
+      }
+      feesMap.get(fee.studentId).push(fee);
+    }
 
-          const overdueFeesList = fees.filter(
-            (fee) => classYear && fee.academicYear !== classYear
-          );
+    const enrichedStudents = students.map((student) => {
+      const fees = feesMap.get(student.id) || [];
+      const currentYearFees = fees.filter(
+        (fee) => !classYear || fee.academicYear === classYear
+      );
 
-          const totalFees = currentYearFees.reduce(
-            (sum, fee) => sum + Number(fee.amount || 0),
-            0
-          );
-          const collectedFees = currentYearFees.reduce(
-            (sum, fee) => sum + Number(fee.paidAmount || 0),
-            0
-          );
-          const pendingFees = currentYearFees.reduce(
-            (sum, fee) => sum + Number(fee.dueAmount || 0),
-            0
-          );
-          const overdueFees = overdueFeesList.reduce(
-            (sum, fee) => sum + Number(fee.dueAmount || 0),
-            0
-          );
+      const overdueFeesList = fees.filter(
+        (fee) => classYear && fee.academicYear !== classYear
+      );
 
-          const paymentStatus =
-            makePaymentStatus({
-              pendingFees,
-              collectedFees,
-              totalFees,
-            });
+      const totalFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.amount || 0),
+        0
+      );
+      const collectedFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.paidAmount || 0),
+        0
+      );
+      const pendingFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.dueAmount || 0),
+        0
+      );
+      const overdueFees = overdueFeesList.reduce(
+        (sum, fee) => sum + Number(fee.dueAmount || 0),
+        0
+      );
 
-          return {
-            ...student,
-            totalFees,
-            pendingFees,
-            collectedFees,
-            overdueFees,
-            paymentStatus,
-          };
-        }
-      )
-    );
+      const paymentStatus =
+        makePaymentStatus({
+          pendingFees,
+          collectedFees,
+          totalFees,
+        });
+
+      return {
+        ...student,
+        totalFees,
+        pendingFees,
+        collectedFees,
+        overdueFees,
+        paymentStatus,
+      };
+    });
 
     const stats =
       enrichedStudents.reduce(
@@ -2233,150 +2241,86 @@ export const getStudentDirectoryService =
           )
         );
 
-    const enrichedStudents =
-      await Promise.all(
-        allStudents.map(
-          async (student) => {
-            const [
-              singleClass,
-              section,
-              fees,
-            ] =
-              await Promise.all([
-                db
-                  .select()
-                  .from(classesTable)
-                  .where(
-                    and(
-                      eq(
-                        classesTable.id,
-                        student.classId
-                      ),
-                      eq(
-                        classesTable.schoolId,
-                        schoolId
-                      )
-                    )
-                  )
-                  .then(
-                    (rows) =>
-                      rows[0] || null
-                  ),
-                db
-                  .select()
-                  .from(sectionsTable)
-                  .where(
-                    and(
-                      eq(
-                        sectionsTable.id,
-                        student.sectionId
-                      ),
-                      eq(
-                        sectionsTable.schoolId,
-                        schoolId
-                      )
-                    )
-                  )
-                  .then(
-                    (rows) =>
-                      rows[0] || null
-                  ),
-                db
-                  .select()
-                  .from(studentFeesTable)
-                  .where(
-                    and(
-                      eq(
-                        studentFeesTable.schoolId,
-                        schoolId
-                      ),
-                      eq(
-                        studentFeesTable.studentId,
-                        student.id
-                      )
-                    )
-                  ),
-              ]);
+    const classes = await db
+      .select()
+      .from(classesTable)
+      .where(eq(classesTable.schoolId, schoolId));
+    const classesMap = new Map(classes.map((c) => [c.id, c]));
 
-            const currentYear = singleClass?.academicYear || "";
+    const sections = await db
+      .select()
+      .from(sectionsTable)
+      .where(eq(sectionsTable.schoolId, schoolId));
+    const sectionsMap = new Map(sections.map((s) => [s.id, s]));
 
-            const currentYearFees = fees.filter(
-              (fee) => !currentYear || fee.academicYear === currentYear
-            );
+    const studentFees = await db
+      .select()
+      .from(studentFeesTable)
+      .where(eq(studentFeesTable.schoolId, schoolId));
+    const feesMap = new Map();
+    for (const fee of studentFees) {
+      if (!feesMap.has(fee.studentId)) {
+        feesMap.set(fee.studentId, []);
+      }
+      feesMap.get(fee.studentId).push(fee);
+    }
 
-            const overdueFeesList = fees.filter(
-              (fee) => currentYear && fee.academicYear !== currentYear
-            );
+    const enrichedStudents = allStudents.map((student) => {
+      const singleClass = classesMap.get(student.classId) || null;
+      const section = sectionsMap.get(student.sectionId) || null;
+      const fees = feesMap.get(student.id) || [];
 
-            const totalFees = currentYearFees.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.amount || 0
-                ),
-              0
-            );
-            const collectedFees = currentYearFees.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.paidAmount || 0
-                ),
-              0
-            );
-            const pendingFees = currentYearFees.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.dueAmount || 0
-                ),
-              0
-            );
-            const overdueFees = overdueFeesList.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.dueAmount || 0
-                ),
-              0
-            );
+      const currentYear = singleClass?.academicYear || "";
 
-            return {
-              ...student,
-              className:
-                singleClass?.name ||
-                "Class",
-              sectionName:
-                section?.name ||
-                "Section",
-              totalFees,
-              collectedFees,
-              pendingFees,
-              overdueFees,
-              paymentStatus:
-                makePaymentStatus({
-                  pendingFees,
-                  collectedFees,
-                  totalFees,
-                }),
-              publicStatus:
-                (student.status === "previous" || student.status === "archived")
-                  ? "left"
-                  : student.status ||
-                    "active",
-              statusLabel:
-                (student.status === "previous" || student.status === "archived")
-                  ? "Left"
-                  : (student.status ||
-                      "active")
-                      .charAt(0)
-                      .toUpperCase() +
-                    (student.status ||
-                      "active").slice(1),
-            };
-          }
-        )
+      const currentYearFees = fees.filter(
+        (fee) => !currentYear || fee.academicYear === currentYear
       );
+
+      const overdueFeesList = fees.filter(
+        (fee) => currentYear && fee.academicYear !== currentYear
+      );
+
+      const totalFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.amount || 0),
+        0
+      );
+      const collectedFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.paidAmount || 0),
+        0
+      );
+      const pendingFees = currentYearFees.reduce(
+        (sum, fee) => sum + Number(fee.dueAmount || 0),
+        0
+      );
+      const overdueFees = overdueFeesList.reduce(
+        (sum, fee) => sum + Number(fee.dueAmount || 0),
+        0
+      );
+
+      return {
+        ...student,
+        className: singleClass?.name || "Class",
+        sectionName: section?.name || "Section",
+        totalFees,
+        collectedFees,
+        pendingFees,
+        overdueFees,
+        paymentStatus: makePaymentStatus({
+          pendingFees,
+          collectedFees,
+          totalFees,
+        }),
+        publicStatus:
+          student.status === "previous" || student.status === "archived"
+            ? "left"
+            : student.status || "active",
+        statusLabel:
+          student.status === "previous" || student.status === "archived"
+            ? "Left"
+            : (student.status || "active").charAt(0).toUpperCase() +
+              (student.status || "active").slice(1),
+      };
+    });
 
     const statusCounts =
       enrichedStudents.reduce(

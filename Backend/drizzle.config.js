@@ -1,8 +1,10 @@
 import "dotenv/config";
 
 export default {
-  schema:
+  schema: [
     "./src/cors/schema/**/*.js",
+    "./src/modules/**/*.schema.js"
+  ],
 
   out: "./drizzle",
 

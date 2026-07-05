@@ -66,6 +66,8 @@ import {
 import {
   notify,
 } from "../lib/toast.js";
+import { useTranslation } from "react-i18next";
+import { useAppContext } from "../context/user.context.jsx";
 import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -75,6 +77,8 @@ import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 import AddStudentModal from "../components/students/AddStudentModal.jsx";
 
 import AllocateOptionalFeesModal from "../components/fees/AllocateOptionalFeesModal.jsx";
+
+import { t } from "i18next";
 
 import {
   PageLoadingSkeleton,
@@ -893,16 +897,16 @@ function DirectoryStudentsView({
       <div className="hidden md:block">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-extrabold text-slate-950">
-            Students
+            {t("students") || "Students"}
           </h1>
-          <Tooltip content="Register new students, update profiles, record payments, and view student fee statuses.">
+          <Tooltip content={t("studentsTooltip") || "Register new students, update profiles, record payments, and view student fee statuses."}>
             <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1.5">
               <Info size={16} />
             </button>
           </Tooltip>
         </div>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          View and manage all students in your school
+          {t("manageStudentsDesc") || "View and manage all students in your school"}
         </p>
       </div>
 
@@ -1681,6 +1685,8 @@ function DirectoryStudentsView({
 }
 
 export default function StudentsPage() {
+  const { t } = useTranslation();
+  const { tDb } = useAppContext();
   const {
     className: classNameParam,
     sectionName: sectionNameParam,
@@ -3537,13 +3543,13 @@ export default function StudentsPage() {
                 shadow-sm
                 ${
                   canAddStudents
-                    ? "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-[#4F46E5] hover:bg-indigo-750"
                     : "cursor-not-allowed bg-slate-300"
                 }
               `}
             >
               <Plus size={16} />
-              Add Student
+              {t("addStudent") || "Add Student"}
               <ChevronDown size={14} />
             </button>
 

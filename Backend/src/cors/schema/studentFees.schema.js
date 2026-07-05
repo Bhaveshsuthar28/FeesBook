@@ -59,6 +59,13 @@ export const studentFeesTable =
       createdAt:
         integer("created_at")
           .notNull(),
+
+      grossAmount:
+        integer("gross_amount"),
+
+      concessionAmount:
+        integer("concession_amount")
+          .default(0),
     },
     (table) => ({
       studentIdIdx: index("idx_student_fees_student_id").on(table.studentId),

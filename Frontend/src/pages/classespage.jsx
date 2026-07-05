@@ -41,6 +41,7 @@ import SendWhatsappModal
   from "../components/common/SendWhatsappModal.jsx";
 
 import { notify } from "../lib/toast.js";
+import { useAppContext } from "../context/user.context.jsx";
 
 import {
   PageLoadingSkeleton,
@@ -58,6 +59,7 @@ const tabs = [
 ];
 
 export default function ClassesPage() {
+  const { t, tDb } = useAppContext();
   const navigate =
     useNavigate();
 
@@ -99,7 +101,7 @@ export default function ClassesPage() {
     setWhatsappStudent({
       id: "class-broadcast",
       classId: cls.id,
-      fullName: `Class ${cls.name}`,
+      fullName: `${t("class") || "Class"} ${tDb(cls.name)}`,
       phone: "All Class Parents",
       isClassBroadcast: true
     });
@@ -192,9 +194,9 @@ export default function ClassesPage() {
                 text-slate-900
               "
             >
-              Classes
+              {t("classes") || "Classes"}
             </h1>
-            <Tooltip content="Manage all classes, view their sections, archive classes, or broadcast class announcements.">
+            <Tooltip content={t("classesTooltip") || "Manage all classes, view their sections, archive classes, or broadcast class announcements."}>
               <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
                 <Info size={16} />
               </button>
@@ -208,7 +210,7 @@ export default function ClassesPage() {
               text-slate-500
             "
           >
-            Manage active and archived classes
+            {t("manageActiveArchivedClasses") || "Manage active and archived classes"}
           </p>
         </div>
 
@@ -225,7 +227,7 @@ export default function ClassesPage() {
               justify-center
               gap-2
               rounded-xl
-              bg-orange-500
+              bg-[#4F46E5]
               px-4
               py-3
               text-sm
@@ -238,7 +240,7 @@ export default function ClassesPage() {
             <Plus
               size={18}
             />
-            Add Class
+            {t("addClass") || "Add Class"}
           </button>
         </div>
       </div>
@@ -279,12 +281,12 @@ export default function ClassesPage() {
                   sm:flex-none
                   ${
                     activeTab === tab.id
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[#4F46E5] text-white shadow-sm"
                       : "text-slate-500 hover:bg-slate-50"
                   }
                 `}
               >
-                {tab.label}
+                {t(tab.id) || tab.label}
               </button>
             )
           )

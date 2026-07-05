@@ -92,7 +92,7 @@ export async function handleParentIncomingMessage(phoneNumber, messageText) {
 
     await cacheRedis.set(sessionKey, JSON.stringify(sessionData), "EX", 300);
 
-    let replyMsg = `Welcome to FeesBook! 👋\nWe found multiple children linked to your phone number:\n\n`;
+    let replyMsg = `Welcome to FeeGo! 👋\nWe found multiple children linked to your phone number:\n\n`;
     parentStudents.forEach((student, idx) => {
       replyMsg += `${idx + 1}️⃣ ${student.fullName} (Class: ${student.className || "N/A"})\n`;
     });

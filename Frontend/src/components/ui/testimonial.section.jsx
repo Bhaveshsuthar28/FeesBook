@@ -28,7 +28,7 @@ const TestimonialsSection = () => {
 
           <p
             className="
-              text-blue-600
+              text-[#4F46E5]
               font-semibold
               text-sm lg:text-base
             "

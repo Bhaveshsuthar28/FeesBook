@@ -13,7 +13,7 @@ const HeroSection = () => {
   const [lastLogin, setLastLogin] = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("feesbook_last_login");
+    const saved = localStorage.getItem("feego_last_login");
     if (saved) {
       try {
         setLastLogin(JSON.parse(saved));
@@ -43,8 +43,8 @@ const HeroSection = () => {
           <div
             className="
               inline-flex items-center gap-2
-              bg-blue-50
-              text-blue-600
+              bg-indigo-50
+              text-[#4F46E5]
               px-4 py-2
               rounded-full
               text-sm font-medium
@@ -69,7 +69,7 @@ const HeroSection = () => {
             <br />
 
             for{" "}
-            <span className="text-blue-600">
+            <span className="text-[#4F46E5]">
               Modern Schools
             </span>
           </h1>
@@ -135,7 +135,7 @@ const HeroSection = () => {
                       />
                     </svg>
                   ) : (
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md uppercase">
+                    <span className="text-[10px] font-bold text-[#4F46E5] bg-indigo-50 px-2 py-1 rounded-md uppercase">
                       Email
                     </span>
                   )}
@@ -154,9 +154,9 @@ const HeroSection = () => {
             <button
               className="
                 flex items-center gap-2
-                text-blue-600
+                text-[#4F46E5]
                 font-semibold
-                hover:text-blue-700
+                hover:text-indigo-700
                 transition
               "
             >
@@ -164,7 +164,7 @@ const HeroSection = () => {
                 className="
                   w-9 h-9
                   rounded-full
-                  bg-blue-100
+                  bg-indigo-100
                   flex items-center justify-center
                 "
               >

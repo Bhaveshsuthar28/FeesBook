@@ -259,7 +259,7 @@ const Footer = () => {
               text-blue-100
             "
           >
-            © {currentYear} SchoolFee Manager. All rights reserved.
+            © {currentYear} FeeGo. All rights reserved.
           </p>
         </div>
       </div>

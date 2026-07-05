@@ -23,7 +23,7 @@ export default function CustomLoginModal({ isOpen, onClose, lastLogin }) {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 mb-3">
             <FaBook className="h-6 w-6 text-blue-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Sign in to Feesbook</h2>
+          <h2 className="text-xl font-bold text-slate-900">Sign in to FeeGo</h2>
           <p className="text-sm text-slate-500 mt-1.5">Welcome back! Please sign in to continue</p>
         </div>
 

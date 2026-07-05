@@ -11,6 +11,9 @@ import {
   useParams,
 } from "react-router-dom";
 
+import { useTranslation } from "react-i18next";
+import { useAppContext } from "../context/user.context.jsx";
+
 import {
   ArrowLeft,
   IndianRupee,
@@ -66,6 +69,8 @@ const tabs = [
 ];
 
 export default function SectionsPage() {
+  const { t } = useTranslation();
+  const { tDb } = useAppContext();
   const {
     className,
   } = useParams();
@@ -257,26 +262,26 @@ export default function SectionsPage() {
       () => {
         return [
           {
-            title: "No. of Sections",
+            title: t("noOfSections") || "No. of Sections",
             value:
               sectionStats.totalSections,
             subtitle:
-              "Active sections",
+              t("activeSections") || "Active sections",
             icon:
               School,
             iconBg:
               "bg-[#d2e5fc]",
             iconColor:
-              "text-blue-600",
+              "text-[#4F46E5]",
             bg:
               "bg-[#eef5fc] border-[#d2e5fc]/60"
           },
           {
-            title: "Total Students",
+            title: t("totalStudents") || "Total Students",
             value:
               sectionStats.totalStudents,
             subtitle:
-              "In all sections",
+              t("inAllSections") || "In all sections",
             icon:
               Users,
             iconBg:
@@ -287,11 +292,11 @@ export default function SectionsPage() {
               "bg-[#ebfaf0] border-[#d3f4dd]/60"
           },
           {
-            title: "Pending Amount",
+            title: t("pendingAmount") || "Pending Amount",
             value:
               `₹${sectionStats.totalPendingFees}`,
             subtitle:
-              "Across all sections",
+              t("acrossAllSections") || "Across all sections",
             icon:
               IndianRupee,
             iconBg:
@@ -302,11 +307,11 @@ export default function SectionsPage() {
               "bg-[#fff8ed] border-[#fee5cd]/60"
           },
           {
-            title: "Collected Amount",
+            title: t("collectedAmount") || "Collected Amount",
             value:
               `₹${sectionStats.totalCollectedFees}`,
             subtitle:
-              "Across all sections",
+              t("acrossAllSections") || "Across all sections",
             icon:
               WalletCards,
             iconBg:
@@ -320,6 +325,7 @@ export default function SectionsPage() {
       },
       [
         sectionStats,
+        t,
       ]
     );
 
@@ -360,7 +366,7 @@ export default function SectionsPage() {
           <ArrowLeft
             size={18}
           />
-          Back to Classes
+          {t("backToClasses") || "Back to Classes"}
         </button>
 
         <div
@@ -374,7 +380,7 @@ export default function SectionsPage() {
             text-slate-500
           "
         >
-          Class not found.
+          {t("classNotFound") || "Class not found."}
         </div>
       </div>
     );
@@ -430,7 +436,7 @@ export default function SectionsPage() {
             <ArrowLeft
               size={18}
             />
-            Back to Classes
+            {t("backToClasses") || "Back to Classes"}
           </button>
 
           <div
@@ -450,8 +456,8 @@ export default function SectionsPage() {
                 items-center
                 justify-center
                 rounded-2xl
-                bg-blue-100
-                text-blue-600
+                bg-indigo-50
+                text-indigo-600
               "
             >
               <School
@@ -473,9 +479,9 @@ export default function SectionsPage() {
                 text-slate-900
               "
             >
-              {selectedClass.name} Sections
+              {tDb(selectedClass.name)} {t("sections") || "Sections"}
             </h1>
-            <Tooltip content="Manage sections within this class, track student statistics, and broadcast announcements to sections.">
+            <Tooltip content={t("sectionsTooltip") || "Manage sections within this class, track student statistics, and broadcast announcements to sections."}>
               <button type="button" className="text-slate-400 hover:text-slate-600 transition p-1 mt-1">
                 <Info size={16} />
               </button>
@@ -489,7 +495,7 @@ export default function SectionsPage() {
               text-slate-500
             "
           >
-            Manage active and archived sections inside this class
+            {t("manageSectionsDesc") || "Manage active and archived sections inside this class"}
           </p>
             </div>
           </div>
@@ -503,7 +509,7 @@ export default function SectionsPage() {
               className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-95 w-full sm:w-auto"
             >
               <FaWhatsapp size={18} />
-              Broadcast to Class
+              {t("broadcastToClass") || "Broadcast to Class"}
             </button>
           )}
 
@@ -531,7 +537,7 @@ export default function SectionsPage() {
               sm:w-auto
               ${
                 canManageSections
-                  ? "bg-orange-500 hover:bg-orange-600"
+                  ? "bg-[#4F46E5] hover:bg-indigo-750"
                   : "cursor-not-allowed bg-slate-300"
               }
             `}
@@ -539,7 +545,7 @@ export default function SectionsPage() {
             <Plus
               size={18}
             />
-            Add Section
+            {t("addSection") || "Add Section"}
           </button>
         </div>
       </div>
@@ -694,12 +700,12 @@ export default function SectionsPage() {
                   sm:flex-none
                   ${
                     activeTab === tab.id
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[#4F46E5] text-white shadow-sm"
                       : "text-slate-500 hover:bg-slate-50"
                   }
                 `}
               >
-                {tab.label}
+                {t(tab.id) || tab.label}
               </button>
             )
           )

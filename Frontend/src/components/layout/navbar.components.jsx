@@ -3,6 +3,8 @@ import AuthLoginButton from "../common/AuthLoginButton.jsx";
 import navLinks from "../common/navlink.components.jsx";
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
+import { HelpCircle } from "lucide-react";
+import { useAppContext } from "../../context/user.context.jsx";
 
 import {
   SignInButton,
@@ -12,9 +14,10 @@ const Navbar = () => {
   const [lastLogin, setLastLogin] = useState(null);
   const location = useLocation();
   const isHomePage = location.pathname === "/";
+  const { language, setLanguage, setHelpOpen } = useAppContext();
 
   useEffect(() => {
-    const saved = localStorage.getItem("feesbook_last_login");
+    const saved = localStorage.getItem("feego_last_login");
     if (saved) {
       try {
         setLastLogin(JSON.parse(saved));
@@ -25,7 +28,7 @@ const Navbar = () => {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b">
+    <header className="sticky top-0 z-50 bg-white border-b border-slate-100">
       <nav className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         
         <Logo />
@@ -35,14 +38,51 @@ const Navbar = () => {
             <a
               key={link.label}
               href={isHomePage ? link.href : `/${link.href}`}
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition"
+              className="text-sm font-medium text-gray-700 hover:text-[#4F46E5] transition"
             >
               {link.label}
             </a>
           ))}
+
+          {/* Support link */}
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-[#4F46E5] transition"
+          >
+            <HelpCircle size={15} />
+            Support
+          </button>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
+
+          {/* Language Toggle Pill */}
+          <div className="hidden sm:flex items-center rounded-full border border-slate-200 bg-slate-50 p-0.5 text-[10px] font-bold">
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`rounded-full px-2.5 py-1 transition-all duration-200 ${
+                language === "en"
+                  ? "bg-[#4F46E5] text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("hi")}
+              className={`rounded-full px-2.5 py-1 transition-all duration-200 ${
+                language === "hi"
+                  ? "bg-[#4F46E5] text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              हिं
+            </button>
+          </div>
+
           {lastLogin ? (
             <SignInButton mode="modal" strategy={lastLogin.method === "Google" ? "oauth_google" : undefined}>
               <div className="flex items-center gap-2 border border-slate-200 rounded-xl p-1.5 bg-white hover:bg-slate-50 cursor-pointer shadow-sm transition">

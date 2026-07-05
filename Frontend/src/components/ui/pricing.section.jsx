@@ -37,19 +37,19 @@ export default function PricingSection() {
       className="py-20 lg:py-28 bg-[#fafafa] relative overflow-hidden"
     >
       {/* Background decorations */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-100/30 rounded-full blur-3xl -z-10 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6">
         {/* HEADER */}
         <div className="text-center max-w-3xl mx-auto">
-          <span className="text-blue-600 font-semibold tracking-wider text-sm uppercase px-3 py-1 bg-blue-50 rounded-full">
+          <span className="text-[#4F46E5] font-semibold tracking-wider text-sm uppercase px-3 py-1 bg-indigo-50 rounded-full">
             Pricing
           </span>
           <h2 className="text-3xl lg:text-5xl font-bold mt-4 text-slate-900 tracking-tight">
             Simple & Transparent Pricing
           </h2>
           <p className="text-slate-500 mt-4 text-lg">
-            FeesBook is built to empower educational institutions. We don't hide features behind paywalls.
+            FeeGo is built to empower educational institutions. We don't hide features behind paywalls.
           </p>
         </div>
 
@@ -58,7 +58,7 @@ export default function PricingSection() {
           <div className="relative bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-3xl p-8 lg:p-12 shadow-xl shadow-slate-100 flex flex-col md:flex-row gap-8 items-center max-w-3xl w-full mx-auto transition-transform hover:scale-[1.01]">
             
             {/* Banner/Badge for Free */}
-            <div className="absolute -top-4 right-8 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+            <div className="absolute -top-4 right-8 bg-[#4F46E5] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
               Lifetime Free
             </div>
 
@@ -70,7 +70,7 @@ export default function PricingSection() {
               
               {/* LARGE ANIMATED FREE FREE FREE */}
               <div className="mt-4 flex flex-col items-center md:items-start min-h-[90px]">
-                <div className="flex flex-wrap justify-center md:justify-start gap-x-2 text-4xl lg:text-6xl font-black tracking-tighter text-blue-600 select-none">
+                <div className="flex flex-wrap justify-center md:justify-start gap-x-2 text-4xl lg:text-6xl font-black tracking-tighter text-[#4F46E5] select-none">
                   {freeText.split(" ").map((word, wIdx) => (
                     <span key={wIdx} className="inline-block whitespace-nowrap">
                       {word.split("").map((char, cIdx) => {
@@ -78,7 +78,7 @@ export default function PricingSection() {
                         return (
                           <span
                             key={cIdx}
-                            className={`inline-block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 ${
+                            className={`inline-block text-transparent bg-clip-text bg-gradient-to-r from-[#4F46E5] to-indigo-500 ${
                               isInView ? "animate-letter-reveal" : "opacity-0"
                             }`}
                             style={{
@@ -95,7 +95,7 @@ export default function PricingSection() {
               </div>
 
               <p className="mt-4 text-slate-500 leading-relaxed text-sm lg:text-base">
-                FeesBook is 100% free. No credit card required. No hidden billing. Just sign up and digitize your institution.
+                FeeGo is 100% free. No credit card required. No hidden billing. Just sign up and digitize your institution.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-4 items-center justify-center md:justify-start">

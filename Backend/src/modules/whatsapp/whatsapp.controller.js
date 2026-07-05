@@ -318,15 +318,53 @@ export async function getWhatsappSettingsController(request, reply) {
           reminderIntervalDays: 90,
           reminderTime: "09:00",
           autoSendEnabled: false,
-          templates: [],
+          templates: [
+            {
+              id: "temp-en",
+              name: "fees_reminder",
+              language: "en",
+              body: "Dear Parent, this is a reminder that the outstanding fee amount for your child {{1}} is ₹{{2}} for class {{3}}. Please pay the due amount at the earliest. Thank you."
+            },
+            {
+              id: "temp-hi",
+              name: "fees_reminder_hi",
+              language: "hi",
+              body: "प्रिय अभिभावक, यह एक अनुस्मारक है कि आपके बच्चे {{1}} की बकाया शुल्क राशि ₹{{2}} (कक्षा {{3}}) है। कृपया जल्द से जल्द बकाया राशि का भुगतान करें। धन्यवाद।"
+            }
+          ],
         },
       });
+    }
+
+    let templatesList = [];
+    if (settings.templates) {
+      try {
+        templatesList = typeof settings.templates === "string" ? JSON.parse(settings.templates || "[]") : settings.templates;
+      } catch (e) {
+        templatesList = [];
+      }
+    }
+    if (!templatesList || templatesList.length === 0) {
+      templatesList = [
+        {
+          id: "temp-en",
+          name: "fees_reminder",
+          language: "en",
+          body: "Dear Parent, this is a reminder that the outstanding fee amount for your child {{1}} is ₹{{2}} for class {{3}}. Please pay the due amount at the earliest. Thank you."
+        },
+        {
+          id: "temp-hi",
+          name: "fees_reminder_hi",
+          language: "hi",
+          body: "प्रिय अभिभावक, यह एक अनुस्मारक है कि आपके बच्चे {{1}} की बकाया शुल्क राशि ₹{{2}} (कक्षा {{3}}) है। कृपया जल्द से जल्द बकाया राशि का भुगतान करें। धन्यवाद।"
+        }
+      ];
     }
 
     const data = {
       ...settings,
       autoSendEnabled: Boolean(settings.autoSendEnabled),
-      templates: typeof settings.templates === "string" ? JSON.parse(settings.templates || "[]") : settings.templates,
+      templates: templatesList,
     };
 
     return reply.status(200).send({ success: true, data });
@@ -453,7 +491,7 @@ export async function handlePublicContactEmailController(request, reply) {
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
       replyTo: email,
-      subject: `FeesBook Public Website: New ${type === "help" ? "Help Ticket" : "Contact Query"}`,
+      subject: `FeeGo Public Website: New ${type === "help" ? "Help Ticket" : "Contact Query"}`,
       html: `
         <!DOCTYPE html>
         <html>

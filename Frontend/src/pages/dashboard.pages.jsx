@@ -27,17 +27,19 @@ import MobileBottomBar
 import { useAppContext } from "../context/user.context.jsx";
 
 export default function DashboardLayout() {
-  const { schoolProfile } = useAppContext();
+  const { schoolProfile, profileLoaded } = useAppContext();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (schoolProfile && !schoolProfile.isProfileComplete) {
-      if (location.pathname !== "/settings") {
-        navigate("/settings", { replace: true });
+    if (profileLoaded) {
+      if (!schoolProfile || !schoolProfile.isProfileComplete) {
+        if (location.pathname !== "/settings") {
+          navigate("/settings", { replace: true });
+        }
       }
     }
-  }, [schoolProfile, location.pathname, navigate]);
+  }, [schoolProfile, profileLoaded, location.pathname, navigate]);
 
   const [
     isCollapsed,

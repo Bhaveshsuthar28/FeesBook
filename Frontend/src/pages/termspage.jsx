@@ -11,7 +11,7 @@ export default function TermsPage() {
   const terms = [
     {
       title: "1. Acceptance of Terms",
-      text: "By creating an account on FeesBook, you agree to comply with our usage policies and database guidelines. This application is free to use for valid educational institutions."
+      text: "By creating an account on FeeGo, you agree to comply with our usage policies and database guidelines. This application is free to use for valid educational institutions."
     },
     {
       title: "2. User Registration & Clerk Authentication",
@@ -23,7 +23,7 @@ export default function TermsPage() {
     },
     {
       title: "4. Disclaimer of Warranties",
-      text: "FeesBook is provided 'as is' without warranty of any kind, express or implied. While we strive to ensure 100% database availability via Turso and Upstash, we are not liable for transient network disruptions."
+      text: "FeeGo is provided 'as is' without warranty of any kind, express or implied. While we strive to ensure 100% database availability via Turso and Upstash, we are not liable for transient network disruptions."
     }
   ];
 
@@ -42,7 +42,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-slate-500 mt-4 text-lg">
-            Please read these terms carefully before managing your school records on FeesBook.
+            Please read these terms carefully before managing your school records on FeeGo.
           </p>
         </div>
 

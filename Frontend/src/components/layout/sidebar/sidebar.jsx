@@ -12,6 +12,7 @@ import {
   useUser,
   useClerk,
 } from "@clerk/clerk-react";
+import { useAppContext } from "../../../context/user.context.jsx";
 
 import {
   motion,
@@ -42,6 +43,7 @@ function Sidebar({
   setIsCollapsed,
 
 }) {
+  const { t } = useAppContext();
 
   const { user } =
     useUser();
@@ -165,8 +167,8 @@ function Sidebar({
                     : "w-0 overflow-hidden opacity-0 ml-0"
                 }
               `}>
-                <span className="text-blue-500">Fees</span>
-                <span className="text-orange-500">Book</span>
+                <span className="text-blue-500">Fee</span>
+                <span className="text-orange-500">Go</span>
               </span>
             </div>
 
@@ -266,7 +268,7 @@ function Sidebar({
                 {user?.fullName}
               </h3>
               <p className="text-xs text-slate-400 text-left">
-                Principal
+                {t("principal")}
               </p>
             </div>
           </button>
@@ -308,7 +310,7 @@ function Sidebar({
                 }
               `}
             >
-              Logout
+              {t("logout")}
             </span>
           </button>
 
@@ -421,7 +423,7 @@ function Sidebar({
                   font-semibold
                 "
               >
-                Confirm Logout
+                {t("confirmLogout") || "Confirm Logout"}
               </h2>
 
               <p
@@ -432,7 +434,7 @@ function Sidebar({
                   text-slate-600
                 "
               >
-                Are you sure you want to logout?
+                {t("logoutQuestion") || "Are you sure you want to logout?"}
               </p>
 
               <div
@@ -449,7 +451,7 @@ function Sidebar({
                   onClick={() => setShowLogoutPopup(false)}
                   className="rounded-xl border px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
 
                 <button
@@ -460,10 +462,10 @@ function Sidebar({
                   {loggingOut ? (
                     <>
                       <LoaderCircle className="h-4 w-4 animate-spin" />
-                      <span>Logging out...</span>
+                      <span>{t("loggingOut") || "Logging out..."}</span>
                     </>
                   ) : (
-                    "Logout"
+                    t("logout")
                   )}
                 </button>
 

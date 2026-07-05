@@ -16,7 +16,7 @@ const FeaturesSection = () => {
 
           <p
             className="
-              text-blue-600
+              text-[#4F46E5]
               font-semibold
               text-sm lg:text-base
             "
@@ -40,7 +40,7 @@ const FeaturesSection = () => {
           <div
             className="
               w-16 h-1
-              bg-orange-400
+              bg-[#4F46E5]
               rounded-full
               mx-auto
               mt-5

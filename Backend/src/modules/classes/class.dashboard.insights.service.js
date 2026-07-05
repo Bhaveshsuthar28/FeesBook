@@ -419,57 +419,88 @@ export const getDashboardInsightsService =
 
     const collectedBeforeRange = Number(collectedBeforeRow?.total || 0);
 
+    const isYearly = (rangeEnd - rangeStart) > 45 * 86400000;
     const dailyTrend = [];
     let cumulativeCollected = collectedBeforeRange;
 
-    for (
-      let t = rangeStart;
-      t < rangeEnd;
-      t += 86400000
-    ) {
-      const d =
-        new Date(t);
+    if (isYearly) {
+      let current = new Date(rangeStart);
+      const end = new Date(rangeEnd);
+      while (current < end) {
+        const year = current.getFullYear();
+        const month = current.getMonth();
+        
+        let monthCollected = 0;
+        for (const [key, val] of byDay.entries()) {
+          const [pYear, pMonth, pDay] = key.split("-").map(Number);
+          if (pYear === year && pMonth === (month + 1)) {
+            monthCollected += val;
+          }
+        }
+        
+        cumulativeCollected += monthCollected;
+        const monthPending = Math.max(0, totalSchoolFees - cumulativeCollected);
+        const monthLabel = current.toLocaleString("en-US", { month: "short" });
+        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+        
+        dailyTrend.push({
+          date: key,
+          label: monthLabel,
+          collected: monthCollected,
+          pendingSnapshot: monthPending,
+        });
+        
+        current.setMonth(current.getMonth() + 1);
+      }
+    } else {
+      for (
+        let t = rangeStart;
+        t < rangeEnd;
+        t += 86400000
+      ) {
+        const d =
+          new Date(t);
 
-      const key =
-        [
-          d.getFullYear(),
+        const key =
+          [
+            d.getFullYear(),
 
-          String(
-            d.getMonth() + 1
-          ).padStart(
-            2,
-            "0"
-          ),
+            String(
+              d.getMonth() + 1
+            ).padStart(
+              2,
+              "0"
+            ),
 
-          String(
-            d.getDate()
-          ).padStart(
-            2,
-            "0"
-          ),
-        ].join("-");
+            String(
+              d.getDate()
+            ).padStart(
+              2,
+              "0"
+            ),
+          ].join("-");
 
-      const dayCollected = byDay.get(key) || 0;
-      cumulativeCollected += dayCollected;
+        const dayCollected = byDay.get(key) || 0;
+        cumulativeCollected += dayCollected;
 
-      // Pending on this day = Total Allocated Fees - Cumulative Collected up to this day
-      const dayPending = Math.max(0, totalSchoolFees - cumulativeCollected);
+        const dayPending = Math.max(0, totalSchoolFees - cumulativeCollected);
 
-      dailyTrend.push({
-        date:
-          key,
+        dailyTrend.push({
+          date:
+            key,
 
-        label:
-          String(
-            d.getDate()
-          ),
+          label:
+            String(
+              d.getDate()
+            ),
 
-        collected:
-          dayCollected,
+          collected:
+            dayCollected,
 
-        pendingSnapshot:
-          dayPending,
-      });
+          pendingSnapshot:
+            dayPending,
+        });
+      }
     }
 
     const totalPending =

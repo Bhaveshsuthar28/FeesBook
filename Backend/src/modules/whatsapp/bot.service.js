@@ -64,7 +64,7 @@ export async function isPrincipalNumber(phone) {
 
 // Main Menu Text
 const MAIN_MENU_TEXT = `Welcome 👋
-FeesBook School Manager
+FeeGo School Manager
 
 1️⃣ School Summary
 2️⃣ Fee Collection Report  

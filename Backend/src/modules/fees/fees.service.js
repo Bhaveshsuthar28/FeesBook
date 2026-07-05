@@ -242,9 +242,12 @@ export const getFeeStructureService =
         });
     }
 
-    await cleanupUnusedClassesService({
+    // Run cleanup asynchronously in the background so it doesn't block the read request
+    cleanupUnusedClassesService({
       schoolId,
       academicYear: targetAcademicYear,
+    }).catch((err) => {
+      console.error("[Cleanup Unused Classes Error]:", err);
     });
 
     const [

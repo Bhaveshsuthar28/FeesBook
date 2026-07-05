@@ -8,7 +8,7 @@ function SidebarItem({
   item,
   expanded,
 }) {
-  const { schoolProfile } = useAppContext();
+  const { schoolProfile, t } = useAppContext();
   const Icon = item.icon;
   const isProfileComplete = schoolProfile ? schoolProfile.isProfileComplete : true;
   const isDisabled = !isProfileComplete && item.path !== "/settings";
@@ -89,7 +89,7 @@ function SidebarItem({
           }
         `}
       >
-        {item.label}
+        {t(item.label.toLowerCase())}
       </span>
 
     </NavLink>

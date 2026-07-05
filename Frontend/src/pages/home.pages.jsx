@@ -2,6 +2,7 @@ import Navbar from "../components/layout/navbar.components.jsx";
 import FeaturesSection from "../components/ui/features.section.jsx";
 import Footer from "../components/ui/footer.jsx";
 import HeroSection from "../components/ui/home.herosection.jsx";
+import FreeComponentsSection from "../components/ui/free-components.section.jsx";
 import HowItWorksSection from "../components/ui/howwork.jsx";
 import TestimonialsSection from "../components/ui/testimonial.section.jsx";
 import PricingSection from "../components/ui/pricing.section.jsx";
@@ -19,6 +20,8 @@ const Home = () => {
       <Navbar />
 
       <HeroSection />
+
+      <FreeComponentsSection />
 
       <FeaturesSection />
 

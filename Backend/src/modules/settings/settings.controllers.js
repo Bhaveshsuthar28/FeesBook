@@ -321,7 +321,7 @@ export const sendSupportEmailController =
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
       replyTo: principalEmail !== "N/A" ? principalEmail : undefined,
-      subject: `FeesBook Support Request: ${schoolProfile?.schoolName || "Unknown School"}`,
+      subject: `FeeGo Support Request: ${schoolProfile?.schoolName || "Unknown School"}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -348,7 +348,7 @@ export const sendSupportEmailController =
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo-text"><span class="logo-fees">Fees</span><span class="logo-book">Book</span> Support</div>
+              <div class="logo-text"><span class="logo-fees">Fee</span><span class="logo-book">Go</span> Support</div>
             </div>
             <div class="content">
               <div class="ticket-title">New Support Ticket Raised</div>
@@ -387,7 +387,7 @@ export const sendSupportEmailController =
               </div>
             </div>
             <div class="footer">
-              This automated message was sent via FeesBook Settings Support Module.
+              This automated message was sent via FeeGo Settings Support Module.
             </div>
           </div>
         </body>

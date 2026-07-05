@@ -6,6 +6,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { useHindiInput } from "../lib/hooks/useHindiInput.js";
 import SendWhatsappModal from "../components/common/SendWhatsappModal.jsx";
 import { Sparkles } from "lucide-react";
+import { t } from "i18next";
 
 import {
   Bell,
@@ -758,6 +759,12 @@ export default function DashboardPage() {
       return { start: start.getTime(), end: end.getTime() };
     }
 
+    if (chartMonth === "thisYear") {
+      const start = new Date(currentYear, 0, 1);
+      const end = new Date(currentYear + 1, 0, 1);
+      return { start: start.getTime(), end: end.getTime() };
+    }
+
     const monthMap = {
       jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
       jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
@@ -1186,7 +1193,7 @@ export default function DashboardPage() {
   });
 
   const xAxisTicks = useMemo(() => {
-    if (lineData.length <= 10) {
+    if (lineData.length <= 15) {
       return lineData.map((item) => item.date);
     }
     return lineData
@@ -1200,6 +1207,11 @@ export default function DashboardPage() {
 
   const formatXAxisDate = (dateStr) => {
     if (!dateStr) return "";
+    if (dateStr.length === 7 && dateStr.includes("-")) {
+      const [year, month] = dateStr.split("-");
+      const date = new Date(Number(year), Number(month) - 1, 1);
+      return date.toLocaleString("en-US", { month: "short" });
+    }
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return dateStr;
     const day = date.getDate();
@@ -1545,22 +1557,23 @@ export default function DashboardPage() {
                 text-slate-700
               "
             >
-              <option value="thisWeek">This Week</option>
-              <option value="thisMonth">This Month</option>
-              <option value="lastMonth">Last Month</option>
+              <option value="thisWeek">{t("thisWeek") || "This Week"}</option>
+              <option value="thisMonth">{t("thisMonth") || "This Month"}</option>
+              <option value="lastMonth">{t("lastMonth") || "Last Month"}</option>
+              <option value="thisYear">{t("thisYear") || "This Year"}</option>
               <hr className="my-1 border-slate-200" />
-              <option value="jan">January</option>
-              <option value="feb">February</option>
-              <option value="mar">March</option>
-              <option value="apr">April</option>
-              <option value="may">May</option>
-              <option value="jun">June</option>
-              <option value="jul">July</option>
-              <option value="aug">August</option>
-              <option value="sep">September</option>
-              <option value="oct">October</option>
-              <option value="nov">November</option>
-              <option value="dec">December</option>
+              <option value="jan">{t("jan") || "January"}</option>
+              <option value="feb">{t("feb") || "February"}</option>
+              <option value="mar">{t("mar") || "March"}</option>
+              <option value="apr">{t("apr") || "April"}</option>
+              <option value="may">{t("may") || "May"}</option>
+              <option value="jun">{t("jun") || "June"}</option>
+              <option value="jul">{t("jul") || "July"}</option>
+              <option value="aug">{t("aug") || "August"}</option>
+              <option value="sep">{t("sep") || "September"}</option>
+              <option value="oct">{t("oct") || "October"}</option>
+              <option value="nov">{t("nov") || "November"}</option>
+              <option value="dec">{t("dec") || "December"}</option>
             </select>
 
           </div>
@@ -1635,7 +1648,7 @@ export default function DashboardPage() {
                   }}
                   formatter={(value, name) => [
                     formatCurrency(value),
-                    name === "collectedCumulative" ? "Collected" : "Pending",
+                    name,
                   ]}
                 />
 

@@ -80,6 +80,13 @@ import {
 } from "../components/skeleton/PageSkeletons.jsx";
 
 import WhatsAppBotSettings from "../components/settings/WhatsAppBotSettings.jsx";
+import {
+  SchoolProfileIllustration,
+  AcademicYearIllustration,
+  FeeStructureIllustration,
+  ReceiptSettingsIllustration,
+  EmptyStateIllustration,
+} from "../components/common/SchoolIllustrations.jsx";
 
 const emptyProfile = {
   schoolName: "",
@@ -194,10 +201,25 @@ function Field({
   label,
   children,
 }) {
+  const { t } = useAppContext();
+  
+  const getLabelKey = (text) => {
+    if (!text) return "";
+    const parts = text.split(" ");
+    return parts.map((part, index) => {
+      const cleaned = part.replace(/[^a-zA-Z0-9]/g, "");
+      if (index === 0) return cleaned.toLowerCase();
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+    }).join("");
+  };
+
+  const key = getLabelKey(label);
+  const translatedLabel = t(key) || label;
+
   return (
     <label className="space-y-2">
       <span className="text-xs font-extrabold text-slate-600">
-        {label}
+        {translatedLabel}
       </span>
       {children}
     </label>
@@ -208,22 +230,48 @@ function SectionCard({
   eyebrow,
   title,
   action,
+  illustration,
   children,
 }) {
+  const { t } = useAppContext();
+
+  const getTranslationKey = (text) => {
+    if (!text) return "";
+    const parts = text.split(" ");
+    return parts.map((part, index) => {
+      const cleaned = part.replace(/[^a-zA-Z0-9]/g, "");
+      if (index === 0) return cleaned.toLowerCase();
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+    }).join("");
+  };
+
+  const eyebrowKey = getTranslationKey(eyebrow);
+  const titleKey = getTranslationKey(title);
+
+  const translatedEyebrow = t(eyebrowKey) || eyebrow;
+  const translatedTitle = t(titleKey) || title;
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          {eyebrow && (
-            <p className="text-xs font-extrabold uppercase text-indigo-600">
-              {eyebrow}
-            </p>
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex items-start gap-4">
+          {illustration && (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              {illustration}
+            </div>
           )}
-          <h2 className="mt-1 text-lg font-extrabold text-slate-950 sm:text-xl">
-            {title}
-          </h2>
+          <div>
+            {eyebrow && (
+              <p className="text-xs font-extrabold uppercase text-indigo-600 tracking-wider">
+                {translatedEyebrow}
+              </p>
+            )}
+            <h2 className="mt-1 text-lg font-extrabold text-slate-950 sm:text-xl">
+              {translatedTitle}
+            </h2>
+          </div>
         </div>
-        {action}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       {children}
     </section>
@@ -356,7 +404,7 @@ function ReceiptPreview({
 }
 
 export default function SettingsPage() {
-  const { schoolProfile, refreshSchoolProfile } = useAppContext();
+  const { schoolProfile, refreshSchoolProfile, t } = useAppContext();
   const [
     activeTab,
     setActiveTab,
@@ -847,7 +895,7 @@ export default function SettingsPage() {
       const config = {
         logo: {
           folder:
-            "/feesbook/school-logo",
+            "/feego/school-logo",
           loading:
             setUploadingLogo,
           cleanup: true,
@@ -860,7 +908,7 @@ export default function SettingsPage() {
         },
         signature: {
           folder:
-            "/feesbook/signatures",
+            "/feego/signatures",
           loading:
             setUploadingSignature,
           cleanup: true,
@@ -873,7 +921,7 @@ export default function SettingsPage() {
         },
         stamp: {
           folder:
-            "/feesbook/stamps",
+            "/feego/stamps",
           loading:
             setUploadingStamp,
           cleanup: true,
@@ -1399,7 +1447,7 @@ export default function SettingsPage() {
             )}
           </div>
           {optional && (
-            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-orange-700">
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-extrabold text-indigo-700">
               Checkbox allocation
             </span>
           )}
@@ -1422,11 +1470,12 @@ export default function SettingsPage() {
             <tbody>
               {fees.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={optional ? 5 : 4}
-                    className="px-4 py-10 text-center text-sm font-bold text-slate-500"
-                  >
-                    No real {optional ? "optional" : "mandatory"} fees assigned to this class yet.
+                  <td colSpan={optional ? 5 : 4} className="px-4 py-8">
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <EmptyStateIllustration className="h-10 w-10 text-slate-400" />
+                      <p className="mt-2 text-xs font-extrabold text-slate-900">No Fees Found</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">No {optional ? "optional" : "mandatory"} fees assigned to this class yet.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -1486,7 +1535,7 @@ export default function SettingsPage() {
                                 fee
                               )
                             }
-                            className="flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-extrabold text-emerald-700 disabled:opacity-60"
+                            className="flex h-8 items-center gap-1 rounded-lg border border-green-200 bg-[#DCFCE7] px-2 text-xs font-extrabold text-[#16A34A] disabled:opacity-60"
                           >
                             {loadingActionFeeId === fee.classFeeId ? (
                               <LoaderCircle size={14} className="animate-spin" />
@@ -1559,7 +1608,7 @@ export default function SettingsPage() {
                   className={`mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-extrabold transition-colors ${
                     selectedFeeTypeIds.includes(fee.feeTypeId)
                       ? "bg-indigo-600 text-white"
-                      : "bg-orange-50 text-orange-700"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   <Check size={14} />
@@ -1590,7 +1639,7 @@ export default function SettingsPage() {
                         fee
                       )
                     }
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 text-xs font-extrabold text-emerald-700 disabled:opacity-60"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-green-200 bg-[#DCFCE7] text-xs font-extrabold text-[#16A34A] disabled:opacity-60"
                   >
                     {loadingActionFeeId === fee.classFeeId ? (
                       <LoaderCircle size={14} className="animate-spin" />
@@ -1656,6 +1705,15 @@ export default function SettingsPage() {
           const TabIcon =
             tab.icon;
 
+          const getTabTranslationKey = (id) => {
+            if (id === "profile") return "schoolProfile";
+            if (id === "academic") return "academicYear";
+            if (id === "fees") return "feeStructure";
+            if (id === "receipt") return "receiptSettings";
+            if (id === "payments") return "paymentModes";
+            return id;
+          };
+
           return (
             <button
               key={tab.id}
@@ -1670,7 +1728,7 @@ export default function SettingsPage() {
               }`}
             >
               <TabIcon size={16} />
-              {tab.label}
+              {t(getTabTranslationKey(tab.id))}
             </button>
           );
         })}
@@ -1680,6 +1738,7 @@ export default function SettingsPage() {
           <SectionCard
             eyebrow="School Profile"
             title="School identity and location"
+            illustration={<SchoolProfileIllustration className="h-8 w-8" />}
           >
             <div className="grid gap-4 lg:grid-cols-3">
               <Field label="School Name">
@@ -1893,6 +1952,7 @@ export default function SettingsPage() {
         <SectionCard
           eyebrow="Academic Year"
           title="Academic lifecycle controls"
+          illustration={<AcademicYearIllustration className="h-8 w-8" />}
           action={
             <button
               type="button"
@@ -1916,7 +1976,7 @@ export default function SettingsPage() {
                     Controls class setup, promotions and archives
                   </p>
                 </div>
-                <span className="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-700">
+                <span className="w-fit rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-extrabold text-[#16A34A]">
                   {academicYears.activeAcademicYear || "No year"} Active
                 </span>
               </div>
@@ -1964,7 +2024,7 @@ export default function SettingsPage() {
                   type="button"
                   disabled={creatingYear}
                   onClick={createAndPromoteAcademicYear}
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-extrabold text-white disabled:opacity-60"
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-extrabold text-white disabled:opacity-60"
                 >
                   <Users size={17} />
                   Create & Promote
@@ -1993,9 +2053,11 @@ export default function SettingsPage() {
                 Academic Years
               </p>
               {(academicYears.years || []).length === 0 ? (
-                <p className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-sm font-semibold text-slate-500">
-                  No academic years yet. Create one using the form on the left.
-                </p>
+                <div className="mt-3 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
+                  <EmptyStateIllustration className="h-12 w-12 text-slate-400" />
+                  <p className="mt-2 text-xs font-extrabold text-slate-900">No Academic Years Found</p>
+                  <p className="text-[10px] text-slate-500 max-w-[200px] mt-0.5">Use the form on the left to set up your active academic cycle.</p>
+                </div>
               ) : (
                 (academicYears.years || []).map((item) => (
                 <div
@@ -2022,7 +2084,7 @@ export default function SettingsPage() {
                     }
                     className={`rounded-full px-3 py-1 text-xs font-extrabold ${
                       item.isActive
-                        ? "bg-emerald-100 text-emerald-700"
+                        ? "bg-[#DCFCE7] text-[#16A34A]"
                         : "bg-slate-200 text-slate-600"
                     }`}
                   >
@@ -2043,12 +2105,15 @@ export default function SettingsPage() {
           <SectionCard
             eyebrow="Classes"
             title="Select class"
+            illustration={<SchoolProfileIllustration className="h-6 w-6" />}
           >
             <div className="space-y-2">
               {structure.classes.length === 0 ? (
-                <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                  No active classes found.
-                </p>
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <EmptyStateIllustration className="h-10 w-10 text-slate-400" />
+                  <p className="mt-2 text-xs font-extrabold text-slate-900">No Classes Available</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Please create classes under Classes page first.</p>
+                </div>
               ) : (
                 structure.classes.map(
                   (singleClass) => (
@@ -2086,6 +2151,7 @@ export default function SettingsPage() {
             <SectionCard
               eyebrow="Fee Template"
               title={`${selectedClass?.name || "Class"} fee structure`}
+              illustration={<FeeStructureIllustration className="h-8 w-8" />}
               action={
                 <button
                   type="button"
@@ -2318,7 +2384,7 @@ export default function SettingsPage() {
                         !selectedClass
                       }
                       onClick={saveClassFee}
-                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-extrabold text-white disabled:opacity-60"
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-extrabold text-white disabled:opacity-60"
                     >
                       <Save size={17} />
                       Save Class Fee
@@ -2375,6 +2441,7 @@ export default function SettingsPage() {
           <SectionCard
             eyebrow="Receipt Settings"
             title="PDF receipt defaults"
+            illustration={<ReceiptSettingsIllustration className="h-8 w-8" />}
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Receipt Prefix">
@@ -2490,6 +2557,7 @@ export default function SettingsPage() {
         <SectionCard
           eyebrow="Payment Modes"
           title="Allowed collection channels"
+          illustration={<FeeStructureIllustration className="h-8 w-8" />}
           action={
             <button
               type="button"
@@ -2537,16 +2605,20 @@ export default function SettingsPage() {
                             ]
                     )
                   }
-                  className={`rounded-2xl border p-4 text-left ${mode.color}`}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    enabled
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <ModeIcon size={24} />
+                    <ModeIcon size={24} className={enabled ? "text-indigo-600" : "text-slate-400"} />
                     <StatusToggle enabled={enabled} />
                   </div>
                   <p className="mt-5 text-base font-extrabold">
                     {mode.name}
                   </p>
-                  <p className="mt-1 text-xs font-bold opacity-70">
+                  <p className={`mt-1 text-xs font-bold ${enabled ? "text-indigo-650" : "text-slate-400"}`}>
                     {enabled
                       ? "Enabled"
                       : "Disabled"}

@@ -19,7 +19,7 @@ export const env = {
 
   WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
   WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
-  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || 'feesbook_webhook_secret',
+  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || 'feego_webhook_secret',
   WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION || 'v19.0',
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   CACHE_REDIS_URL: process.env.CACHE_REDIS_URL || 'redis://localhost:6379',

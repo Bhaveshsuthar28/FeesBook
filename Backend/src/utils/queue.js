@@ -55,7 +55,7 @@ export const whatsappQueue = new Bull("whatsapp", {
 // Queue processor
 // Process 5 messages concurrently
 whatsappQueue.process(5, async (job) => {
-  const { type, messageRecordId, phone, message, templateName, variables, pdfBufferBase64, filename, caption, fileData, fileType, fileName } = job.data;
+  const { type, schoolId, messageRecordId, phone, message, templateName, variables, pdfBufferBase64, filename, caption, fileData, fileType, fileName } = job.data;
   
   // Clean/validate phone
   if (!phone) {
@@ -72,7 +72,7 @@ whatsappQueue.process(5, async (job) => {
       if (templateName) {
         if (fileData) {
           const fileBuffer = Buffer.from(fileData, "base64");
-          result = await sendMediaTemplateMessage(phone, templateName, variables || [], fileBuffer, fileType, fileName);
+          result = await sendMediaTemplateMessage(phone, templateName, variables || [], fileBuffer, fileType, fileName, schoolId);
           if (!result.success && (
             result.error?.includes("132012") || 
             result.error?.toLowerCase().includes("parameter") || 
@@ -80,14 +80,14 @@ whatsappQueue.process(5, async (job) => {
             result.error?.toLowerCase().includes("header")
           )) {
             console.warn(`[Queue Processor] Media template send failed (${result.error}), falling back to text template + direct media message`);
-            const textResult = await sendTemplateMessage(phone, templateName, variables || []);
+            const textResult = await sendTemplateMessage(phone, templateName, variables || [], schoolId);
             if (textResult.success) {
               await sendMediaMessageDirect(phone, fileBuffer, fileType, fileName, "Attachment");
               result = textResult;
             }
           }
         } else {
-          result = await sendTemplateMessage(phone, templateName, variables || []);
+          result = await sendTemplateMessage(phone, templateName, variables || [], schoolId);
         }
       } else {
         if (fileData) {
@@ -98,11 +98,11 @@ whatsappQueue.process(5, async (job) => {
         }
       }
     } else if (type === "SEND_REMINDER") {
-      result = await sendTemplateMessage(phone, templateName, variables);
+      result = await sendTemplateMessage(phone, templateName, variables, schoolId);
     } else if (type === "SEND_RECEIPT") {
       const pdfBuffer = Buffer.from(pdfBufferBase64, "base64");
       if (templateName) {
-        result = await sendMediaTemplateMessage(phone, templateName, variables || [], pdfBuffer, "application/pdf", filename);
+        result = await sendMediaTemplateMessage(phone, templateName, variables || [], pdfBuffer, "application/pdf", filename, schoolId);
         if (!result.success && (
           result.error?.includes("132012") || 
           result.error?.toLowerCase().includes("parameter") || 
@@ -110,7 +110,7 @@ whatsappQueue.process(5, async (job) => {
           result.error?.toLowerCase().includes("header")
         )) {
           console.warn(`[Queue Processor] Receipt media template send failed (${result.error}), falling back to text template + direct PDF receipt`);
-          const textResult = await sendTemplateMessage(phone, templateName, variables || []);
+          const textResult = await sendTemplateMessage(phone, templateName, variables || [], schoolId);
           if (textResult.success) {
             await sendPDFReceiptDirect(phone, pdfBuffer, filename, caption);
             result = textResult;

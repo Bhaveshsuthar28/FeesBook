@@ -2,10 +2,12 @@
 
 import { UserProfile } from "@clerk/clerk-react";
 import { ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className="w-full space-y-6 pb-24 lg:pb-0">
@@ -13,10 +15,10 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 hover:text-blue-600 transition-colors"
+          className="inline-flex items-center gap-2 hover:text-[#4F46E5] transition-colors"
         >
           <ArrowLeft size={17} />
-          Go Back
+          {t("goBack") || "Go Back"}
         </button>
       </div>
 

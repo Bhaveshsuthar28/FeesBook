@@ -432,7 +432,7 @@ export default function AddStudentModal({
         body.append("signature", auth.signature);
         body.append("expire", auth.expire);
         body.append("token", auth.token);
-        body.append("folder", "/feesbook/students");
+        body.append("folder", "/feego/students");
 
         const response =
           await fetch(

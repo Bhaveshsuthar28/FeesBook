@@ -1,5 +1,5 @@
 ---
-name: FeesBook API and payments
+name: FeeGo API and payments
 overview: Fix settings/API reliability, repair student profile payment recording, add payment popups on class-section student tables (fees page already has one), and replace profile photo URL fields with ImageKit file upload matching the add-student flow.
 todos:
   - id: fix-settings-api
@@ -23,7 +23,7 @@ todos:
 isProject: false
 ---
 
-# FeesBook: Settings APIs, Payments, and Photo Upload
+# FeeGo: Settings APIs, Payments, and Photo Upload
 
 ## Current architecture (relevant parts)
 
@@ -129,7 +129,7 @@ flowchart LR
 
 **Current:** [`EditStudentModal`](Frontend/src/pages/studentdetailspage.jsx) lines 386–387 — manual `Photo URL` / `Photo file ID` text inputs.
 
-**Target:** Same UX as add-student in [`studentspage.jsx`](Frontend/src/pages/studentspage.jsx) (`uploadPhoto` + hidden file input + `getImageKitAuth` + `POST https://upload.imagekit.io/api/v1/files/upload` with folder `/feesbook/students`).
+**Target:** Same UX as add-student in [`studentspage.jsx`](Frontend/src/pages/studentspage.jsx) (`uploadPhoto` + hidden file input + `getImageKitAuth` + `POST https://upload.imagekit.io/api/v1/files/upload` with folder `/feego/students`).
 
 **Changes:**
 

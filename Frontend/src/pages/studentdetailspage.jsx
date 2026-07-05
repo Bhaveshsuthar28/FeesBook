@@ -35,6 +35,8 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useAppContext } from "../context/user.context.jsx";
 
 import RecordPaymentModal from "../components/payments/RecordPaymentModal.jsx";
 
@@ -479,7 +481,7 @@ function EditStudentModal({
         body.append("signature", auth.signature);
         body.append("expire", auth.expire);
         body.append("token", auth.token);
-        body.append("folder", "/feesbook/students");
+        body.append("folder", "/feego/students");
 
         const response =
           await fetch(
@@ -752,6 +754,8 @@ function FeeEditRow({
 }
 
 export default function StudentDetailsPage() {
+  const { t } = useTranslation();
+  const { tDb } = useAppContext();
   const {
     studentId,
   } = useParams();
@@ -1000,9 +1004,9 @@ export default function StudentDetailsPage() {
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-5 pb-24 lg:pb-0">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
-        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 hover:text-blue-600">
+        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 hover:text-[#4F46E5]">
           <ArrowLeft size={17} />
-          Students
+          {t("students") || "Students"}
         </button>
         <span>/</span>
         <span className="text-slate-900">{student.fullName}</span>

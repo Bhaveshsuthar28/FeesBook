@@ -293,7 +293,7 @@ export default function SectionStudentsPanel({
         );
         body.append(
           "folder",
-          "/feesbook/students"
+          "/feego/students"
         );
 
         const response =

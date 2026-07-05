@@ -28,6 +28,11 @@ import {
 } from "../lib/api/studentapi.js";
 import { notify } from "../lib/toast.js";
 import { PageLoadingSkeleton } from "../components/skeleton/PageSkeletons.jsx";
+import {
+  WhatsAppRemindersIllustration,
+  EmptyStateIllustration
+} from "../components/common/SchoolIllustrations.jsx";
+import { useAppContext } from "../context/user.context.jsx";
 
 // ─── Static constants: instant, zero-latency suggestions ───────────
 
@@ -327,7 +332,7 @@ function SmartTextarea({ value, onChange, placeholder, rows = 5, disabled }) {
           }}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border transition active:scale-95 ${
             isHindiMode
-              ? "bg-orange-500 border-orange-600 text-white"
+              ? "bg-indigo-600 border-indigo-700 text-white shadow-sm"
               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -344,13 +349,13 @@ function SmartTextarea({ value, onChange, placeholder, rows = 5, disabled }) {
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
-        className="w-full rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 resize-none animate-all"
+        className="w-full rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 resize-none animate-all"
       />
 
       {/* Hindi Suggestions popup */}
       {isHindiMode && hindiSuggestions.length > 0 && (
-        <div className="absolute left-0 right-0 z-50 -bottom-10 flex flex-wrap gap-1.5 rounded-xl border border-orange-200 bg-orange-50 p-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
-          <span className="text-[9px] font-bold text-orange-500 uppercase tracking-wider self-center mr-1">
+        <div className="absolute left-0 right-0 z-50 -bottom-10 flex flex-wrap gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 p-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
+          <span className="text-[9px] font-bold text-indigo-650 uppercase tracking-wider self-center mr-1">
             Suggestions:
           </span>
           {hindiSuggestions.map((s, idx) => (
@@ -360,8 +365,8 @@ function SmartTextarea({ value, onChange, placeholder, rows = 5, disabled }) {
               onClick={() => selectHindiSuggestion(s, " ")}
               className={`rounded-lg px-2 py-0.5 text-xs font-bold transition active:scale-95 ${
                 idx === hindiHighlightIdx
-                  ? "bg-orange-500 text-white"
-                  : "bg-white text-slate-700 hover:bg-orange-100 border border-orange-200"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white text-slate-700 hover:bg-indigo-50 border border-indigo-100"
               }`}
             >
               {s}
@@ -379,11 +384,7 @@ function SmartTextarea({ value, onChange, placeholder, rows = 5, disabled }) {
           className="absolute left-0 right-0 z-50 mt-1 max-h-[220px] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
         >
           {/* Dropdown header */}
-          <div className={`sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${
-            isMediaMode
-              ? "border-blue-100 bg-blue-50 text-blue-500"
-              : "border-emerald-100 bg-emerald-50 text-emerald-500"
-          }`}>
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-indigo-100 bg-indigo-50 text-indigo-700">
             {isMediaMode ? (
               <><Paperclip size={11} /> Media Attachments — {`{{media}}`}</>
             ) : (
@@ -402,15 +403,13 @@ function SmartTextarea({ value, onChange, placeholder, rows = 5, disabled }) {
               onMouseEnter={() => setHighlightIdx(idx)}
               className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
                 idx === highlightIdx
-                  ? isMediaMode
-                    ? "bg-blue-50 text-blue-800"
-                    : "bg-emerald-50 text-emerald-800"
+                  ? "bg-indigo-600 text-white"
                   : "text-slate-700 hover:bg-slate-50"
               }`}
             >
               <span className={`rounded-md px-2 py-0.5 text-xs font-bold font-mono ${
-                isMediaMode
-                  ? "bg-blue-100 text-blue-600"
+                idx === highlightIdx
+                  ? "bg-indigo-500 text-white"
                   : "bg-slate-100 text-slate-600"
               }`}>
                 {isMediaMode ? `{{${v.key}}}` : `{${v.key}}`}
@@ -440,26 +439,26 @@ function TemplatePreview({ body }) {
       </p>
       <p className="text-sm font-medium leading-relaxed text-slate-700 flex flex-wrap items-center gap-y-1">
         {parts.map((part, i) => {
-          // Double brace → media chip (blue)
+          // Double brace → media chip (indigo)
           if (/^\{\{[a-z_]+\}\}$/.test(part)) {
             const mediaName = part.slice(2, -2);
             return (
               <span
                 key={i}
-                className="mx-0.5 inline-flex items-center gap-1 rounded-md bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-700"
+                className="mx-0.5 inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 text-xs font-bold text-indigo-700"
               >
                 <Paperclip size={10} />
                 {mediaName}
               </span>
             );
           }
-          // Single brace → variable chip (emerald)
+          // Single brace → variable chip (indigo)
           if (/^\{[a-z_]+\}$/.test(part)) {
             const varName = part.slice(1, -1);
             return (
               <span
                 key={i}
-                className="mx-0.5 inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-700"
+                className="mx-0.5 inline-flex items-center rounded-md bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 text-xs font-bold text-indigo-700"
               >
                 {varName}
               </span>
@@ -501,7 +500,7 @@ function TemplateModal({ template, onSave, onClose }) {
               {isEditing ? "Edit Template" : "Create Template"}
             </h3>
             <p className="mt-0.5 text-xs font-semibold text-slate-500">
-              Type <span className="rounded bg-emerald-50 px-1 font-mono text-emerald-600">{"{"}</span> for variables, <span className="rounded bg-blue-50 px-1 font-mono text-blue-600">{"{{"}</span> for media
+              Type <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-indigo-700">{"{"}</span> for variables, <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-indigo-700">{"{{"}</span> for media
             </p>
           </div>
           <button
@@ -524,7 +523,7 @@ function TemplateModal({ template, onSave, onClose }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isEditing}
-              className="rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 disabled:bg-slate-50 disabled:text-slate-500"
+              className="rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
@@ -539,10 +538,10 @@ function TemplateModal({ template, onSave, onClose }) {
             />
             {/* Helper chips */}
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+              <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
                 <span className="font-mono">{"{var}"}</span> Text data
               </span>
-              <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600">
+              <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
                 <Paperclip size={9} />
                 <span className="font-mono">{"{{media}}"}</span> File attachment
               </span>
@@ -565,7 +564,7 @@ function TemplateModal({ template, onSave, onClose }) {
           <button
             type="button"
             onClick={handleSubmit}
-            className="w-1/2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white shadow hover:bg-emerald-600 active:scale-95 transition"
+            className="w-1/2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow hover:bg-indigo-700 active:scale-95 transition"
           >
             {isEditing ? "Update Template" : "Create Template"}
           </button>
@@ -600,6 +599,7 @@ function DeleteConfirm({ onConfirm, onCancel }) {
 
 // ─── Main Page Component ───────────────────────────────────────────
 export default function RemindersPage() {
+  const { t } = useAppContext();
   const [settings, setSettings] = useState({
     reminderIntervalDays: 90,
     reminderTime: "09:00",
@@ -823,64 +823,66 @@ export default function RemindersPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <FaWhatsapp className="text-[#25D366]" size={28} />
-            <h1 className="text-xl font-extrabold text-slate-900">WhatsApp Reminders</h1>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-650">
+            <WhatsAppRemindersIllustration className="h-10 w-10" />
           </div>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            Configure automated schedules, build smart templates, and monitor outgoing deliveries.
-          </p>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-950">{t("whatsappRemindersTitle")}</h1>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {t("whatsappRemindersSubtitle")}
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setShowTriggerConfirm(true)}
           disabled={triggering}
-          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 transition disabled:opacity-60 active:scale-95 shrink-0"
+          className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow hover:bg-indigo-700 transition disabled:opacity-60 active:scale-95 shrink-0"
         >
           {triggering ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Play size={16} />
           )}
-          Trigger Outgoing Batch
+          {t("triggerBatch")}
         </button>
       </div>
 
       {/* Stats Section */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+        <div className="rounded-2xl border border-green-200 bg-[#DCFCE7]/40 p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">
+            <div className="rounded-xl bg-[#DCFCE7] p-2 text-[#16A34A]">
               <CheckCircle2 size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Delivered</p>
-              <h3 className="mt-1 text-2xl font-extrabold text-emerald-950">{stats.sent}</h3>
+              <p className="text-xs font-bold text-green-800 uppercase tracking-wide">{t("delivered")}</p>
+              <h3 className="mt-1 text-2xl font-extrabold text-green-950">{stats.sent}</h3>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+        <div className="rounded-2xl border border-amber-200 bg-[#FEF3C7]/40 p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-blue-100 p-2 text-blue-700">
+            <div className="rounded-xl bg-[#FEF3C7] p-2 text-[#D97706]">
               <Clock size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">Pending</p>
-              <h3 className="mt-1 text-2xl font-extrabold text-blue-950">{stats.pending}</h3>
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">{t("pending")}</p>
+              <h3 className="mt-1 text-2xl font-extrabold text-amber-950">{stats.pending}</h3>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-red-100 bg-red-50/50 p-4">
+        <div className="rounded-2xl border border-red-200 bg-[#FEE2E2]/40 p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-red-100 p-2 text-red-700">
+            <div className="rounded-xl bg-[#FEE2E2] p-2 text-[#DC2626]">
               <AlertCircle size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-red-800 uppercase tracking-wide">Failed</p>
+              <p className="text-xs font-bold text-red-800 uppercase tracking-wide">{t("failed")}</p>
               <h3 className="mt-1 text-2xl font-extrabold text-red-950">{stats.failed}</h3>
             </div>
           </div>
@@ -890,19 +892,19 @@ export default function RemindersPage() {
       {/* Visual Message Flow Diagram */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-          <Sparkles className="text-blue-500" size={18} />
-          WhatsApp Message Delivery Flow
+          <Sparkles className="text-indigo-655" size={18} />
+          {t("deliveryFlowTitle")}
         </h2>
         
         <div className="mt-6 grid gap-6 md:grid-cols-4 relative">
           {/* Step 1 */}
           <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
-            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-3 shadow-inner group-hover:scale-110 transition">
-              <Play size={20} className="fill-blue-600 ml-0.5" />
+            <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition">
+              <Play size={20} className="fill-indigo-650 ml-0.5" />
             </div>
-            <h4 className="text-sm font-extrabold text-slate-800">1. Dispatch Triggered</h4>
+            <h4 className="text-sm font-extrabold text-slate-800">{t("step1Title")}</h4>
             <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
-              Admin triggers a manual batch or the auto-scheduler runs at the configured daily time.
+              {t("step1Desc")}
             </p>
             {/* Connector Line (Desktop only) */}
             <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
@@ -913,9 +915,9 @@ export default function RemindersPage() {
             <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-3 shadow-inner group-hover:scale-110 transition">
               <Clock size={20} />
             </div>
-            <h4 className="text-sm font-extrabold text-slate-800">2. Added to Queue</h4>
+            <h4 className="text-sm font-extrabold text-slate-800">{t("step2Title")}</h4>
             <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
-              Message is logged as <span className="text-amber-600 font-bold">PENDING</span>. The background queue processes messages sequentially to prevent rate limits.
+              {t("step2Desc")}
             </p>
             {/* Connector Line (Desktop only) */}
             <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
@@ -923,12 +925,12 @@ export default function RemindersPage() {
 
           {/* Step 3 */}
           <div className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-slate-50 transition relative group">
-            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition">
+            <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition">
               <FaWhatsapp size={22} />
             </div>
-            <h4 className="text-sm font-extrabold text-slate-800">3. Meta API Upload</h4>
+            <h4 className="text-sm font-extrabold text-slate-800">{t("step3Title")}</h4>
             <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
-              Media attachments are uploaded to Meta first. The system then submits the template message request.
+              {t("step3Desc")}
             </p>
             {/* Connector Line (Desktop only) */}
             <div className="hidden md:block absolute top-10 -right-3 w-6 h-0.5 bg-slate-200 z-10" />
@@ -939,9 +941,9 @@ export default function RemindersPage() {
             <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition">
               <CheckCircle2 size={20} />
             </div>
-            <h4 className="text-sm font-extrabold text-slate-800">4. Delivery Status</h4>
+            <h4 className="text-sm font-extrabold text-slate-800">{t("step4Title")}</h4>
             <p className="mt-1.5 text-xs font-semibold text-slate-500 max-w-[200px]">
-              API returns a message ID marking it <span className="text-blue-600 font-bold">SENT</span>. Meta updates the log to <span className="text-emerald-600 font-bold">DELIVERED</span> or <span className="text-rose-600 font-bold">FAILED</span> via webhooks.
+              {t("step4Desc")}
             </p>
           </div>
         </div>
@@ -966,7 +968,7 @@ export default function RemindersPage() {
                 type="checkbox"
                 checked={settings.autoSendEnabled}
                 onChange={(e) => setSettings(curr => ({ ...curr, autoSendEnabled: e.target.checked }))}
-                className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
 
@@ -977,7 +979,7 @@ export default function RemindersPage() {
                 type="time"
                 value={settings.reminderTime}
                 onChange={(e) => setSettings(curr => ({ ...curr, reminderTime: e.target.value }))}
-                className="rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                className="rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
               />
             </div>
 
@@ -987,7 +989,7 @@ export default function RemindersPage() {
               <select
                 value={settings.reminderIntervalDays}
                 onChange={(e) => setSettings(curr => ({ ...curr, reminderIntervalDays: parseInt(e.target.value, 10) }))}
-                className="rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                className="rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
               >
                 <option value={15}>Every 15 Days</option>
                 <option value={30}>Every 30 Days (Monthly)</option>
@@ -1003,7 +1005,7 @@ export default function RemindersPage() {
             type="button"
             onClick={handleSaveSettings}
             disabled={saving}
-            className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow hover:bg-slate-800 transition active:scale-95 disabled:opacity-60"
+            className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow hover:bg-indigo-700 transition active:scale-95 disabled:opacity-60"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin text-slate-300" />
@@ -1024,7 +1026,7 @@ export default function RemindersPage() {
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-100 transition active:scale-95"
+              className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-650 hover:bg-indigo-100 transition active:scale-95"
             >
               <Plus size={14} />
               New Template
@@ -1033,10 +1035,10 @@ export default function RemindersPage() {
 
           {/* Legend */}
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-100 px-2 py-1 text-[10px] font-bold text-indigo-600">
               <span className="font-mono">{"{var}"}</span> Text variable
             </span>
-            <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600">
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-100 px-2 py-1 text-[10px] font-bold text-indigo-600">
               <Paperclip size={9} />
               <span className="font-mono">{"{{media}}"}</span> File attachment
             </span>
@@ -1053,7 +1055,7 @@ export default function RemindersPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-slate-800">{t.name}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">
                         {t.status}
                       </span>
                       {isDefault && (
@@ -1064,7 +1066,7 @@ export default function RemindersPage() {
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(t, idx)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
                         title="Edit template"
                       >
                         <Pencil size={14} />
@@ -1099,10 +1101,13 @@ export default function RemindersPage() {
 
             {/* Empty custom state */}
             {(!settings.templates || settings.templates.filter(t => !t.isDefault).length === 0) && (
-              <div className="flex flex-col items-center gap-2 py-4 text-center">
-                <Plus className="text-slate-300" size={24} />
-                <p className="text-xs font-bold text-slate-400">
-                  Click "New Template" to create custom templates.
+              <div className="flex flex-col items-center gap-2 py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <EmptyStateIllustration className="h-10 w-10 text-slate-400" />
+                <p className="text-xs font-extrabold text-slate-800">
+                  No custom templates yet
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Click "New Template" to create custom notification templates.
                 </p>
               </div>
             )}
@@ -1130,7 +1135,7 @@ export default function RemindersPage() {
               placeholder="Search student or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 placeholder:text-slate-400 placeholder:font-normal"
+              className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 placeholder:text-slate-400 placeholder:font-normal"
             />
           </div>
 
@@ -1138,7 +1143,7 @@ export default function RemindersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 bg-white"
+              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 bg-white"
             >
               <option value="">All Statuses</option>
               <option value="SENT">Sent</option>
@@ -1152,7 +1157,7 @@ export default function RemindersPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 bg-white"
+              className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 bg-white"
             >
               <option value="">All Message Types</option>
               {uniqueTypes.map((type) => (
@@ -1178,14 +1183,22 @@ export default function RemindersPage() {
             <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
               {paginatedHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400 font-semibold">No outgoing messages found.</td>
+                  <td colSpan={5} className="py-12">
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <EmptyStateIllustration className="mb-3 h-16 w-16" />
+                      <p className="text-sm font-extrabold text-slate-900">No Outgoing Messages Found</p>
+                      <p className="mt-1 text-xs text-slate-500 max-w-xs">
+                        No reminders match the current filters. Dispatched notifications will appear in this log.
+                      </p>
+                    </div>
+                  </td>
                 </tr>
               ) : (
                 paginatedHistory.map((h) => {
                   let statusColor = "bg-slate-100 text-slate-700";
-                  if (h.status === "SENT" || h.status === "DELIVERED") statusColor = "bg-emerald-100 text-emerald-700";
-                  if (h.status === "FAILED") statusColor = "bg-red-100 text-red-700";
-                  if (h.status === "PENDING") statusColor = "bg-blue-100 text-blue-700";
+                  if (h.status === "SENT" || h.status === "DELIVERED") statusColor = "bg-[#DCFCE7] text-[#16A34A]";
+                  if (h.status === "FAILED") statusColor = "bg-[#FEE2E2] text-[#DC2626]";
+                  if (h.status === "PENDING") statusColor = "bg-[#FEF3C7] text-[#D97706]";
 
                   return (
                     <tr key={h.id}>
@@ -1244,7 +1257,7 @@ export default function RemindersPage() {
                         onClick={() => setCurrentPage(page)}
                         className={`rounded-lg px-2.5 py-1 text-xs font-extrabold transition ${
                           currentPage === page
-                            ? "bg-blue-600 text-white"
+                            ? "bg-indigo-600 text-white shadow shadow-indigo-100"
                             : "border border-slate-200 hover:bg-slate-50"
                         }`}
                       >
@@ -1400,13 +1413,13 @@ export default function RemindersPage() {
                 className="
                   flex-1
                   rounded-xl
-                  bg-emerald-500
-                  hover:bg-emerald-600
+                  bg-indigo-600
+                  hover:bg-indigo-700
                   py-3
                   text-sm
                   font-bold
                   text-white
-                  shadow-sm
+                  shadow
                   active:scale-95
                   transition
                 "

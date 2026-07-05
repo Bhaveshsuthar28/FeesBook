@@ -27,7 +27,7 @@ export async function handleParentMessage({ phoneNumber, messageText }) {
       const initResult = await initParentSession({ phoneNumber });
       if (!initResult.found) {
         return {
-          reply: "Your number is not registered with any school on FeesBook. Please contact your school office.",
+          reply: "Your number is not registered with any school on FeeGo. Please contact your school office.",
         };
       }
       session = initResult.session;

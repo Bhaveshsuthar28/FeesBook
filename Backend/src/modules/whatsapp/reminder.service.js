@@ -6,6 +6,7 @@ import { principals } from "../auth/auth.schema.js";
 import { and, lte, eq, gt, sql, asc } from "drizzle-orm";
 import { whatsappQueue } from "../../utils/queue.js";
 import { whatsappMessages, whatsappSettings } from "./whatsapp.schema.js";
+import { getSchoolLanguage } from "./whatsapp.service.js";
 
 // Helper to format date
 function formatDate(timestamp) {
@@ -120,7 +121,7 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
       const studentName = fee.studentName;
       const className = fee.className || "N/A";
       const pendingSince = formatDate(fee.lastPaidDate || fee.createdAt);
-      const schoolName = fee.schoolName || "FeesBook School";
+      const schoolName = fee.schoolName || "FeeGo School";
 
       // Insert pending message record
       const [msgRecord] = await db
@@ -134,12 +135,17 @@ export async function processAutoReminders(specificSchoolId = null, forceSend = 
         })
         .returning();
 
+      // Check school language to determine template name
+      const schoolLang = await getSchoolLanguage(fee.schoolId);
+      const activeTemplateName = schoolLang === "hi" ? "fees_reminder_hi" : "fees_reminder";
+
       // Push reminder send job to Bull queue
       await whatsappQueue.add({
         type: "SEND_REMINDER",
+        schoolId: fee.schoolId,
         messageRecordId: msgRecord.id,
         phone: fee.parentPhone,
-        templateName: "fees_reminder", // Meta template name
+        templateName: activeTemplateName,
         variables: [parentName, amount, studentName, className, pendingSince, schoolName],
       });
 
